@@ -1,0 +1,44 @@
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+
+# Environment files - DO NOT COMMIT
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+
+# Prisma
+prisma/generated/
+
+# Test artifacts
+test_zatca_connection.js
+verify_save.js
+link_items.js
+seed_company.js
+
+# Temp files
+*.tmp
+*.temp

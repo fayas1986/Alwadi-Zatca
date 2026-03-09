@@ -1,0 +1,94 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id                String   @id @default(uuid())
+  vatNumber         String
+  name              String
+  address           Json
+  // ZATCA Credentials
+  complianceCSID    String?  
+  complianceSecret  String?
+  productionCSID    String?
+  productionSecret  String?
+  publicKey         String?
+  privateKey        String?
+  
+  environment       String   @default("Simulation")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  invoices          Invoice[]
+  items             Item[]
+  erpConfig         ERPConfig?
+
+  @@unique([vatNumber, environment])
+}
+
+model ERPConfig {
+  id              String   @id @default(uuid())
+  type            String   // SAP, ORACLE, MICROSOFT, CUSTOM
+  baseUrl         String
+  apiKey          String?
+  username        String?
+  password        String?
+  clientId        String?
+  clientSecret    String?
+  syncInterval    Int      @default(30) // in minutes
+  lastSyncAt      DateTime?
+  isActive        Boolean  @default(true)
+  
+  companyId       String   @unique
+  company         Company  @relation(fields: [companyId], references: [id])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Item {
+  id            String   @id @default(uuid())
+  sku           String?
+  name          String
+  description   String?
+  unitPrice     Float
+  unitOfMeasure String   @default("each")
+  taxCategory   String   @default("S") // S, Z, E, O
+  taxRate       Float    @default(0.15)
+  
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id])
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([companyId, sku])
+}
+
+model Invoice {
+  id              String   @id @default(uuid())
+  invoiceNumber   String   @unique
+  issueDate       DateTime
+  totalAmount     Float
+  
+  // ZATCA Data
+  uuid            String
+  hash            String?
+  previousHash    String?
+  qrCode          String?
+  xml             String?
+  status          String   @default("Pending")
+  
+  zatcaResponse   Json?
+  
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id])
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
