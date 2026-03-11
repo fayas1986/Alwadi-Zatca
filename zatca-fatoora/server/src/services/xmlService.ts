@@ -1,0 +1,184 @@
+
+import { create } from 'xmlbuilder2';
+import { Invoice } from '../types';
+import crypto from 'crypto';
+import { signInvoice as signInvoiceSDK } from './sdkService';
+
+const safeNum = (v: any) => Number(v) || 0;
+
+export const generateInvoiceXML = (invoice: Invoice) => {
+    const totalAmount = safeNum(invoice.totalAmount).toFixed(2);
+    const taxAmount = safeNum((invoice as any).taxAmount || invoice.vatAmount).toFixed(2);
+    const taxExclusiveAmount = safeNum(invoice.taxExclusiveAmount || (invoice.totalAmount - (invoice.vatAmount || 0))).toFixed(2);
+
+    // Basic UBL 2.1 mapping
+    const xml = create({ version: '1.0', encoding: 'UTF-8' })
+        .ele('Invoice', {
+            'xmlns': 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2',
+            'xmlns:cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
+            'xmlns:cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2'
+        })
+        .ele('cbc:ProfileID').txt('reporting:1.0').up()
+        .ele('cbc:ID').txt(invoice.invoiceNumber).up()
+        .ele('cbc:UUID').txt(crypto.randomUUID()).up()
+        .ele('cbc:IssueDate').txt(invoice.issueDate.split('T')[0]).up()
+        .ele('cbc:IssueTime').txt(invoice.issueDate.split('T')[1].split('.')[0]).up()
+        .ele('cbc:InvoiceTypeCode', { name: invoice.invoiceSubtype === 'Standard' ? '0100000' : '0200000' }).txt('388').up()
+        .ele('cbc:Note').txt('This is a computer generated invoice').up()
+        .ele('cbc:DocumentCurrencyCode').txt(invoice.currencyCode || 'SAR').up()
+        .ele('cbc:TaxCurrencyCode').txt('SAR').up()
+
+        // Previous Invoice Hash (PIH)
+        .ele('cac:AdditionalDocumentReference')
+        .ele('cbc:ID').txt('PIH').up()
+        .ele('cac:Attachment')
+        .ele('cbc:EmbeddedDocumentBinaryObject', { mimeCode: 'text/plain' })
+        .txt(invoice.previousInvoiceHash || 'NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMjRiZmQ3NTI0MjkzZjBlYTRiM2IzZTk4MTU1MWNiMA==')
+        .up()
+        .up()
+        .up()
+
+        // Supplier
+        .ele('cac:AccountingSupplierParty')
+        .ele('cac:Party')
+        .ele('cac:PartyIdentification')
+        .ele('cbc:ID', { schemeID: 'CRN' }).txt('1010010000').up() // Should be dynamic
+        .up()
+        .ele('cac:PostalAddress')
+        .ele('cbc:StreetName').txt(invoice.supplier.address?.streetName || 'Unknown').up()
+        .ele('cbc:BuildingNumber').txt(invoice.supplier.address?.buildingNumber || '0000').up()
+        .ele('cbc:CityName').txt(invoice.supplier.address?.cityName || 'Riyadh').up()
+        .ele('cbc:PostalZone').txt(invoice.supplier.address?.postalZone || '00000').up()
+        .ele('cbc:CountrySubentity').txt('Riyadh').up()
+        .ele('cac:Country')
+        .ele('cbc:IdentificationCode').txt('SA').up()
+        .up()
+        .up()
+        .ele('cac:PartyTaxScheme')
+        .ele('cbc:CompanyID').txt(invoice.supplier.vatNumber).up()
+        .ele('cac:TaxScheme')
+        .ele('cbc:ID').txt('VAT').up()
+        .up()
+        .up()
+        .ele('cac:PartyLegalEntity')
+        .ele('cbc:RegistrationName').txt(invoice.supplier.name).up()
+        .up()
+        .up()
+        .up()
+
+        // Customer
+        .ele('cac:AccountingCustomerParty')
+        .ele('cac:Party')
+        .ele('cac:PostalAddress')
+        .ele('cbc:StreetName').txt(invoice.customer.address?.streetName || 'Unknown').up()
+        .ele('cbc:BuildingNumber').txt(invoice.customer.address?.buildingNumber || '0000').up()
+        .ele('cbc:CityName').txt(invoice.customer.address?.cityName || 'Riyadh').up()
+        .ele('cbc:PostalZone').txt(invoice.customer.address?.postalZone || '00000').up()
+        .ele('cac:Country')
+        .ele('cbc:IdentificationCode').txt('SA').up()
+        .up()
+        .up()
+        .ele('cac:PartyTaxScheme')
+        .ele('cbc:CompanyID').txt(invoice.customer.vatNumber || '300000000000003').up() // Default for simplified if unknown
+        .ele('cac:TaxScheme')
+        .ele('cbc:ID').txt('VAT').up()
+        .up()
+        .up()
+        .ele('cac:PartyLegalEntity')
+        .ele('cbc:RegistrationName').txt(invoice.customer.name || 'Cash Client').up()
+        .up()
+        .up()
+        .up()
+
+        // Tax Total
+        .ele('cac:TaxTotal')
+        .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(taxAmount).up()
+        .ele('cac:TaxSubtotal')
+        .ele('cbc:TaxableAmount', { currencyID: 'SAR' }).txt(taxExclusiveAmount).up()
+        .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(taxAmount).up()
+        .ele('cac:TaxCategory')
+        .ele('cbc:ID').txt('S').up() // Standard Rate
+        .ele('cbc:Percent').txt('15.00').up()
+        .ele('cac:TaxScheme')
+        .ele('cbc:ID').txt('VAT').up()
+        .up()
+        .up()
+        .up()
+        .up()
+
+        // Totals
+        .ele('cac:LegalMonetaryTotal')
+        .ele('cbc:LineExtensionAmount', { currencyID: 'SAR' }).txt(taxExclusiveAmount).up()
+        .ele('cbc:TaxExclusiveAmount', { currencyID: 'SAR' }).txt(taxExclusiveAmount).up()
+        .ele('cbc:TaxInclusiveAmount', { currencyID: 'SAR' }).txt(totalAmount).up()
+        .ele('cbc:PayableAmount', { currencyID: 'SAR' }).txt(totalAmount).up()
+        .up();
+
+    // Map items...
+    invoice.items.forEach((item, index) => {
+        const lineExtensionAmount = safeNum(item.subtotal).toFixed(2);
+        const itemTaxAmount = (safeNum(item.subtotal) * 0.15).toFixed(2); // Assuming 15% VAT
+
+        xml.ele('cac:InvoiceLine')
+            .ele('cbc:ID').txt((index + 1).toString()).up()
+            .ele('cbc:InvoicedQuantity', { unitCode: 'PCE' }).txt(safeNum(item.quantity).toString()).up()
+            .ele('cbc:LineExtensionAmount', { currencyID: 'SAR' }).txt(lineExtensionAmount).up()
+            
+            .ele('cac:TaxTotal')
+            .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(itemTaxAmount).up()
+            .ele('cac:TaxSubtotal')
+            .ele('cbc:TaxableAmount', { currencyID: 'SAR' }).txt(lineExtensionAmount).up()
+            .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(itemTaxAmount).up()
+            .ele('cac:TaxCategory')
+            .ele('cbc:ID').txt('S').up()
+            .ele('cbc:Percent').txt('15.00').up()
+            .ele('cac:TaxScheme')
+            .ele('cbc:ID').txt('VAT').up()
+            .up()
+            .up()
+            .up()
+            .up()
+
+            .ele('cac:Item')
+            .ele('cbc:Name').txt(item.name || 'Item').up()
+            .ele('cac:ClassifiedTaxCategory')
+            .ele('cbc:ID').txt('S').up()
+            .ele('cbc:Percent').txt('15.00').up()
+            .ele('cac:TaxScheme')
+            .ele('cbc:ID').txt('VAT').up()
+            .up()
+            .up()
+            .up()
+            .up()
+            
+            .ele('cac:Price')
+            .ele('cbc:PriceAmount', { currencyID: 'SAR' }).txt(safeNum(item.unitPrice).toFixed(2)).up()
+            .up()
+            .up();
+    });
+
+    return xml.end({ prettyPrint: true });
+};
+
+export const computeXMLHash = (xmlContent: string) => {
+    // Canonicalize XML if possible, but for ZATCA simplified hash is usually SHA256 of the content
+    // Note: To match SDK, we usually need canonicalization (C14N). 
+    // Since we don't have a robust C14N lib in JS easily, we rely on the SDK for the final hash.
+    // This function is kept for basic pre-checks or non-signed hashing.
+    return crypto.createHash('sha256').update(xmlContent).digest('base64');
+};
+
+export const signInvoiceXML = async (xmlContent: string, certificate: string, privateKey: string) => {
+    try {
+        console.log("Signing Invoice via SDK...");
+        const result = await signInvoiceSDK(xmlContent, certificate, privateKey);
+        return {
+            signedXml: result.signedXml,
+            invoiceHash: result.hash,
+            qr: result.qr
+        };
+    } catch (error) {
+        console.error("SDK Signing failed", error);
+        throw error;
+    }
+}
