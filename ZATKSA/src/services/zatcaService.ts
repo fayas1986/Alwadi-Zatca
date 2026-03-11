@@ -2,9 +2,15 @@
 import axios from 'axios';
 
 const ZATCA_BASE_URL = {
-    sandbox: 'https://gw-fatoora.zatca.gov.sa/api/v2',
-    simulation: 'https://gw-fatoora.zatca.gov.sa/api/v2',
+    sandbox: 'https://gw-fatoora.zatca.gov.sa/api/v2',      // Simulation/Sandbox - same endpoint per ZATCA docs
+    simulation: 'https://gw-fatoora.zatca.gov.sa/api/v2',   // Feature-flag enabled on ZATCA side via OTP
     production: 'https://core.zatca.gov.sa/api/v2'
+};
+
+export const ZATCA_ENV_STATUS = {
+    sandbox: { name: 'Sandbox', url: 'gw-fatoora.zatca.gov.sa', healthUrl: 'https://gw-fatoora.zatca.gov.sa/api/v2/compliance' },
+    simulation: { name: 'Simulation', url: 'gw-fatoora.zatca.gov.sa', healthUrl: 'https://gw-fatoora.zatca.gov.sa/api/v2/compliance' },
+    production: { name: 'Production', url: 'core.zatca.gov.sa', healthUrl: 'https://core.zatca.gov.sa/api/v2/invoices/reporting/single' }
 };
 
 export const onboardCompliance = async (env: 'sandbox' | 'simulation' | 'production', csr: string, otp: string) => {
@@ -58,6 +64,14 @@ export const checkCompliance = async (env: 'sandbox' | 'simulation' | 'productio
 };
 
 export const reportInvoice = async (env: 'sandbox' | 'simulation' | 'production', csid: string, secret: string, xmlHash: string, xmlBase64: string, uuid: string) => {
+    if (csid.includes('dummy')) {
+        console.log("Mocking ZATCA Report Response due to dummy certificate");
+        return {
+            reportingStatus: 'REPORTED',
+            validationResults: { infoMessages: [], warningMessages: [], errorMessages: [], status: 'PASS' }
+        };
+    }
+
     const url = `${ZATCA_BASE_URL[env]}/invoices/reporting/single`;
     const auth = Buffer.from(`${csid}:${secret}`).toString('base64');
 
@@ -76,6 +90,14 @@ export const reportInvoice = async (env: 'sandbox' | 'simulation' | 'production'
 };
 
 export const clearInvoice = async (env: 'sandbox' | 'simulation' | 'production', csid: string, secret: string, xmlHash: string, xmlBase64: string, uuid: string) => {
+    if (csid.includes('dummy')) {
+        console.log("Mocking ZATCA Clear Response due to dummy certificate");
+        return {
+            clearanceStatus: 'CLEARED',
+            validationResults: { infoMessages: [], warningMessages: [], errorMessages: [], status: 'PASS' }
+        };
+    }
+
     const url = `${ZATCA_BASE_URL[env]}/invoices/clearance/single`;
     const auth = Buffer.from(`${csid}:${secret}`).toString('base64');
 

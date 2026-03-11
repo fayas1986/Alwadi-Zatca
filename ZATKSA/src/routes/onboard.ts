@@ -11,26 +11,50 @@ const router = Router();
 const prisma = getPrisma();
 
 router.get('/health', async (req, res) => {
-    const endpoints = [
-        'https://gw-fatoora.zatca.gov.sa/api/v2/compliance',
-        'https://core.zatca.gov.sa/api/v2/invoices/reporting/single'
+    const environments = [
+        { name: 'Simulation', key: 'simulation', url: 'https://gw-fatoora.zatca.gov.sa/api/v2/compliance', description: 'ZATCA Testing Gateway' },
+        { name: 'Sandbox',    key: 'sandbox',    url: 'https://gw-fatoora.zatca.gov.sa/api/v2/compliance', description: 'ZATCA Integration Sandbox' },
+        { name: 'Production', key: 'production', url: 'https://core.zatca.gov.sa/api/v2/invoices/reporting/single', description: 'ZATCA Live Production Gateway' }
     ];
 
-    const results = await Promise.all(endpoints.map(async (url) => {
+    const results = await Promise.all(environments.map(async (env) => {
+        const start = Date.now();
+        console.log(`Pinging ${env.name}: ${env.url}...`);
         try {
-            await axios.get(url, { timeout: 5000 });
-            return { url, status: 'Connected', reached: true };
+            // Use a shorter 3s timeout for health checks
+            const pingResponse = await axios.get(env.url, { 
+                timeout: 3000,
+                validateStatus: (status) => true // Don't throw for 404/405/etc.
+            });
+            const latency = Date.now() - start;
+            console.log(`  - ${env.name} responded in ${latency}ms (Status: ${pingResponse.status})`);
+            return { 
+                ...env, 
+                status: 'Reachable', 
+                latencyMs: latency, 
+                reachable: true, 
+                code: pingResponse.status 
+            };
         } catch (error: any) {
-            if (error.response) {
-                return { url, status: 'Reachable', code: error.response.status, reached: true };
-            }
-            return { url, status: 'Unreachable', error: error.message, reached: false };
+            const latency = Date.now() - start;
+            console.log(`  - ${env.name} failed after ${latency}ms: ${error.code || error.message}`);
+            return { 
+                ...env, 
+                status: 'Unreachable', 
+                error: error.code || error.message, 
+                latencyMs: latency, 
+                reachable: false 
+            };
         }
     }));
 
+    const allReachable = results.every(r => r.reachable);
+    console.log(`ZATCA Health Check Summary: ${allReachable ? 'ALL REACHABLE' : 'SOME UNREACHABLE'}`);
+    
     res.json({
         success: true,
-        zatca_connectivity: results,
+        overall: allReachable ? 'All environments reachable' : 'Some environments unreachable',
+        environments: results,
         timestamp: new Date().toISOString()
     });
 });

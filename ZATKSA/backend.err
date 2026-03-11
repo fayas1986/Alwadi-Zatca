@@ -1,0 +1,657 @@
+(node:23592) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Custom ERP fetch failed AxiosError: Request failed with status code 404
+    at settle (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\axios\lib\core\settle.js:19:12)
+    at IncomingMessage.handleStreamEnd (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\axios\lib\adapters\http.js:798:11)
+    at IncomingMessage.emit (node:events:520:35)
+    at IncomingMessage.emit (node:domain:489:12)
+    at endReadableNT (node:internal/streams/readable:1701:12)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+    at Axios.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\axios\lib\core\Axios.js:46:41)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  isAxiosError: true,
+  code: 'ERR_BAD_REQUEST',
+  config: {
+    transitional: {
+      silentJSONParsing: true,
+      forcedJSONParsing: true,
+      clarifyTimeoutError: false,
+      legacyInterceptorReqResOrdering: true
+    },
+    adapter: [ 'xhr', 'http', 'fetch' ],
+    transformRequest: [ [Function: transformRequest] ],
+    transformResponse: [ [Function: transformResponse] ],
+    timeout: 0,
+    xsrfCookieName: 'XSRF-TOKEN',
+    xsrfHeaderName: 'X-XSRF-TOKEN',
+    maxContentLength: -1,
+    maxBodyLength: -1,
+    env: { FormData: [Function], Blob: [class Blob] },
+    validateStatus: [Function: validateStatus],
+    headers: Object [AxiosHeaders] {
+      Accept: 'application/json, text/plain, */*',
+      'Content-Type': undefined,
+      'X-API-KEY': 'test-key',
+      'User-Agent': 'axios/1.13.5',
+      'Accept-Encoding': 'gzip, compress, deflate, br'
+    },
+    method: 'get',
+    url: 'http://localhost:3001/mock-erp/invoices/pending',
+    allowAbsoluteUrls: true,
+    data: undefined
+  },
+  request: <ref *1> ClientRequest {
+    _events: [Object: null prototype] {
+      abort: [Function (anonymous)],
+      aborted: [Function (anonymous)],
+      connect: [Function (anonymous)],
+      error: [Function (anonymous)],
+      socket: [Function (anonymous)],
+      timeout: [Function (anonymous)],
+      finish: [Function: requestOnFinish]
+    },
+    _eventsCount: 7,
+    _maxListeners: undefined,
+    outputData: [],
+    outputSize: 0,
+    writable: true,
+    destroyed: true,
+    _last: true,
+    chunkedEncoding: false,
+    shouldKeepAlive: true,
+    maxRequestsOnConnectionReached: false,
+    _defaultKeepAlive: true,
+    useChunkedEncodingByDefault: false,
+    sendDate: false,
+    _removedConnection: false,
+    _removedContLen: false,
+    _removedTE: false,
+    strictContentLength: false,
+    _contentLength: 0,
+    _hasBody: true,
+    _trailer: '',
+    finished: true,
+    _headerSent: true,
+    _closed: true,
+    _header: 'GET /mock-erp/invoices/pending HTTP/1.1\r\n' +
+      'Accept: application/json, text/plain, */*\r\n' +
+      'X-API-KEY: test-key\r\n' +
+      'User-Agent: axios/1.13.5\r\n' +
+      'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+      'Host: localhost:3001\r\n' +
+      'Connection: keep-alive\r\n' +
+      '\r\n',
+    _keepAliveTimeout: 0,
+    _onPendingData: [Function: nop],
+    agent: Agent {
+      _events: [Object: null prototype],
+      _eventsCount: 2,
+      _maxListeners: undefined,
+      options: [Object: null prototype],
+      defaultPort: 80,
+      protocol: 'http:',
+      requests: [Object: null prototype] {},
+      sockets: [Object: null prototype] {},
+      freeSockets: [Object: null prototype],
+      keepAliveMsecs: 1000,
+      keepAlive: true,
+      maxSockets: Infinity,
+      maxFreeSockets: 256,
+      scheduling: 'lifo',
+      maxTotalSockets: Infinity,
+      totalSocketCount: 1,
+      agentKeepAliveTimeoutBuffer: 1000,
+      Symbol(shapeMode): false,
+      Symbol(kCapture): false
+    },
+    socketPath: undefined,
+    method: 'GET',
+    maxHeaderSize: undefined,
+    insecureHTTPParser: undefined,
+    joinDuplicateHeaders: undefined,
+    path: '/mock-erp/invoices/pending',
+    _ended: true,
+    res: IncomingMessage {
+      _events: [Object],
+      _readableState: [ReadableState],
+      _maxListeners: undefined,
+      socket: null,
+      httpVersionMajor: 1,
+      httpVersionMinor: 1,
+      httpVersion: '1.1',
+      complete: true,
+      rawHeaders: [Array],
+      rawTrailers: [],
+      joinDuplicateHeaders: undefined,
+      aborted: false,
+      upgrade: false,
+      url: '',
+      method: null,
+      statusCode: 404,
+      statusMessage: 'Not Found',
+      client: [Socket],
+      _consuming: false,
+      _dumped: false,
+      req: [Circular *1],
+      _eventsCount: 4,
+      responseUrl: 'http://localhost:3001/mock-erp/invoices/pending',
+      redirects: [],
+      Symbol(shapeMode): true,
+      Symbol(kCapture): false,
+      Symbol(kHeaders): [Object],
+      Symbol(kHeadersCount): 18,
+      Symbol(kTrailers): null,
+      Symbol(kTrailersCount): 0
+    },
+    aborted: false,
+    timeoutCb: null,
+    upgradeOrConnect: false,
+    parser: null,
+    maxHeadersCount: null,
+    reusedSocket: false,
+    host: 'localhost',
+    protocol: 'http:',
+    _redirectable: Writable {
+      _events: [Object],
+      _writableState: [WritableState],
+      _maxListeners: undefined,
+      _options: [Object],
+      _ended: true,
+      _ending: true,
+      _redirectCount: 0,
+      _redirects: [],
+      _requestBodyLength: 0,
+      _requestBodyBuffers: [],
+      _eventsCount: 3,
+      _onNativeResponse: [Function (anonymous)],
+      _currentRequest: [Circular *1],
+      _currentUrl: 'http://localhost:3001/mock-erp/invoices/pending',
+      _timeout: null,
+      Symbol(shapeMode): true,
+      Symbol(kCapture): false
+    },
+    Symbol(shapeMode): false,
+    Symbol(kCapture): false,
+    Symbol(kBytesWritten): 0,
+    Symbol(kNeedDrain): false,
+    Symbol(corked): 0,
+    Symbol(kChunkedBuffer): [],
+    Symbol(kChunkedLength): 0,
+    Symbol(kSocket): Socket {
+      connecting: false,
+      _hadError: false,
+      _parent: null,
+      _host: 'localhost',
+      _closeAfterHandlingError: false,
+      _events: [Object],
+      _readableState: [ReadableState],
+      _writableState: [WritableState],
+      allowHalfOpen: false,
+      _maxListeners: undefined,
+      _eventsCount: 6,
+      _sockname: null,
+      _pendingData: null,
+      _pendingEncoding: '',
+      server: null,
+      _server: null,
+      timeout: 4000,
+      parser: null,
+      _httpMessage: null,
+      autoSelectFamilyAttemptedAddresses: [Array],
+      Symbol(async_id_symbol): -1,
+      Symbol(kHandle): [TCP],
+      Symbol(lastWriteQueueSize): 0,
+      Symbol(timeout): Timeout {
+        _idleTimeout: 4000,
+        _idlePrev: [TimersList],
+        _idleNext: [TimersList],
+        _idleStart: 2642,
+        _onTimeout: [Function: bound ],
+        _timerArgs: undefined,
+        _repeat: null,
+        _destroyed: false,
+        Symbol(refed): false,
+        Symbol(kHasPrimitive): false,
+        Symbol(asyncId): 77,
+        Symbol(triggerId): 75,
+        Symbol(kAsyncContextFrame): undefined
+      },
+      Symbol(kBuffer): null,
+      Symbol(kBufferCb): null,
+      Symbol(kBufferGen): null,
+      Symbol(shapeMode): true,
+      Symbol(kCapture): false,
+      Symbol(kSetNoDelay): true,
+      Symbol(kSetKeepAlive): true,
+      Symbol(kSetKeepAliveInitialDelay): 1,
+      Symbol(kBytesRead): 0,
+      Symbol(kBytesWritten): 0
+    },
+    Symbol(kOutHeaders): [Object: null prototype] {
+      accept: [Array],
+      'x-api-key': [Array],
+      'user-agent': [Array],
+      'accept-encoding': [Array],
+      host: [Array]
+    },
+    Symbol(errored): null,
+    Symbol(kHighWaterMark): 16384,
+    Symbol(kRejectNonStandardBodyWrites): false,
+    Symbol(kUniqueHeaders): null
+  },
+  response: {
+    status: 404,
+    statusText: 'Not Found',
+    headers: Object [AxiosHeaders] {
+      'x-powered-by': 'Express',
+      'access-control-allow-origin': '*',
+      'content-security-policy': "default-src 'none'",
+      'x-content-type-options': 'nosniff',
+      'content-type': 'text/html; charset=utf-8',
+      'content-length': '164',
+      date: 'Wed, 11 Mar 2026 07:37:03 GMT',
+      connection: 'keep-alive',
+      'keep-alive': 'timeout=5'
+    },
+    config: {
+      transitional: [Object],
+      adapter: [Array],
+      transformRequest: [Array],
+      transformResponse: [Array],
+      timeout: 0,
+      xsrfCookieName: 'XSRF-TOKEN',
+      xsrfHeaderName: 'X-XSRF-TOKEN',
+      maxContentLength: -1,
+      maxBodyLength: -1,
+      env: [Object],
+      validateStatus: [Function: validateStatus],
+      headers: [Object [AxiosHeaders]],
+      method: 'get',
+      url: 'http://localhost:3001/mock-erp/invoices/pending',
+      allowAbsoluteUrls: true,
+      data: undefined
+    },
+    request: <ref *1> ClientRequest {
+      _events: [Object: null prototype],
+      _eventsCount: 7,
+      _maxListeners: undefined,
+      outputData: [],
+      outputSize: 0,
+      writable: true,
+      destroyed: true,
+      _last: true,
+      chunkedEncoding: false,
+      shouldKeepAlive: true,
+      maxRequestsOnConnectionReached: false,
+      _defaultKeepAlive: true,
+      useChunkedEncodingByDefault: false,
+      sendDate: false,
+      _removedConnection: false,
+      _removedContLen: false,
+      _removedTE: false,
+      strictContentLength: false,
+      _contentLength: 0,
+      _hasBody: true,
+      _trailer: '',
+      finished: true,
+      _headerSent: true,
+      _closed: true,
+      _header: 'GET /mock-erp/invoices/pending HTTP/1.1\r\n' +
+        'Accept: application/json, text/plain, */*\r\n' +
+        'X-API-KEY: test-key\r\n' +
+        'User-Agent: axios/1.13.5\r\n' +
+        'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+        'Host: localhost:3001\r\n' +
+        'Connection: keep-alive\r\n' +
+        '\r\n',
+      _keepAliveTimeout: 0,
+      _onPendingData: [Function: nop],
+      agent: [Agent],
+      socketPath: undefined,
+      method: 'GET',
+      maxHeaderSize: undefined,
+      insecureHTTPParser: undefined,
+      joinDuplicateHeaders: undefined,
+      path: '/mock-erp/invoices/pending',
+      _ended: true,
+      res: [IncomingMessage],
+      aborted: false,
+      timeoutCb: null,
+      upgradeOrConnect: false,
+      parser: null,
+      maxHeadersCount: null,
+      reusedSocket: false,
+      host: 'localhost',
+      protocol: 'http:',
+      _redirectable: [Writable],
+      Symbol(shapeMode): false,
+      Symbol(kCapture): false,
+      Symbol(kBytesWritten): 0,
+      Symbol(kNeedDrain): false,
+      Symbol(corked): 0,
+      Symbol(kChunkedBuffer): [],
+      Symbol(kChunkedLength): 0,
+      Symbol(kSocket): [Socket],
+      Symbol(kOutHeaders): [Object: null prototype],
+      Symbol(errored): null,
+      Symbol(kHighWaterMark): 16384,
+      Symbol(kRejectNonStandardBodyWrites): false,
+      Symbol(kUniqueHeaders): null
+    },
+    data: '<!DOCTYPE html>\n' +
+      '<html lang="en">\n' +
+      '<head>\n' +
+      '<meta charset="utf-8">\n' +
+      '<title>Error</title>\n' +
+      '</head>\n' +
+      '<body>\n' +
+      '<pre>Cannot GET /mock-erp/invoices/pending</pre>\n' +
+      '</body>\n' +
+      '</html>\n'
+  },
+  status: 404
+}
+Sync job failed PrismaClientKnownRequestError: 
+Invalid `prisma.eRPConfig.findMany()` invocation in
+C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\src\jobs\syncWorker.ts:13:51
+
+  10 export const runSync = async () => {
+  11     console.log('--- STARTING ERP SYNC JOB ---');
+  12     try {
+→ 13         const erpConfigs = await prisma.eRPConfig.findMany(
+Server has closed the connection.
+    at Vr.handleRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at Vr.handleAndLogRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at Vr.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24) {
+  code: 'P1017',
+  meta: {
+    modelName: 'ERPConfig',
+    driverAdapterError: DriverAdapterError: ConnectionClosed
+        at PrismaPgAdapter.onError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:687:11)
+        at PrismaPgAdapter.performIO (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:682:12)
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async PrismaPgAdapter.queryRaw (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:602:30)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:182:26)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:124:29)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:268:41)
+        at async e.run (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:93:23)
+        at async execute (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\LocalExecutor.ts:81:12)
+        at async Dt.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\ClientEngine.ts:461:22) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.3.0'
+}
+PrismaClientKnownRequestError: 
+Invalid `prisma.company.findUnique()` invocation in
+C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\src\routes\invoice.ts:15:46
+
+  12 try {
+  13     const { invoice, vat, environment } = req.body;
+  14 
+→ 15     const company = await prisma.company.findUnique(
+Server has closed the connection.
+    at Vr.handleRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at Vr.handleAndLogRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at Vr.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24) {
+  code: 'P1017',
+  meta: {
+    modelName: 'Company',
+    driverAdapterError: DriverAdapterError: ConnectionClosed
+        at PrismaPgAdapter.onError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:687:11)
+        at PrismaPgAdapter.performIO (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:682:12)
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async PrismaPgAdapter.queryRaw (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:602:30)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:182:26)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:209:41)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:268:41)
+        at async e.run (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:93:23)
+        at async execute (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\LocalExecutor.ts:81:12)
+        at async Dt.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\ClientEngine.ts:461:22) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.3.0'
+}
+PrismaClientKnownRequestError: 
+Invalid `prisma.eRPConfig.upsert()` invocation in
+C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\src\routes\erp.ts:13:47
+
+  10 try {
+  11     const { companyId, type, baseUrl, apiKey, username, password, syncInterval } = req.body;
+  12 
+→ 13     const config = await prisma.eRPConfig.upsert(
+Server has closed the connection.
+    at Vr.handleRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at Vr.handleAndLogRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at Vr.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24) {
+  code: 'P1017',
+  meta: {
+    modelName: 'ERPConfig',
+    driverAdapterError: DriverAdapterError: ConnectionClosed
+        at PrismaPgAdapter.onError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:687:11)
+        at PrismaPgAdapter.performIO (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:682:12)
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async PrismaPgAdapter.queryRaw (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:602:30)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:182:26)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:209:41)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:268:41)
+        at async e.run (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:93:23)
+        at async execute (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\LocalExecutor.ts:81:12)
+        at async Dt.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\ClientEngine.ts:461:22) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.3.0'
+}
+PrismaClientKnownRequestError: 
+Invalid `prisma.eRPConfig.upsert()` invocation in
+C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\src\routes\erp.ts:13:47
+
+  10 try {
+  11     const { companyId, type, baseUrl, apiKey, username, password, syncInterval } = req.body;
+  12 
+→ 13     const config = await prisma.eRPConfig.upsert(
+Server has closed the connection.
+    at Vr.handleRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at Vr.handleAndLogRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at Vr.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24) {
+  code: 'P1017',
+  meta: {
+    modelName: 'ERPConfig',
+    driverAdapterError: DriverAdapterError: ConnectionClosed
+        at PrismaPgAdapter.onError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:687:11)
+        at PrismaPgAdapter.performIO (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:682:12)
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async PrismaPgAdapter.queryRaw (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:602:30)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:182:26)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:209:41)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:268:41)
+        at async e.run (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:93:23)
+        at async execute (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\LocalExecutor.ts:81:12)
+        at async Dt.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\ClientEngine.ts:461:22) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.3.0'
+}
+PrismaClientKnownRequestError: 
+Invalid `prisma.eRPConfig.upsert()` invocation in
+C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\src\routes\erp.ts:13:47
+
+  10 try {
+  11     const { companyId, type, baseUrl, apiKey, username, password, syncInterval } = req.body;
+  12 
+→ 13     const config = await prisma.eRPConfig.upsert(
+Server has closed the connection.
+    at Vr.handleRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at Vr.handleAndLogRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at Vr.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24) {
+  code: 'P1017',
+  meta: {
+    modelName: 'ERPConfig',
+    driverAdapterError: DriverAdapterError: ConnectionClosed
+        at PrismaPgAdapter.onError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:687:11)
+        at PrismaPgAdapter.performIO (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:682:12)
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async PrismaPgAdapter.queryRaw (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:602:30)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:182:26)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:209:41)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:268:41)
+        at async e.run (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:93:23)
+        at async execute (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\LocalExecutor.ts:81:12)
+        at async Dt.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\ClientEngine.ts:461:22) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.3.0'
+}
+PrismaClientKnownRequestError: 
+Invalid `prisma.eRPConfig.upsert()` invocation in
+C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\src\routes\erp.ts:13:47
+
+  10 try {
+  11     const { companyId, type, baseUrl, apiKey, username, password, syncInterval } = req.body;
+  12 
+→ 13     const config = await prisma.eRPConfig.upsert(
+Server has closed the connection.
+    at Vr.handleRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at Vr.handleAndLogRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at Vr.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24) {
+  code: 'P1017',
+  meta: {
+    modelName: 'ERPConfig',
+    driverAdapterError: DriverAdapterError: ConnectionClosed
+        at PrismaPgAdapter.onError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:687:11)
+        at PrismaPgAdapter.performIO (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:682:12)
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async PrismaPgAdapter.queryRaw (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:602:30)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:182:26)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:209:41)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:268:41)
+        at async e.run (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:93:23)
+        at async execute (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\LocalExecutor.ts:81:12)
+        at async Dt.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\ClientEngine.ts:461:22) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.3.0'
+}
+PrismaClientKnownRequestError: 
+Invalid `prisma.eRPConfig.upsert()` invocation in
+C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\src\routes\erp.ts:13:47
+
+  10 try {
+  11     const { companyId, type, baseUrl, apiKey, username, password, syncInterval } = req.body;
+  12 
+→ 13     const config = await prisma.eRPConfig.upsert(
+Server has closed the connection.
+    at Vr.handleRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at Vr.handleAndLogRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at Vr.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24) {
+  code: 'P1017',
+  meta: {
+    modelName: 'ERPConfig',
+    driverAdapterError: DriverAdapterError: ConnectionClosed
+        at PrismaPgAdapter.onError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:687:11)
+        at PrismaPgAdapter.performIO (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:682:12)
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async PrismaPgAdapter.queryRaw (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:602:30)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:182:26)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:209:41)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:268:41)
+        at async e.run (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:93:23)
+        at async execute (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\LocalExecutor.ts:81:12)
+        at async Dt.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\ClientEngine.ts:461:22) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.3.0'
+}
+PrismaClientKnownRequestError: 
+Invalid `prisma.eRPConfig.upsert()` invocation in
+C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\src\routes\erp.ts:13:47
+
+  10 try {
+  11     const { companyId, type, baseUrl, apiKey, username, password, syncInterval } = req.body;
+  12 
+→ 13     const config = await prisma.eRPConfig.upsert(
+Server has closed the connection.
+    at Vr.handleRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at Vr.handleAndLogRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at Vr.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24) {
+  code: 'P1017',
+  meta: {
+    modelName: 'ERPConfig',
+    driverAdapterError: DriverAdapterError: ConnectionClosed
+        at PrismaPgAdapter.onError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:687:11)
+        at PrismaPgAdapter.performIO (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:682:12)
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async PrismaPgAdapter.queryRaw (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:602:30)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:182:26)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:209:41)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:268:41)
+        at async e.run (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:93:23)
+        at async execute (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\LocalExecutor.ts:81:12)
+        at async Dt.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\ClientEngine.ts:461:22) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.3.0'
+}
+Sync job failed PrismaClientKnownRequestError: 
+Invalid `prisma.eRPConfig.findMany()` invocation in
+C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\src\jobs\syncWorker.ts:13:51
+
+  10 export const runSync = async () => {
+  11     console.log('--- STARTING ERP SYNC JOB ---');
+  12     try {
+→ 13         const erpConfigs = await prisma.eRPConfig.findMany(
+Server has closed the connection.
+    at Vr.handleRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at Vr.handleAndLogRequestError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at Vr.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async a (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:805:24) {
+  code: 'P1017',
+  meta: {
+    modelName: 'ERPConfig',
+    driverAdapterError: DriverAdapterError: ConnectionClosed
+        at PrismaPgAdapter.onError (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:687:11)
+        at PrismaPgAdapter.performIO (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:682:12)
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async PrismaPgAdapter.queryRaw (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\adapter-pg\dist\index.js:602:30)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:182:26)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:124:29)
+        at async e.interpretNode (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:268:41)
+        at async e.run (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:93:23)
+        at async execute (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\LocalExecutor.ts:81:12)
+        at async Dt.request (C:\Users\Fayas\Downloads\Dev\KSA-TaxFilling\ZATKSA\node_modules\@prisma\client\src\runtime\core\engines\client\ClientEngine.ts:461:22) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.3.0'
+}
