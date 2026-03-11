@@ -1,19 +1,21 @@
 
 import axios from 'axios';
 
-const ZATCA_BASE_URL = {
-    sandbox: 'https://gw-fatoora.zatca.gov.sa/api/v2',      // Simulation/Sandbox - same endpoint per ZATCA docs
-    simulation: 'https://gw-fatoora.zatca.gov.sa/api/v2',   // Feature-flag enabled on ZATCA side via OTP
-    production: 'https://core.zatca.gov.sa/api/v2'
+const ZATCA_BASE_URL: Record<string, string> = {
+    Sandbox: 'https://gw-fatoora.zatca.gov.sa/api/v2',      // Simulation/Sandbox - same endpoint per ZATCA docs
+    Simulation: 'https://gw-fatoora.zatca.gov.sa/api/v2',   // Feature-flag enabled on ZATCA side via OTP
+    Production: 'https://core.zatca.gov.sa/api/v2'
 };
 
-export const ZATCA_ENV_STATUS = {
-    sandbox: { name: 'Sandbox', url: 'gw-fatoora.zatca.gov.sa', healthUrl: 'https://gw-fatoora.zatca.gov.sa/api/v2/compliance' },
-    simulation: { name: 'Simulation', url: 'gw-fatoora.zatca.gov.sa', healthUrl: 'https://gw-fatoora.zatca.gov.sa/api/v2/compliance' },
-    production: { name: 'Production', url: 'core.zatca.gov.sa', healthUrl: 'https://core.zatca.gov.sa/api/v2/invoices/reporting/single' }
+export const ZATCA_ENV_STATUS: Record<string, any> = {
+    Sandbox: { name: 'Sandbox', url: 'gw-fatoora.zatca.gov.sa', healthUrl: 'https://gw-fatoora.zatca.gov.sa/api/v2/compliance' },
+    Simulation: { name: 'Simulation', url: 'gw-fatoora.zatca.gov.sa', healthUrl: 'https://gw-fatoora.zatca.gov.sa/api/v2/compliance' },
+    Production: { name: 'Production', url: 'core.zatca.gov.sa', healthUrl: 'https://core.zatca.gov.sa/api/v2/invoices/reporting/single' }
 };
 
-export const onboardCompliance = async (env: 'sandbox' | 'simulation' | 'production', csr: string, otp: string) => {
+export type ZatcaEnv = 'Simulation' | 'Sandbox' | 'Production';
+
+export const onboardCompliance = async (env: ZatcaEnv, csr: string, otp: string) => {
     const url = `${ZATCA_BASE_URL[env]}/compliance`;
     const response = await axios.post(url, {
         csr: Buffer.from(csr).toString('base64'),
@@ -28,7 +30,7 @@ export const onboardCompliance = async (env: 'sandbox' | 'simulation' | 'product
     return response.data; // Includes binarySecurityToken (Compliance CSID)
 };
 
-export const requestProductionCSID = async (env: 'sandbox' | 'simulation' | 'production', complianceCSID: string, complianceSecret: string, requestId: string) => {
+export const requestProductionCSID = async (env: ZatcaEnv, complianceCSID: string, complianceSecret: string, requestId: string) => {
     const url = `${ZATCA_BASE_URL[env]}/production/csids`;
     const auth = Buffer.from(`${complianceCSID}:${complianceSecret}`).toString('base64');
 
@@ -44,7 +46,7 @@ export const requestProductionCSID = async (env: 'sandbox' | 'simulation' | 'pro
     return response.data; // Includes binarySecurityToken (Production CSID)
 };
 
-export const checkCompliance = async (env: 'sandbox' | 'simulation' | 'production', complianceCSID: string, complianceSecret: string, sampleXmlHash: string, sampleXmlBase64: string) => {
+export const checkCompliance = async (env: ZatcaEnv, complianceCSID: string, complianceSecret: string, sampleXmlHash: string, sampleXmlBase64: string) => {
     const url = `${ZATCA_BASE_URL[env]}/compliance/invoices`;
     const auth = Buffer.from(`${complianceCSID}:${complianceSecret}`).toString('base64');
 
@@ -63,7 +65,7 @@ export const checkCompliance = async (env: 'sandbox' | 'simulation' | 'productio
     return response.data;
 };
 
-export const reportInvoice = async (env: 'sandbox' | 'simulation' | 'production', csid: string, secret: string, xmlHash: string, xmlBase64: string, uuid: string) => {
+export const reportInvoice = async (env: ZatcaEnv, csid: string, secret: string, xmlHash: string, xmlBase64: string, uuid: string) => {
     if (csid.includes('dummy')) {
         console.log("Mocking ZATCA Report Response due to dummy certificate");
         return {
@@ -89,7 +91,7 @@ export const reportInvoice = async (env: 'sandbox' | 'simulation' | 'production'
     return response.data;
 };
 
-export const clearInvoice = async (env: 'sandbox' | 'simulation' | 'production', csid: string, secret: string, xmlHash: string, xmlBase64: string, uuid: string) => {
+export const clearInvoice = async (env: ZatcaEnv, csid: string, secret: string, xmlHash: string, xmlBase64: string, uuid: string) => {
     if (csid.includes('dummy')) {
         console.log("Mocking ZATCA Clear Response due to dummy certificate");
         return {
