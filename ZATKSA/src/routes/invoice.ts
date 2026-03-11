@@ -12,31 +12,14 @@ router.post('/report', async (req, res) => {
     try {
         const { invoice, vat, environment } = req.body;
 
-        // Normalize environment to PascalCase (Simulation, Sandbox, Production)
-        const normalizedEnv = environment 
-            ? environment.charAt(0).toUpperCase() + environment.slice(1).toLowerCase()
-            : 'Production';
-
-        let company = await prisma.company.findUnique({
+        const company = await prisma.company.findUnique({
             where: {
                 vatNumber_environment: {
                     vatNumber: vat,
-                    environment: normalizedEnv
+                    environment: environment || 'Production'
                 }
             }
         });
-
-        // Fallback: try direct matching if normalization failed to find it (for legacy data)
-        if (!company && environment) {
-            company = await prisma.company.findUnique({
-                where: {
-                    vatNumber_environment: {
-                        vatNumber: vat,
-                        environment: environment
-                    }
-                }
-            });
-        }
 
         console.log(`Lookup: vat=${vat}, env=${environment || 'Production'}, found=${!!company}`);
 
