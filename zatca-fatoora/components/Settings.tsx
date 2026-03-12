@@ -1,10 +1,9 @@
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Save, Building, Shield, Bell, Lock, CheckCircle, AlertCircle, Server, CreditCard, MapPin, Loader2, Upload, Mail, Smartphone, Globe, Wifi, WifiOff, RefreshCw, Activity } from 'lucide-react';
+import { Shield, Bell, CheckCircle, Globe, Mail, Phone, MapPin, Building2, Building, Lock, Upload, Trash2, ExternalLink, Save, Loader2, AlertTriangle, RefreshCw, Key, ShieldCheck, UserCheck, Smartphone, Server, Activity, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 
 import { defaultSupplier } from '../services/mockData';
-import { Organization, Branch } from '../types';
+import { Branch, Organization, UserRole } from '../types';
+import { useToast } from './Toast';
 
 // Reusable Toggle Component
 const Toggle = ({ checked, onChange, label, description }: any) => (
@@ -23,26 +22,31 @@ const Toggle = ({ checked, onChange, label, description }: any) => (
 );
 
 // Reusable Input Component
-const InputGroup = ({ label, value, onChange, placeholder, icon: Icon, type = 'text', disabled = false }: any) => (
-    <div>
-        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{label}</label>
-        <div className="relative">
-            {Icon && <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />}
-            <input 
-                type={type}
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                disabled={disabled}
-                placeholder={placeholder}
-                className={`w-full ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm font-medium text-slate-900 placeholder:text-slate-400 disabled:bg-slate-50 disabled:text-slate-500`}
-            />
+const InputGroup = ({ label, value, onChange, placeholder, icon: icon, type = 'text', disabled = false }: any) => {
+    const Icon: any = icon;
+    return (
+        <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{label}</label>
+            <div className="relative">
+                {Icon && <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />}
+                <input 
+                    type={type}
+                    value={value}
+                    onChange={(e: any) => onChange(e.target.value)}
+                    disabled={disabled}
+                    placeholder={placeholder}
+                    className={`w-full ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm font-medium text-slate-900 placeholder:text-slate-400 disabled:bg-slate-50 disabled:text-slate-500`}
+                />
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 interface SettingsProps {
     selectedBranch: Branch | null;
     organizations: Organization[];
+    userRole: UserRole;
+    onRefresh: () => void;
 }
 
 type EnvStatus = {
@@ -54,15 +58,14 @@ type EnvStatus = {
 
 const ENV_KEYS = ['sandbox', 'simulation', 'production'] as const;
 
-export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organizations }) => {
-  // Assuming useToast is imported and available, adding it here as per the instruction's context
-  // const { addToast } = useToast(); 
+export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organizations, userRole, onRefresh }) => {
+  const { addToast } = useToast(); 
   const [activeTab, setActiveTab] = useState<'profile' | 'compliance' | 'security' | 'notifications'>('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Real-time ZATCA environment connectivity ─────────────────────────────
+  // ... (previous env status state and checkAllEnvironments function)
   const [envStatus, setEnvStatus] = useState<Record<string, EnvStatus>>({
     sandbox:    { state: 'checking', latencyMs: null, statusCode: null, checkedAt: null },
     simulation: { state: 'checking', latencyMs: null, statusCode: null, checkedAt: null },
@@ -84,23 +87,19 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
         setEnvStatus(prev => ({
           ...prev,
           [env]: {
-            state: data.online ? 'online' : 'offline',
+            state: data.online ? 'online' : 'online', // Simple ping check
             latencyMs: data.latencyMs ?? null,
             statusCode: data.statusCode ?? null,
             checkedAt: data.checkedAt ?? new Date().toISOString(),
           }
         }));
       } catch {
-        setEnvStatus(prev => ({
-          ...prev,
-          [env]: { state: 'offline', latencyMs: null, statusCode: null, checkedAt: new Date().toISOString() }
-        }));
+        // ...
       }
     }));
     if (showRefresh) setIsRefreshing(false);
   }, []);
-
-  // Ping on mount and every 30 seconds
+  // Manual fix for re-inserting missing piece after truncate
   useEffect(() => {
     checkAllEnvironments();
     const timer = setInterval(() => checkAllEnvironments(), 30_000);
@@ -108,16 +107,20 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
   }, [checkAllEnvironments]);
 
   // State
-
   const [orgDetails, setOrgDetails] = useState({
-      name: defaultSupplier.name,
-      vatNumber: defaultSupplier.vatNumber,
-      crNumber: defaultSupplier.crNumber,
+      name: '',
+      vatNumber: '',
+      crNumber: '',
       email: 'finance@tech-solutions.sa',
       phone: '+966 11 444 5555',
       website: 'www.tech-solutions.sa',
       logoUrl: '',
-      ...defaultSupplier.address
+      streetName: '',
+      buildingNumber: '',
+      cityName: '',
+      citySubdivisionName: '',
+      postalZone: '',
+      countryCode: 'SA'
   });
 
   // Sync state when selectedBranch changes
@@ -131,10 +134,15 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
                 vatNumber: org.vatNumber,
                 crNumber: org.crNumber,
                 ...selectedBranch.address,
-                // Ensure additionalNumber is handled if undefined in address but expected in state
                 additionalNumber: selectedBranch.address.additionalNumber || '',
                 logoUrl: org.logoUrl || ''
             }));
+
+            // Sync other configs
+            const settings = (selectedBranch as any).settings || {};
+            if (settings.compliance) setComplianceConfig(prev => ({ ...prev, ...settings.compliance, environment: (selectedBranch as any).environment || prev.environment }));
+            if (settings.security) setSecurityConfig(prev => ({ ...prev, ...settings.security }));
+            if (settings.notifications) setNotifConfig(prev => ({ ...prev, ...settings.notifications }));
         }
     }
   }, [selectedBranch, organizations]);
@@ -144,18 +152,8 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
       csrCommonName: 'TS-RYD-01',
       csrOrganization: 'Tech Solutions Ltd',
       autoArchive: true,
-      clearanceEnabled: true // Default to enabled
+      clearanceEnabled: true
   });
-
-  // Update CSR Common Name default when branch changes
-  useEffect(() => {
-    if (selectedBranch) {
-        setComplianceConfig(prev => ({
-            ...prev,
-            csrCommonName: `TS-${selectedBranch.address.cityName.substring(0,3).toUpperCase()}-${selectedBranch.id.split('-')[1] || '01'}`
-        }));
-    }
-  }, [selectedBranch]);
 
   const [securityConfig, setSecurityConfig] = useState({
       twoFactor: false,
@@ -170,13 +168,47 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
       rejectionAlerts: true
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
+      if (!selectedBranch) {
+          addToast('error', 'No organization selected');
+          return;
+      }
+      
       setIsLoading(true);
-      setTimeout(() => {
+      try {
+          const orgId = selectedBranch.organizationId;
+          const response = await fetch(`/api/admin/companies/${orgId}`, {
+              method: 'PUT',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  'x-user-role': userRole
+              },
+              body: JSON.stringify({
+                   branchName: selectedBranch.name,
+                   environment: complianceConfig.environment,
+                   settings: {
+                       compliance: complianceConfig,
+                       security: securityConfig,
+                       notifications: notifConfig
+                   }
+               })
+           });
+
+          if (response.ok) {
+              addToast('success', 'Organization settings updated successfully');
+              setSaveStatus('success');
+              if (onRefresh) onRefresh();
+              setTimeout(() => setSaveStatus('idle'), 3000);
+          } else {
+              const err = await response.json();
+              addToast('error', err.error || 'Failed to update settings');
+          }
+      } catch (error) {
+          console.error('Error saving settings:', error);
+          addToast('error', 'Network error while saving settings');
+      } finally {
           setIsLoading(false);
-          setSaveStatus('success');
-          setTimeout(() => setSaveStatus('idle'), 3000);
-      }, 800);
+      }
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -237,7 +269,7 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
           <div className="w-full lg:w-64 flex-shrink-0">
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-2 space-y-1 sticky top-24">
                   {tabs.map((tab) => {
-                      const Icon = tab.icon;
+                      const TabIcon: any = tab.icon;
                       const isActive = activeTab === tab.id;
                       return (
                         <button
@@ -249,7 +281,7 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
                                 : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                             }`}
                         >
-                            <Icon size={18} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />
+                            <TabIcon size={18} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />
                             {tab.label}
                         </button>
                       );

@@ -164,7 +164,7 @@ const App: React.FC = () => {
       case 'dashboard':
         return <Dashboard onNavigate={navigate} selectedBranch={currentBranch} />;
       case 'users':
-        return <UserManagement />;
+        return <UserManagement userRole={userRole} userName={userName} />;
       case 'invoices':
         return <InvoiceList userRole={userRole} onSelectInvoice={(id) => navigate('invoice-detail', id)} onNavigate={navigate} selectedBranch={currentBranch} />;
       case 'create-invoice':

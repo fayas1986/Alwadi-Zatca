@@ -12,6 +12,13 @@ if (!SDK_PATH) {
     console.warn("ZATCA_SDK_PATH is not set in .env");
 }
 
+const getSdkBaseCommand = () => {
+    if (SDK_PATH.toLowerCase().endsWith('.jar')) {
+        return `java -jar "${SDK_PATH}"`;
+    }
+    return `"${SDK_PATH}"`;
+};
+
 const TEMP_DIR = os.tmpdir();
 
 const writeTempFile = (filename: string, content: string) => {
@@ -43,7 +50,7 @@ export const generateCSR = async (configContent: string, isSimulation: boolean =
         // fatooraNet csr -csrConfig config.properties -privateKey private_key.pem -generatedCsr csr.pem -pem
         // Add -sim for simulation if required by the specific version, or it might be controlled by the config/env.
 
-        let cmd = `"${SDK_PATH}" csr -csrConfig "${configPath}" -privateKey "${keyPath}" -generatedCsr "${csrPath}" -pem`;
+        let cmd = `${getSdkBaseCommand()} csr -csrConfig "${configPath}" -privateKey "${keyPath}" -generatedCsr "${csrPath}" -pem`;
         if (isSimulation) {
             cmd += ' -sim';
         }
@@ -96,7 +103,7 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
 
     try {
         // Command: fatooraNet sign -invoice <xml> -signedInvoice <out> -certificate <cert> -privateKey <key>
-        const cmd = `"${SDK_PATH}" sign -invoice "${xmlPath}" -signedInvoice "${signedXmlPath}" -certificate "${certPath}" -privateKey "${keyPath}"`;
+        const cmd = `${getSdkBaseCommand()} sign -invoice "${xmlPath}" -signedInvoice "${signedXmlPath}" -certificate "${certPath}" -privateKey "${keyPath}"`;
 
         console.log(`Executing SDK Sign command: ${cmd}`);
         console.log(`Certificate Path: ${certPath} (Size: ${cleanCert.length})`);

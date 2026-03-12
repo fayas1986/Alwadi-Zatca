@@ -1,13 +1,10 @@
 
 import axios from 'axios';
-import { generateInvoiceXML } from './xmlService';
-import { signInvoice } from './sdkService';
-import { reportInvoice, clearInvoice } from './zatcaService';
-import { decrypt } from '../utils/crypto';
-import { PrismaClient } from '@prisma/client';
-import crypto from 'crypto';
-
-const prisma = new PrismaClient();
+import { generateInvoiceXML } from './xmlService.js';
+import { signInvoice } from './sdkService.js';
+import { reportInvoice, clearInvoice } from './zatcaService.js';
+import { decrypt } from '../utils/crypto.js';
+import prisma from '../lib/prisma.js';
 
 interface ExternalInvoice {
     invoiceNumber: string;
@@ -200,7 +197,8 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                         date: new Date(inv.issueDate),
                         total_amount: inv.totalAmount,
                         tax_amount: inv.vatAmount,
-                        status: result.reportingStatus === 'REPORTED' || result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 'FAILED',
+                        status: result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 
+                                result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED',
                         type: 'B2B', // Or derive from customer type
                         hash: hash,
                         xml_payload: Buffer.from(signedXml).toString('base64'),

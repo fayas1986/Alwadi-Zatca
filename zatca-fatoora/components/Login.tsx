@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ShieldCheck, Lock, User, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Lock, User, ArrowRight, Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { UserRole } from '../types';
 
 interface LoginProps {
@@ -9,21 +9,23 @@ interface LoginProps {
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('password');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<UserRole>('IT_ADMIN');
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const roles: {id: UserRole, label: string, desc: string, email: string}[] = [
-      { id: 'IT_ADMIN', label: 'IT Administrator', desc: 'Full System Access', email: 'admin@tech-solutions.sa' },
-      { id: 'FINANCE_ADMIN', label: 'Finance Manager', desc: 'Invoice Operations', email: 'finance@tech-solutions.sa' },
-      { id: 'TAX_OFFICER', label: 'Tax Officer', desc: 'Compliance & Audit', email: 'tax@tech-solutions.sa' },
-    { id: 'SUPER_ADMIN', label: 'Super Admin', desc: 'Company Management Only', email: 'superadmin@tech-solutions.sa' },
+  const roles: {id: UserRole, label: string, desc: string}[] = [
+      { id: 'IT_ADMIN', label: 'IT Administrator', desc: 'Full System Access' },
+      { id: 'FINANCE_ADMIN', label: 'Finance Manager', desc: 'Invoice Operations' },
+      { id: 'TAX_OFFICER', label: 'Tax Officer', desc: 'Compliance & Audit' },
+    { id: 'SUPER_ADMIN', label: 'Super Admin', desc: 'SaaS Owner Only' },
   ];
 
   const handleRoleSelect = (role: typeof roles[0]) => {
       setActiveTab(role.id);
-      setEmail(role.email);
-      setPassword('password'); 
+      setEmail('');
+      setPassword(''); 
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,15 +163,28 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <div className="relative">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input 
-                            type="password" 
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium text-slate-900 placeholder:text-slate-500"
+                            type={showPassword ? "text" : "password"} 
+                            className="w-full pl-11 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium text-slate-900 placeholder:text-slate-500"
                             placeholder="••••••••"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)} 
                         />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-green-600 transition-colors focus:outline-none"
+                        >
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
                     </div>
                     <div className="text-right mt-2">
-                        <a href="#" className="text-xs font-bold text-green-600 hover:text-green-700">Forgot password?</a>
+                        <button 
+                            type="button"
+                            onClick={() => setShowForgotModal(true)}
+                            className="text-xs font-bold text-green-600 hover:text-green-700 hover:underline bg-transparent border-none p-0 cursor-pointer"
+                        >
+                            Forgot password?
+                        </button>
                     </div>
                 </div>
 
@@ -187,6 +202,42 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </form>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200">
+            <div className="p-8">
+              <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mb-6 mx-auto shadow-sm">
+                <ShieldCheck size={32} className="text-green-600" />
+              </div>
+              
+              <h3 className="text-2xl font-bold text-slate-900 text-center mb-4">Reset Your Password</h3>
+              
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 mb-8 text-center">
+                <p className="text-slate-600 leading-relaxed mb-4">
+                  For security reasons, password resets must be managed by your organization's IT Administrator.
+                </p>
+                <div className="flex flex-col gap-2 items-center">
+                  <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">Contact Support</span>
+                  <span className="text-lg font-bold text-slate-900">support@tech-solutions.sa</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowForgotModal(false)}
+                className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 active:scale-[0.98]"
+              >
+                Got it, thanks
+              </button>
+              
+              <p className="mt-6 text-center text-xs text-slate-400 font-medium">
+                Tech Solutions ZATCA Platform • Secure Access Control
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

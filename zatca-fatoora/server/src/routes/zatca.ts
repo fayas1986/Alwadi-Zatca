@@ -1,16 +1,16 @@
 import { Router } from 'express';
-import { generateCSR, signInvoice } from '../services/sdkService';
-import { onboardCompliance, requestProductionCSID, reportInvoice, clearInvoice, checkCompliance, renewProductionCSID } from '../services/zatcaService';
-import { generateInvoiceXML } from '../services/xmlService';
+import { generateCSR, signInvoice } from '../services/sdkService.js';
+import { onboardCompliance, requestProductionCSID, reportInvoice, clearInvoice, checkCompliance, renewProductionCSID } from '../services/zatcaService.js';
+import { generateInvoiceXML } from '../services/xmlService.js';
 import { PrismaClient } from '@prisma/client';
-import { encrypt, decrypt } from '../utils/crypto';
+import { encrypt, decrypt } from '../utils/crypto.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
 
 const router = Router();
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 // Helper to map string environment to Prisma enum
 const mapEnv = (env: string) => {

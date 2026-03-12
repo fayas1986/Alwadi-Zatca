@@ -4,13 +4,15 @@ dotenv.config(); // Load env vars before other imports
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import zatcaRoutes from './routes/zatca';
-import erpRoutes from './routes/erp';
-import adminRoutes from './routes/admin';
-import authRoutes from './routes/auth';
-import itemsRoutes from './routes/items';
+import zatcaRoutes from './routes/zatca.js';
+import erpRoutes from './routes/erp.js';
+import adminRoutes from './routes/admin.js';
+import authRoutes from './routes/auth.js';
+import itemsRoutes from './routes/items.js';
+import { PrismaClient } from '@prisma/client';
 
 const app = express();
+import prisma from './lib/prisma.js';
 const port = process.env.PORT || 3001;
 
 app.use(cors());
@@ -36,6 +38,27 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
 });
 
-app.listen(port, () => {
-    console.log(`ZATCA Backend listening at http://localhost:${port}`);
+app.get('/api/db-test', async (req, res) => {
+    try {
+        const count = await prisma.user.count();
+        res.json({ status: 'connected', userCount: count });
+    } catch (err: any) {
+        console.error('DB Test Error:', err);
+        res.status(500).json({ 
+            error: 'Database connection failed', 
+            message: err.message,
+            code: err.code,
+            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        });
+    }
 });
+
+// Export app for Vercel serverless functions
+export default app;
+
+// Only listen if not running as a serverless function
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+    app.listen(port, () => {
+        console.log(`ZATCA Backend listening at http://localhost:${port}`);
+    });
+}

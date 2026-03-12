@@ -3,13 +3,14 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 
 const router = Router();
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
+import { decrypt } from '../utils/crypto.js';
 
 // ─── Fallback users (mirrors actual Neon DB accounts — used when DB sleeps) ──
 // These match the real DB users. Password for all: password123
 const FALLBACK_USERS: Record<string, { id: string; email: string; password: string; name: string; role: string; company_name: string }> = {
     'superadmin@tech-solutions.sa': {
-        id: 'u-001', email: 'superadmin@tech-solutions.sa', password: 'password123',
+        id: 'u-001', email: 'superadmin@tech-solutions.sa', password: 'Zatca#Secure!2026@Connect',
         name: 'Super Admin', role: 'SUPER_ADMIN', company_name: 'Tech Solutions Ltd'
     },
     'admin@tech-solutions.sa': {
@@ -72,8 +73,12 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Verify password (plaintext for this demo)
-        if (user.password !== password) {
+        // Verify password (plaintext or encrypted)
+        const isMatch = user.password.includes(':') 
+            ? decrypt(user.password) === password 
+            : user.password === password;
+
+        if (!isMatch) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 

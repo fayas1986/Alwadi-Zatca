@@ -1,15 +1,14 @@
 
 import { Router, Request, Response } from 'express';
-import { fetchAndProcessInvoices } from '../services/integrationService';
-import { PrismaClient } from '@prisma/client';
-import { generateInvoiceXML } from '../services/xmlService';
-import { signInvoice } from '../services/sdkService';
-import { reportInvoice, clearInvoice } from '../services/zatcaService';
-import { decrypt } from '../utils/crypto';
 import crypto from 'crypto';
+import { fetchAndProcessInvoices } from '../services/integrationService.js';
+import { generateInvoiceXML } from '../services/xmlService.js';
+import { signInvoice } from '../services/sdkService.js';
+import { reportInvoice, clearInvoice } from '../services/zatcaService.js';
+import { decrypt } from '../utils/crypto.js';
+import prisma from '../lib/prisma.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/erp/pull  — pull invoices from an external ERP URL

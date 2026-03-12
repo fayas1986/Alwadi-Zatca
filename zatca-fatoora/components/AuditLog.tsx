@@ -2,8 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { mockAuditLogs } from '../services/mockData';
 import { AuditLogEntry } from '../types';
-import { Terminal, Search, Filter, FileCheck, Download, AlertTriangle, Shield, CheckCircle, Clock, X, Hash, Server, Activity, Lock, Eye, Code, Calendar } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Terminal, Search, Filter, FileCheck, Download, AlertTriangle, Shield, CheckCircle, Clock, X, Hash, Server, Activity, Lock, Eye, Code, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const AuditLog: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,6 +12,8 @@ export const AuditLog: React.FC = () => {
   const [dateEnd, setDateEnd] = useState('');
   const [ipFilter, setIpFilter] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const filteredLogs = useMemo(() => {
     return mockAuditLogs.filter(log => {
@@ -40,6 +41,18 @@ export const AuditLog: React.FC = () => {
     });
   }, [searchTerm, categoryFilter, statusFilter, ipFilter, dateStart, dateEnd]);
 
+  // Reset to first page when any filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter, statusFilter, ipFilter, dateStart, dateEnd]);
+
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  const currentItems = useMemo(() => {
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    return filteredLogs.slice(indexOfFirstItem, indexOfLastItem);
+  }, [filteredLogs, currentPage]);
+
   const clearFilters = () => {
       setSearchTerm('');
       setCategoryFilter('All');
@@ -60,17 +73,6 @@ export const AuditLog: React.FC = () => {
       };
   }, [filteredLogs]);
 
-  // Chart Data Preparation (Group by Hour/Day - simplified for demo)
-  const chartData = useMemo(() => {
-    // Reverse chronological for processing, but chart needs chronological
-    const sorted = [...filteredLogs].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    return sorted.map((log, index) => ({
-        name: index, // Simplified X-axis
-        time: new Date(log.timestamp).toLocaleTimeString(),
-        status: log.status === 'Success' ? 1 : 0,
-        fail: log.status !== 'Success' ? 1 : 0
-    }));
-  }, [filteredLogs]);
 
 
   const handleExport = () => {
@@ -112,57 +114,39 @@ export const AuditLog: React.FC = () => {
     <div className="flex flex-col h-[calc(100vh-140px)] gap-6 animate-in fade-in duration-500">
       
       {/* Top Stats & Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-1 space-y-4">
-               {/* KPI 1 */}
-               <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Events</p>
-                   <div className="flex items-end justify-between mt-2">
-                       <h3 className="text-2xl font-bold text-slate-900">{stats.total}</h3>
-                       <Activity size={20} className="text-indigo-500 mb-1" />
-                   </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           {/* KPI 1 */}
+           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group hover:border-indigo-200 transition-colors">
+               <div>
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Events</p>
+                   <h3 className="text-3xl font-bold text-slate-900">{stats.total}</h3>
                </div>
-               {/* KPI 2 */}
-               <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Security Alerts</p>
-                   <div className="flex items-end justify-between mt-2">
-                       <h3 className="text-2xl font-bold text-slate-900">{stats.securityAlerts}</h3>
-                       <AlertTriangle size={20} className="text-amber-500 mb-1" />
-                   </div>
+               <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+                   <Activity size={24} />
                </div>
-                {/* KPI 3 */}
-               <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Failure Rate</p>
-                   <div className="flex items-end justify-between mt-2">
-                       <h3 className="text-2xl font-bold text-slate-900">{stats.failureRate}%</h3>
-                       <X size={20} className="text-rose-500 mb-1" />
-                   </div>
+           </div>
+           
+           {/* KPI 2 */}
+           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group hover:border-amber-200 transition-colors">
+               <div>
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Security Alerts</p>
+                   <h3 className="text-3xl font-bold text-slate-900">{stats.securityAlerts}</h3>
                </div>
-          </div>
-          
-          {/* Chart */}
-          <div className="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <h3 className="text-sm font-bold text-slate-700 mb-4">Activity Volume</h3>
-              <div className="h-48 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                          <defs>
-                              <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
-                                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                              </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <Tooltip 
-                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                            cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }}
-                          />
-                          <Area type="monotone" dataKey="status" stackId="1" stroke="#6366f1" fill="url(#colorActivity)" />
-                          <Area type="monotone" dataKey="fail" stackId="1" stroke="#f43f5e" fill="#f43f5e" />
-                      </AreaChart>
-                  </ResponsiveContainer>
-              </div>
-          </div>
+               <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+                   <AlertTriangle size={24} />
+               </div>
+           </div>
+
+           {/* KPI 3 */}
+           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group hover:border-rose-200 transition-colors">
+               <div>
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Failure Rate</p>
+                   <h3 className="text-3xl font-bold text-slate-900">{stats.failureRate}%</h3>
+               </div>
+               <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600 group-hover:scale-110 transition-transform">
+                   <X size={24} />
+               </div>
+           </div>
       </div>
 
       {/* Main Log Table */}
@@ -270,8 +254,8 @@ export const AuditLog: React.FC = () => {
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredLogs.length > 0 ? (
-                    filteredLogs.map((log) => (
+                {currentItems.length > 0 ? (
+                    currentItems.map((log) => (
                     <tr 
                         key={log.id} 
                         onClick={() => setSelectedLog(log)}
@@ -321,6 +305,32 @@ export const AuditLog: React.FC = () => {
                 )}
             </tbody>
             </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="px-6 py-4 bg-white border-t border-slate-100 flex items-center justify-between">
+            <div className="text-sm text-slate-500">
+                Showing <span className="font-semibold text-slate-900">{filteredLogs.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> to <span className="font-semibold text-slate-900">{Math.min(currentPage * itemsPerPage, filteredLogs.length)}</span> of <span className="font-semibold text-slate-900">{filteredLogs.length}</span> entries
+            </div>
+            <div className="flex items-center gap-2">
+                <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <ChevronLeft size={16} className="text-slate-600" />
+                </button>
+                <div className="text-sm font-medium text-slate-600">
+                    Page <span className="text-slate-900">{currentPage}</span> of <span className="text-slate-900">{totalPages || 1}</span>
+                </div>
+                <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <ChevronRight size={16} className="text-slate-600" />
+                </button>
+            </div>
         </div>
       </div>
 
