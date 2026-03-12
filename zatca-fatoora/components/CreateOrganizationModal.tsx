@@ -5,7 +5,7 @@ import { Organization, Branch } from '../types';
 
 interface CreateOrganizationModalProps {
   onClose: () => void;
-  onCreate: (org: Organization) => void;
+  onCreate: (orgData: any) => void;
 }
 
 export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({ onClose, onCreate }) => {
@@ -42,33 +42,17 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
   const handleSubmit = () => {
     if (!validate()) return;
 
-    const newOrgId = `org-${Date.now()}`;
-    const newBranchId = `br-${Date.now()}`;
-
-    const newOrg: Organization = {
-      id: newOrgId,
+    // Send the raw form data to App.tsx which will handle the POST request
+    onCreate({
       name: formData.name,
       vatNumber: formData.vatNumber,
       crNumber: formData.crNumber,
-      branches: [
-        {
-          id: newBranchId,
-          organizationId: newOrgId,
-          name: formData.branchName,
-          type: 'HQ',
-          address: {
-            streetName: formData.streetName,
-            buildingNumber: formData.buildingNumber,
-            cityName: formData.city,
-            citySubdivisionName: formData.district,
-            postalZone: formData.postalCode,
-            countryCode: 'SA'
-          }
-        }
-      ]
-    };
-
-    onCreate(newOrg);
+      branchName: formData.branchName,
+      address: formData.streetName,
+      city: formData.city,
+      country: 'SA',
+      groupId: null // Or handle group selection if needed
+    });
   };
 
   const inputClass = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm text-slate-900 placeholder:text-slate-400";

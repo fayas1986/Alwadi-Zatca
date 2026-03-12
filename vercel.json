@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "zatca-fatoora/api/index.ts"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "zatca-fatoora/$1"
+    }
+  ],
+  "functions": {
+    "zatca-fatoora/api/*.ts": {
+      "includeFiles": "zatca-fatoora/prisma/**, zatca-fatoora/server/src/**, zatca-fatoora/server/zatca-sdk/**"
+    }
+  }
+}

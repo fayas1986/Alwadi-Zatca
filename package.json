@@ -1,0 +1,10 @@
+{
+  "name": "zatca-connect-test-root",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "npm run build --prefix zatca-fatoora",
+    "install": "npm install --prefix zatca-fatoora",
+    "vercel-build": "npm run vercel-build --prefix zatca-fatoora"
+  }
+}

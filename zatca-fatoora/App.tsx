@@ -30,13 +30,43 @@ const App: React.FC = () => {
   const [userName, setUserName] = useState<string>('');
 
   // Multi-Tenancy State
-  const [organizations, setOrganizations] = useState<Organization[]>(mockOrganizations);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
+  const [isOrganizationsLoading, setIsOrganizationsLoading] = useState(false);
   const [isCreateOrgModalOpen, setIsCreateOrgModalOpen] = useState(false);
 
   // Connectivity State
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Fetch Organizations
+  useEffect(() => {
+    if (isAuthenticated) {
+        fetchOrganizations();
+    }
+  }, [isAuthenticated, userRole]);
+
+  const fetchOrganizations = async () => {
+    setIsOrganizationsLoading(true);
+    try {
+        const response = await fetch('/api/admin/companies', {
+            headers: { 'x-user-role': userRole }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            setOrganizations(data);
+            
+            // Auto switch to the first branch of the first org if none selected
+            if (!currentBranch && data.length > 0 && data[0].branches.length > 0) {
+                setCurrentBranch(data[0].branches[0]);
+            }
+        }
+    } catch (error) {
+        console.error('Failed to fetch organizations:', error);
+    } finally {
+        setIsOrganizationsLoading(false);
+    }
+  };
 
   useEffect(() => {
       const handleOnline = async () => {
@@ -57,7 +87,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-      // Default to first branch of first org on load if not set
+      // If Organizations loaded but no current branch, set it
       if (!currentBranch && organizations.length > 0 && organizations[0].branches.length > 0) {
           setCurrentBranch(organizations[0].branches[0]);
       }
@@ -83,18 +113,37 @@ const App: React.FC = () => {
       setCurrentRoute('dashboard');
   };
 
-  const handleCreateOrganization = (newOrg: Organization) => {
+  const handleCreateOrganization = async (orgData: any) => {
       if (userRole !== 'SUPER_ADMIN') return;
       
-      setOrganizations(prev => [...prev, newOrg]);
-      // Auto switch to the new org's first branch
-      if (newOrg.branches.length > 0) {
-          setCurrentBranch(newOrg.branches[0]);
+      try {
+          const response = await fetch('/api/admin/companies', {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  'x-user-role': userRole
+              },
+              body: JSON.stringify(orgData)
+          });
+
+          if (response.ok) {
+              const newOrg = await response.json();
+              setOrganizations(prev => [...prev, newOrg]);
+              if (newOrg.branches.length > 0) {
+                  setCurrentBranch(newOrg.branches[0]);
+              }
+              setIsCreateOrgModalOpen(false);
+          } else {
+              const err = await response.json();
+              alert(err.error || 'Failed to create organization');
+          }
+      } catch (error) {
+          console.error('Error creating organization:', error);
+          alert('Network error creating organization');
       }
-      setIsCreateOrgModalOpen(false);
   };
 
-  const handleDeleteOrganization = (orgId: string) => {
+  const handleDeleteOrganization = async (orgId: string) => {
       if (userRole !== 'SUPER_ADMIN') return;
       
       if (organizations.length <= 1) {
@@ -102,15 +151,32 @@ const App: React.FC = () => {
           return;
       }
 
-      const updatedOrgs = organizations.filter(o => o.id !== orgId);
-      setOrganizations(updatedOrgs);
+      if (!window.confirm('Are you sure you want to delete this company? All related data will be lost.')) return;
 
-      if (currentBranch && currentBranch.organizationId === orgId) {
-          if (updatedOrgs.length > 0 && updatedOrgs[0].branches.length > 0) {
-              setCurrentBranch(updatedOrgs[0].branches[0]);
+      try {
+          const response = await fetch(`/api/admin/companies/${orgId}`, {
+              method: 'DELETE',
+              headers: { 'x-user-role': userRole }
+          });
+
+          if (response.ok) {
+              const updatedOrgs = organizations.filter(o => o.id !== orgId);
+              setOrganizations(updatedOrgs);
+
+              if (currentBranch && currentBranch.organizationId === orgId) {
+                  if (updatedOrgs.length > 0 && updatedOrgs[0].branches.length > 0) {
+                      setCurrentBranch(updatedOrgs[0].branches[0]);
+                  } else {
+                      setCurrentBranch(null);
+                  }
+              }
           } else {
-              setCurrentBranch(null);
+              const err = await response.json();
+              alert(err.error || 'Failed to delete organization');
           }
+      } catch (error) {
+          console.error('Error deleting organization:', error);
+          alert('Network error deleting organization');
       }
   };
 
@@ -183,7 +249,14 @@ const App: React.FC = () => {
       case 'validator':
         return <XMLValidator />;
       case 'settings':
-        return <Settings selectedBranch={currentBranch} organizations={organizations} />;
+        return (
+          <Settings 
+            selectedBranch={currentBranch} 
+            organizations={organizations} 
+            userRole={userRole}
+            onRefresh={fetchOrganizations}
+          />
+        );
       default:
         return <Dashboard onNavigate={navigate} selectedBranch={currentBranch} />;
     }

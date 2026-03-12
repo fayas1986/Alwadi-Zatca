@@ -47,13 +47,13 @@
   "main": "types.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fayas1986/ZatcaConnect.git"
+    "url": "git+https://github.com/fayas1986/ZatcaConnect-Test.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/fayas1986/ZatcaConnect/issues"
+    "url": "https://github.com/fayas1986/ZatcaConnect-Test/issues"
   },
-  "homepage": "https://github.com/fayas1986/ZatcaConnect#readme"
+  "homepage": "https://github.com/fayas1986/ZatcaConnect-Test#readme"
 }
