@@ -1,7 +1,7 @@
 
 import { PrismaClient, UserRole } from '@prisma/client';
 import crypto from 'crypto';
-import { encrypt } from '../src/utils/crypto'; // Import helper
+import { encrypt } from '../server/src/utils/crypto.js'; // Corrected path and extension
 
 const prisma = new PrismaClient();
 
