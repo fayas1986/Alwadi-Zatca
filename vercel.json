@@ -3,16 +3,16 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "zatca-fatoora/api/index.ts"
+      "destination": "/api/index.ts"
     },
     {
       "source": "/(.*)",
-      "destination": "zatca-fatoora/$1"
+      "destination": "/index.html"
     }
   ],
   "functions": {
-    "zatca-fatoora/api/*.ts": {
-      "includeFiles": "zatca-fatoora/prisma/**, zatca-fatoora/server/src/**, zatca-fatoora/server/zatca-sdk/**"
+    "api/*.ts": {
+      "includeFiles": "prisma/**, server/src/**, server/zatca-sdk/**"
     }
   }
 }
