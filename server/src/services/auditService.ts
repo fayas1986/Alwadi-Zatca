@@ -25,7 +25,7 @@ export class AuditService {
             const contentToHash = `${params.timestamp || new Date().toISOString()}|${params.action}|${params.user}|${params.details}|${params.status}`;
             const hash = crypto.createHash('sha256').update(contentToHash).digest('hex');
 
-            const logEntry = await prisma.audit_log.create({
+            const logEntry = await (prisma as any).audit_log.create({
                 data: {
                     action: params.action,
                     category: params.category,
@@ -61,13 +61,13 @@ export class AuditService {
         if (filters.action) where.action = { contains: filters.action, mode: 'insensitive' };
         
         const [logs, total] = await Promise.all([
-            prisma.audit_log.findMany({
+            (prisma as any).audit_log.findMany({
                 where,
                 orderBy: { timestamp: 'desc' },
                 skip,
                 take: limit
             }),
-            prisma.audit_log.count({ where })
+            (prisma as any).audit_log.count({ where })
         ]);
 
         return {

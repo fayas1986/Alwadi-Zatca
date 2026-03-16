@@ -58,7 +58,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           }
       } catch (error: any) {
           console.error("Network error details:", error);
-          alert(`Network error: ${error.message || 'Unable to connect to server'}. Please ensure backend is running.`);
+          
+          // Enhanced debug info if we get a crash response
+          let debugInfo = "";
+          if (error.message && error.stack) {
+              debugInfo = `\n\nDebug Info:\n${error.message}\n${error.stack.substring(0, 200)}...`;
+          }
+
+          alert(`Network error: ${error.message || 'Unable to connect to server'}${debugInfo}\n\nPlease ensure backend is running.`);
       } finally {
           setIsLoading(false);
       }
