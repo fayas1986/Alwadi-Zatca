@@ -46,15 +46,25 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               onLogin(data.role, data.name || 'User');
           } else {
               let errorMessage = "Login failed. Please check your credentials.";
+              let debugDetail = "";
               try {
                   const error = await response.json();
                   errorMessage = error.error || errorMessage;
+                  
+                  // Collect all debug info for Vercel troubleshooting
+                  if (error.message || error.stack || error.node_version) {
+                      debugDetail = `\n\n--- DEBUG INFO ---`;
+                      if (error.message) debugDetail += `\nMessage: ${error.message}`;
+                      if (error.node_version) debugDetail += `\nNode: ${error.node_version}`;
+                      if (error.cwd) debugDetail += `\nCWD: ${error.cwd}`;
+                      if (error.stack) debugDetail += `\nStack: ${error.stack.substring(0, 300)}...`;
+                  }
               } catch (e) {
                   console.error("Failed to parse error response:", e);
                   errorMessage = `Server Error: ${response.status} ${response.statusText}`;
               }
               console.error("Login failed:", errorMessage);
-              alert(errorMessage);
+              alert(`${errorMessage}${debugDetail}`);
           }
       } catch (error: any) {
           console.error("Network error details:", error);
