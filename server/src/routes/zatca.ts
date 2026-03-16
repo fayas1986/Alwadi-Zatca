@@ -271,9 +271,11 @@ router.get('/invoices', async (req, res) => {
 router.get('/invoices/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        console.log(`[ZATCA API] Fetching invoice with ID/UUID: ${id}`);
         
         // Handle UUID vs Integer ID
         const isUuid = id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+        console.log(`[ZATCA API] Detected as UUID: ${!!isUuid}`);
         
         const invoice = await prisma.invoice.findFirst({
             where: isUuid ? { uuid: id } : { id: parseInt(id) },
@@ -284,8 +286,11 @@ router.get('/invoices/:id', async (req, res) => {
         });
 
         if (!invoice) {
+            console.warn(`[ZATCA API] Invoice not found: ${id}`);
             return res.status(404).json({ error: 'Invoice not found' });
         }
+
+        console.log(`[ZATCA API] Successfully found invoice: ${invoice.invoice_number} (DB ID: ${invoice.id})`);
 
         res.json(mapInvoiceToFrontend(invoice));
     } catch (error: any) {
@@ -612,6 +617,7 @@ router.post('/invoice/report', async (req, res) => {
             }
         });
 
+        console.log(`[ZATCA API] Invoice saved to DB with ID: ${savedInvoice.id} and UUID: ${savedInvoice.uuid}`);
         res.json({ ...result, signedXml, qr, id: savedInvoice.id, uuid: savedInvoice.uuid });
     } catch (error: any) {
         console.error('Invoice Reporting Error:', error);

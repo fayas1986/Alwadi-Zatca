@@ -39,7 +39,6 @@ model company_group {
 model company {
   id              Int            @id @default(autoincrement())
   user_id         String
-  group_id        Int?
   vat_number      String         @unique(map: "companies_vat_number_unique")
   cr_number       String
   registered_name String
@@ -49,6 +48,7 @@ model company {
   city            String?
   country         String?        @default("SA")
   created_at      DateTime?      @default(now()) @db.Timestamp(6)
+  group_id        Int?
   settings        Json?          @default("{}")
   certificates    certificate[]
   group           company_group? @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "companies_group_id_groups_id_fk")
@@ -78,18 +78,16 @@ model item {
   @@map("items")
 }
 
-
-
 model customer {
-  id         Int        @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   company_id Int
   name       String
   vat_number String?
   address    String?
   city       String?
   country    String?
-  created_at DateTime?  @default(now()) @db.Timestamp(6)
-  company    company    @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "customers_company_id_companies_id_fk")
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  company    company   @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "customers_company_id_companies_id_fk")
   invoices   invoice[]
 
   @@map("customers")
@@ -120,24 +118,41 @@ model invoice {
   @@map("invoices")
 }
 
+model user {
+  id           String    @id
+  email        String    @unique(map: "users_email_unique")
+  password     String    @default("password123")
+  name         String?
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  company_name String?
+  role         UserRole  @default(IT_ADMIN)
+  companies    company[]
+
+  @@map("users")
+}
+
+model audit_log {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timestamp   DateTime @default(now()) @db.Timestamp(6)
+  action      String
+  category    String
+  user        String
+  role        String
+  ip_address  String
+  details     String
+  status      String
+  resource_id String?
+  metadata    Json?    @default("{}")
+  hash        String?
+
+  @@map("audit_logs")
+}
+
 enum UserRole {
   IT_ADMIN
   FINANCE_ADMIN
   TAX_OFFICER
   SUPER_ADMIN
-}
-
-model user {
-  id           String      @id
-  email        String      @unique(map: "users_email_unique")
-  password     String      @default("password123") // Default for existing users
-  name         String?
-  created_at   DateTime?   @default(now()) @db.Timestamp(6)
-  company_name String?
-  role         UserRole    @default(IT_ADMIN)
-  companies    company[]
-
-  @@map("users")
 }
 
 enum environment {
@@ -160,21 +175,4 @@ enum invoice_type {
   B2B
   B2C
   SIMPLIFIED
-}
-
-model audit_log {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  timestamp   DateTime @default(now()) @db.Timestamp(6)
-  action      String
-  category    String   // Security, Operational, Compliance, System
-  user        String
-  role        String
-  ip_address  String
-  details     String
-  status      String   // Success, Failure, Warning
-  resource_id String?
-  metadata    Json?    @default("{}")
-  hash        String?
-
-  @@map("audit_logs")
 }
