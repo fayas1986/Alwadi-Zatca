@@ -3,6 +3,7 @@ import { generateCSR, signInvoice } from '../services/sdkService.js';
 import { onboardCompliance, requestProductionCSID, reportInvoice, clearInvoice, checkCompliance, renewProductionCSID } from '../services/zatcaService.js';
 import { generateInvoiceXML } from '../services/xmlService.js';
 import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import { encrypt, decrypt } from '../utils/crypto.js';
 import crypto from 'crypto';
 import fs from 'fs';

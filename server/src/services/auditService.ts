@@ -1,8 +1,6 @@
 
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
-
-const prisma = new PrismaClient();
 
 export interface AuditLogParams {
     action: string;
