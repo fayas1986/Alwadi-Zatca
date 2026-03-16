@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2, Save, Send, RefreshCw, Calculator, FileText, User, MapPin, Tag, Box, AlertTriangle, CheckCircle, ArrowRight, Calendar, CreditCard, FileMinus, FilePlus, Search, Link as LinkIcon, Percent, QrCode, X, Users, AlertCircle, MonitorSmartphone } from 'lucide-react';
-import { Invoice, InvoiceItem, InvoiceSubtype, Party, DocumentType, Item } from '../types';
+import { Invoice, InvoiceItem, InvoiceSubtype, Party, DocumentType, Item, Branch, Organization } from '../types';
 import { createInternalInvoice, getInvoiceById, mockInvoices, defaultSupplier } from '../services/mockData';
 import { computeSHA256, mockSign, generateZatcaQR } from '../services/crypto';
 import { reportInvoice } from '../services/api';
@@ -28,9 +28,11 @@ const InputField = ({ label, value, onChange, placeholder, error, required = fal
 interface InvoiceGeneratorProps {
     onNavigate: (route: string, id?: string) => void;
     referenceInvoiceId?: string | null;
+    selectedBranch: Branch | null;
+    organizations: Organization[];
 }
 
-export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, referenceInvoiceId }) => {
+export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, referenceInvoiceId, selectedBranch, organizations }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [invoiceType, setInvoiceType] = useState<InvoiceSubtype>('Standard');
     const [documentType, setDocumentType] = useState<DocumentType>('Invoice');
@@ -102,14 +104,15 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
         }
         
         // Fetch items for selection
-        fetchAvailableItems();
-    }, [referenceInvoiceId]);
+        if (selectedBranch) {
+            fetchAvailableItems();
+        }
+    }, [referenceInvoiceId, selectedBranch]);
 
     const fetchAvailableItems = async () => {
+        if (!selectedBranch) return;
         try {
-            // Using a fallback or the correct property if available on the supplier
-            const companyId = (defaultSupplier as any).organizationId || 'default-org';
-            const data = await getItems(companyId);
+            const data = await getItems(selectedBranch.organizationId);
             setAvailableItems(data);
         } catch (error) {
             console.error('Error fetching items for invoice:', error);
@@ -301,7 +304,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
         try {
             const payload: Partial<Invoice> = {
                 id: crypto.randomUUID(),
-                branchId: 'br-001', // Default to first branch; can be extended with branch selector
+                branchId: selectedBranch?.id || 'br-001', 
                 invoiceNumber: `INV-${Date.now()}`,
                 issueDate: new Date().toISOString(),
                 invoiceSubtype: invoiceType,
@@ -309,7 +312,13 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
                 billingReference: referenceId,
                 instructionNote: instructionNote,
                 customer: customer,
-                supplier: defaultSupplier,
+                supplier: selectedBranch ? {
+                    organizationId: selectedBranch.organizationId,
+                    name: selectedBranch.name,
+                    vatNumber: (organizations.find(o => o.id === selectedBranch.organizationId) as any)?.vatNumber || defaultSupplier.vatNumber,
+                    crNumber: (organizations.find(o => o.id === selectedBranch.organizationId) as any)?.crNumber || defaultSupplier.crNumber,
+                    address: selectedBranch.address
+                } : defaultSupplier,
                 supplyDate: supplyDate,
                 paymentMeansCode: paymentMeans,
                 paymentTerms: paymentTerms,
@@ -626,10 +635,10 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
                         <div className="hidden md:flex items-center gap-4 px-4 py-3 bg-slate-50 rounded-lg border border-slate-100 text-sm font-bold text-slate-600 uppercase tracking-wide mb-4">
                             <div className="w-12 text-center">#</div>
                             <div className="flex-1">Description</div>
-                            <div className="w-20 text-right">Qty</div>
-                            <div className="w-28 text-right">Price</div>
-                            <div className="w-40 text-center">VAT Cat</div>
-                            <div className="w-28 text-right">Total</div>
+                            <div className="w-16 text-right">Qty</div>
+                            <div className="w-24 text-right">Price</div>
+                            <div className="w-36 text-center">VAT Cat</div>
+                            <div className="w-24 text-right">Total</div>
                             <div className="w-10"></div>
                         </div>
 
@@ -676,8 +685,8 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
 
                                         {/* Item Selector Popup */}
                                         {showItemSelector.show && showItemSelector.itemId === item.id && (
-                                            <div className="absolute z-20 top-full left-0 mt-2 w-full min-w-[300px] md:min-w-[400px] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
-                                                <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                                            <div className="absolute z-20 top-full left-0 mt-2 w-full min-w-[300px] md:min-w-[400px] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200 ring-1 ring-slate-900/5">
+                                                <div className="p-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
                                                     <div className="relative flex-1">
                                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                                                         <input
@@ -731,7 +740,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
                                     {/* Inputs Container for Desktop Alignment */}
 
                                     {/* Qty */}
-                                    <div className="w-full md:w-20">
+                                    <div className="w-full md:w-16">
                                         <label className="md:hidden text-xs font-bold text-slate-500 mb-1 block">Qty</label>
                                         <input
                                             type="number"
@@ -744,7 +753,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
                                     </div>
 
                                     {/* Price */}
-                                    <div className="w-full md:w-28">
+                                    <div className="w-full md:w-24">
                                         <label className="md:hidden text-xs font-bold text-slate-500 mb-1 block">Price</label>
                                         <input
                                             type="number"
@@ -756,7 +765,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
                                     </div>
 
                                     {/* VAT Category */}
-                                    <div className="w-full md:w-40">
+                                    <div className="w-full md:w-36">
                                         <label className="md:hidden text-xs font-bold text-slate-500 mb-1 block">VAT</label>
                                         <select
                                             className="w-full px-2 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-xs font-medium text-slate-900 transition-all cursor-pointer"
@@ -771,7 +780,7 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
                                     </div>
 
                                     {/* Total Display */}
-                                    <div className="w-full md:w-28 flex justify-between md:block items-center mt-1 md:mt-0">
+                                    <div className="w-full md:w-24 flex justify-between md:block items-center mt-1 md:mt-0">
                                         <label className="md:hidden text-xs font-bold text-slate-500">Line Total</label>
                                         <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-right font-mono text-slate-800 font-bold">
                                             {Number(item.total).toFixed(2)}
@@ -879,14 +888,15 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
 
             {/* QR Preview Modal */}
             {showQrModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md transition-all">
-                    <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden animate-in zoom-in duration-200 border border-slate-100">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <h3 className="font-bold text-slate-900 text-lg flex items-center">
-                                <QrCode size={20} className="mr-2.5 text-indigo-600" /> ZATCA QR Preview
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md transition-all">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden animate-in zoom-in duration-200 border border-slate-200 relative">
+                        <div className="h-1.5 w-full bg-slate-900 absolute top-0 left-0"></div>
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
+                            <h3 className="font-bold text-slate-900 text-2xl flex items-center">
+                                <QrCode size={24} className="mr-3 text-indigo-600" /> Preview
                             </h3>
                             <button onClick={() => setShowQrModal(false)} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-full transition-colors">
-                                <X size={22} />
+                                <X size={24} />
                             </button>
                         </div>
                         <div className="p-8 flex flex-col items-center">

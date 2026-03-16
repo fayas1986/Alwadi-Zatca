@@ -35,6 +35,7 @@ export interface Branch {
 }
 
 export interface Party {
+  organizationId?: string; // Optional: Link to internal organization
   name: string;
   vatNumber: string; // BT-31
   crNumber: string;  // Commercial Registration

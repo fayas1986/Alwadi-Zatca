@@ -161,12 +161,16 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 let result;
                 
                 // Mock Reporting if using mock credentials
-                if (hash === 'mock-hash-123') {
+                const isMock = certPem.startsWith('MOCK_') || (cert?.csid?.startsWith('MOCK_'));
+
+                if (isMock || hash === 'mock-hash-123') {
+                     console.log(`[Integration] Mock certificate detected for ${inv.invoiceNumber}. Bypassing real ZATCA API.`);
                      result = {
                          reportingStatus: 'REPORTED',
                          clearanceStatus: 'CLEARED',
                          validationResults: [],
-                         message: 'Mock Reporting Success'
+                         message: 'Mock Reporting Success (Bypassed)',
+                         note: 'Simulated response for Mock Certificate'
                      };
                 } else {
                     if (inv.invoiceSubtype === 'Standard') {

@@ -28,7 +28,54 @@ const FALLBACK_USERS: Record<string, { id: string; email: string; password: stri
 };
 
 
-// POST /api/auth/login
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: User Login
+ *     description: Authenticate a user with email and password. Supports both real DB and fallback users.
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: superadmin@tech-solutions.sa
+ *               password:
+ *                 type: string
+ *                 example: Zatca#Secure!2026@Connect
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 role:
+ *                   type: string
+ *                 companyName:
+ *                   type: string
+ *                 source:
+ *                   type: string
+ *       401:
+ *         description: Invalid credentials
+ *       500:
+ *         description: Internal server error
+ */
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;

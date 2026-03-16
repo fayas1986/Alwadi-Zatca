@@ -14,6 +14,7 @@ import { Login } from './components/Login';
 import { XMLValidator } from './components/XMLValidator';
 import { CreateOrganizationModal } from './components/CreateOrganizationModal';
 import { UserManagement } from './components/UserManagement';
+import ApiDocs from './components/ApiDocs';
 import { UserRole, Branch, Organization } from './types';
 import { mockOrganizations, syncOfflineData } from './services/mockData';
 import { WifiOff, RefreshCw } from 'lucide-react';
@@ -235,7 +236,7 @@ const App: React.FC = () => {
         return <InvoiceList userRole={userRole} onSelectInvoice={(id) => navigate('invoice-detail', id)} onNavigate={navigate} selectedBranch={currentBranch} />;
       case 'create-invoice':
         // If coming from "Issue Credit Note" context, selectedInvoiceId acts as the Reference ID
-        return <InvoiceGenerator onNavigate={navigate} referenceInvoiceId={selectedInvoiceId} />;
+        return <InvoiceGenerator onNavigate={navigate} referenceInvoiceId={selectedInvoiceId} selectedBranch={currentBranch} organizations={organizations} />;
       case 'invoice-detail':
         return <InvoiceDetail userRole={userRole} invoiceId={selectedInvoiceId} onBack={() => navigate('invoices')} />;
       case 'items':
@@ -257,6 +258,8 @@ const App: React.FC = () => {
             onRefresh={fetchOrganizations}
           />
         );
+      case 'api-docs':
+        return <ApiDocs />;
       default:
         return <Dashboard onNavigate={navigate} selectedBranch={currentBranch} />;
     }

@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
-import { mockInvoices, submitInvoiceToZatca, generateInvoiceXML } from '../services/mockData';
+import React, { useState, useEffect, useMemo } from 'react';
+import { submitInvoiceToZatca, generateInvoiceXML } from '../services/mockData';
 import { Search, Filter, Eye, Download, RefreshCw, ChevronLeft, ChevronRight, FileDown, MoreHorizontal, Loader2, ShieldCheck, ShieldAlert, Lock, Tag, FileMinus, FilePlus, FileText, CheckCircle, ChevronDown, ArrowUpRight, Calendar } from 'lucide-react';
 import { InvoiceStatus, Invoice, UserRole, Branch } from '../types';
 import { useToast } from './Toast';
+import { getInvoices } from '../services/api';
 
 interface InvoiceListProps {
   onSelectInvoice: (id: string) => void;
@@ -25,34 +26,38 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
 
   const [currentPage, setCurrentPage] = useState(1);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [localInvoices, setLocalInvoices] = useState(mockInvoices);
+  const [isLoading, setIsLoading] = useState(false);
+  const [localInvoices, setLocalInvoices] = useState<Invoice[]>([]);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const itemsPerPage = 8; 
 
-  // Reset page when branch changes
   useEffect(() => {
-      setCurrentPage(1);
+    if (selectedBranch) {
+        fetchInvoices();
+    }
   }, [selectedBranch]);
 
-  // Sync when mockInvoices array reference or length changes
-  useEffect(() => {
-    setLocalInvoices([...mockInvoices]);
-  }, [mockInvoices.length]);
+  const fetchInvoices = async () => {
+      if (!selectedBranch) return;
+      setIsLoading(true);
+      try {
+          const data = await getInvoices(selectedBranch.organizationId);
+          setLocalInvoices(data);
+      } catch (error) {
+          console.error('Error fetching invoices:', error);
+          addToast('error', 'Failed to fetch invoices');
+      } finally {
+          setIsLoading(false);
+      }
+  };
 
-  // Listen for new invoices added by InvoiceGenerator
+  // Sync when branch changes
   useEffect(() => {
-    const handleInvoicesUpdated = () => {
-      setLocalInvoices([...mockInvoices]);
-    };
-    window.addEventListener('invoices-updated', handleInvoicesUpdated);
-    return () => window.removeEventListener('invoices-updated', handleInvoicesUpdated);
-  }, []);
+    setCurrentPage(1);
+  }, [selectedBranch]);
 
   const handleSync = async () => {
-    setIsSyncing(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setLocalInvoices([...mockInvoices]);
-    setIsSyncing(false);
+    await fetchInvoices();
     addToast('success', 'Invoices synced successfully');
   };
 
@@ -317,7 +322,16 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {currentInvoices.length > 0 ? (
+            {isLoading ? (
+                <tr>
+                    <td colSpan={7} className="px-6 py-24 text-center">
+                        <div className="flex flex-col items-center justify-center text-slate-400">
+                            <Loader2 className="animate-spin mb-4" size={32} />
+                            <p className="text-lg font-bold text-slate-700">Loading invoices...</p>
+                        </div>
+                    </td>
+                </tr>
+            ) : currentInvoices.length > 0 ? (
                 currentInvoices.map((inv) => (
                 <tr 
                     key={inv.id} 

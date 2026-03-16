@@ -25,33 +25,39 @@ export const XMLValidator: React.FC = () => {
         reader.readAsText(file);
     };
 
-    const validate = (xml: string) => {
-        // In a real scenario, this would parse the XML structure
-        // For now, we reuse the mock validation logic which expects an object, 
-        // so we'll simulate a "Mock Invoice" object derived from basic XML regex
-        
-        // Simulating extraction
-        const invoiceType = xml.includes('<cbc:InvoiceTypeCode>388</cbc:InvoiceTypeCode>') ? 'Invoice' : 'Credit Note';
-        const isSimplified = xml.includes('<cbc:InvoiceTypeCode name="0200000">') || xml.includes('0200000');
-        
-        // Mock Validation Call
-        const result = {
-            isValid: true,
-            errors: [] as string[],
-            warnings: [] as string[]
-        };
+    const validate = async (xml: string) => {
+        try {
+            setValidationResult({ isValid: true, errors: [], warnings: [], loading: true });
+            
+            const response = await fetch('/api/zatca/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ xml })
+            });
 
-        if (!xml.includes('Invoice')) {
-            result.isValid = false;
-            result.errors.push("Invalid XML Root. Expected <Invoice>");
+            const result = await response.json();
+            
+            if (result.success) {
+                setValidationResult({
+                    isValid: result.isValid,
+                    errors: result.errors || [],
+                    warnings: result.warnings || []
+                });
+            } else {
+                setValidationResult({
+                    isValid: false,
+                    errors: [result.error || 'Validation failed on server'],
+                    warnings: []
+                });
+            }
+        } catch (error: any) {
+            console.error('Validation Error:', error);
+            setValidationResult({
+                isValid: false,
+                errors: ['Network error while validating XML'],
+                warnings: []
+            });
         }
-        
-        if (!xml.includes('cac:AccountingSupplierParty')) {
-            result.isValid = false;
-            result.errors.push("Missing Supplier Party Information");
-        }
-
-        setValidationResult(result);
     };
 
     const handleDragOver = (e: React.DragEvent) => {

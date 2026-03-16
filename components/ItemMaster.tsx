@@ -43,6 +43,21 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch }) => {
 
     const handleSave = async () => {
         if (!selectedBranch) return;
+
+        // Explicit Validation
+        if (!currentItem.name?.trim()) {
+            alert('Item Name is required');
+            return;
+        }
+        if (currentItem.unitPrice === undefined || currentItem.unitPrice < 0) {
+            alert('Please enter a valid price (0 or greater)');
+            return;
+        }
+        if (currentItem.sku?.trim() === '') {
+            // Auto-generate SKU if empty
+            currentItem.sku = `ITEM-${Date.now()}`;
+        }
+
         setIsLoading(true);
         try {
             if (currentItem.id) {
@@ -55,9 +70,9 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch }) => {
             }
             setIsEditing(false);
             fetchItems();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving item:', error);
-            alert('Failed to save item');
+            alert(`Failed to save item: ${error.message || 'Unknown error'}`);
         } finally {
             setIsLoading(false);
         }
@@ -83,30 +98,54 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch }) => {
         reader.onload = async (e) => {
             const text = e.target?.result as string;
             try {
-                // Simple CSV parsing (assuming standard format: SKU,Name,Description,Price,UOM,TaxCategory)
-                const rows = text.split('\n').filter(row => row.trim());
+                // Robust CSV parsing using regex to handle quoted fields
+                // Matches values properly even if they contain commas inside quotes
+                const rows = text.split(/\r?\n/).filter(row => row.trim());
+                if (rows.length < 2) throw new Error('CSV file is empty or missing data rows');
+
                 const header = rows[0].split(',').map(h => h.trim().toLowerCase());
                 
-                const data = rows.slice(1).map(row => {
-                    const values = row.split(',').map(v => v.trim());
+                const parseCSVLine = (line: string) => {
+                    const pattern = /("([^"]|"")*"|[^,]*)(,|$)/g;
+                    const result = [];
+                    let match;
+                    while ((match = pattern.exec(line)) !== null && match[0] !== '') {
+                        let value = match[1];
+                        if (value.startsWith('"') && value.endsWith('"')) {
+                            value = value.substring(1, value.length - 1).replace(/""/g, '"');
+                        }
+                        result.push(value.trim());
+                        if (match[3] === '') break;
+                    }
+                    return result;
+                };
+
+                const data = rows.slice(1).map((row, rowIndex) => {
+                    const values = parseCSVLine(row);
                     const item: any = {};
                     header.forEach((key, index) => {
-                        if (key === 'price' || key === 'unitprice') item.unitPrice = Number(values[index]) || 0;
-                        else if (key === 'sku') item.sku = values[index];
-                        else if (key === 'name') item.name = values[index];
-                        else if (key === 'description') item.description = values[index];
-                        else if (key === 'uom' || key === 'unitofmeasure') item.unitOfMeasure = values[index];
-                        else if (key === 'taxcategory') item.taxCategory = values[index];
+                        const val = values[index];
+                        if (key === 'price' || key === 'unitprice') item.unitPrice = Number(val) || 0;
+                        else if (key === 'sku') item.sku = val;
+                        else if (key === 'name') item.name = val;
+                        else if (key === 'description') item.description = val;
+                        else if (key === 'uom' || key === 'unitofmeasure') item.unitOfMeasure = val;
+                        else if (key === 'taxcategory') item.taxCategory = (val || 'S').toUpperCase();
                     });
+
+                    // Validation per row
+                    if (!item.name) throw new Error(`Row ${rowIndex + 2}: Item Name is required`);
+                    if (isNaN(item.unitPrice)) throw new Error(`Row ${rowIndex + 2}: Invalid price for ${item.name}`);
+
                     return item;
                 });
 
                 await bulkCreateItems(data, selectedBranch.organizationId);
-                alert('Bulk upload successful!');
+                alert(`Successfully uploaded ${data.length} items!`);
                 fetchItems();
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Error parsing/uploading CSV:', error);
-                alert('Failed to process CSV file. Please ensure it follows the correct format.');
+                alert(`Failed to process CSV: ${error.message}`);
             } finally {
                 setIsLoading(false);
             }
@@ -116,8 +155,9 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch }) => {
 
     const downloadTemplate = () => {
         const headers = 'SKU,Name,Description,Price,UOM,TaxCategory\n';
-        const sampleRow = 'ITEM-001,Premium Widget,High-quality widget,50.00,each,S\n';
-        const blob = new Blob([headers + sampleRow], { type: 'text/csv' });
+        const sampleRow1 = 'ITEM-001,Premium Widget,High-quality widget,50.00,each,S\n';
+        const sampleRow2 = 'ITEM-002,"Special Service, Standard Tier","Consulting, integration and support",150.00,hour,S\n';
+        const blob = new Blob([headers + sampleRow1 + sampleRow2], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -255,14 +295,15 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch }) => {
             {/* Edit Modal */}
             {isEditing && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-                    <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in duration-200">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <h3 className="font-bold text-slate-900 text-lg flex items-center">
-                                <Box size={20} className="mr-2.5 text-indigo-600" /> 
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in duration-200 border border-slate-200 relative">
+                        <div className="h-1.5 w-full bg-slate-900 absolute top-0 left-0"></div>
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
+                            <h3 className="font-bold text-slate-900 text-2xl flex items-center">
+                                <Box size={24} className="mr-3 text-indigo-600" /> 
                                 {currentItem.id ? 'Edit Item' : 'Add New Item'}
                             </h3>
                             <button onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-full transition-colors">
-                                <X size={22} />
+                                <X size={26} />
                             </button>
                         </div>
                         <div className="p-8 space-y-6">

@@ -1,19 +1,38 @@
-
-import React, { useState, useMemo } from 'react';
-import { mockCertificates, complianceChecks, defaultSupplier } from '../services/mockData';
+import React, { useState, useMemo, useEffect } from 'react';
+import { complianceChecks, defaultSupplier } from '../services/mockData';
 import { Plus, RefreshCw, X, AlertTriangle, Loader2, CheckCircle, ArrowRight, ShieldCheck, Activity, KeyRound, Info, FileText, ChevronDown, List, MoreHorizontal, Heart, MessageSquare, Server, Copy, Calendar, Download, Trash2, Eye, Filter, Tag } from 'lucide-react';
 import { Certificate, Branch } from '../types';
-import { onboardSolution } from '../services/api';
+import { onboardSolution, getCertificates } from '../services/api';
 
 interface CertificateManagerProps {
     selectedBranch?: Branch | null;
 }
 
 export const CertificateManager: React.FC<CertificateManagerProps> = ({ selectedBranch }) => {
-    const [certificates, setCertificates] = useState<Certificate[]>(mockCertificates);
+    const [certificates, setCertificates] = useState<Certificate[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
     const [isWizardOpen, setIsWizardOpen] = useState(false);
     const [wizardStep, setWizardStep] = useState(1);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    // Fetch Certificates
+    useEffect(() => {
+        const fetchCertificates = async () => {
+            if (!selectedBranch?.organizationId) return;
+            
+            setIsLoading(true);
+            try {
+                const data = await getCertificates(selectedBranch.organizationId);
+                setCertificates(data);
+            } catch (error) {
+                console.error('Error fetching certificates:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchCertificates();
+    }, [selectedBranch]);
 
     // Refactored to use ID for selection to ensure data reactivity
     const [viewingCertId, setViewingCertId] = useState<string | null>(null);
@@ -543,15 +562,16 @@ Environment: ${cert.type}
                     <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity" onClick={() => setViewingCertId(null)} />
                     <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                         {/* Drawer Header */}
-                        <div className="p-6 border-b border-slate-100 flex items-start justify-between bg-slate-50">
-                            <div>
+                        <div className="p-6 border-b border-slate-200 flex items-start justify-between bg-white relative">
+                            <div className="h-1.5 w-full bg-indigo-600 absolute top-0 left-0"></div>
+                            <div className="pt-2">
                                 <div className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border mb-2 ${selectedCert.type === 'Production' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
                                     selectedCert.type === 'Simulation' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' :
                                         'bg-amber-100 text-amber-700 border-amber-200'
                                     }`}>
                                     {selectedCert.type} Portal
                                 </div>
-                                <h3 className="text-xl font-bold text-slate-900 break-all">{selectedCert.commonName}</h3>
+                                <h3 className="text-2xl font-bold text-slate-900 break-all">{selectedCert.commonName}</h3>
                                 <p className="text-xs font-mono text-slate-500 mt-1">ID: {selectedCert.id}</p>
                             </div>
                             <button onClick={() => setViewingCertId(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-600">
@@ -583,7 +603,7 @@ Environment: ${cert.type}
 
                             {/* Validity Section */}
                             <div>
-                                <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center">
+                                <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center">
                                     <Calendar size={16} className="mr-2 text-indigo-500" /> Validity Period
                                 </h4>
                                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
@@ -622,7 +642,7 @@ Environment: ${cert.type}
 
                             {/* Public Key */}
                             <div>
-                                <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center justify-between">
+                                <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
                                     <span className="flex items-center"><KeyRound size={16} className="mr-2 text-indigo-500" /> Public Key</span>
                                     <button
                                         onClick={() => navigator.clipboard.writeText(selectedCert.publicKey || '')}
@@ -666,13 +686,14 @@ Environment: ${cert.type}
 
             {/* --- ONBOARDING WIZARD MODAL --- */}
             {isWizardOpen && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 relative">
                         {/* Wizard Header */}
-                        <div className="px-8 py-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                        <div className="px-8 py-8 border-b border-slate-200 bg-white flex justify-between items-center relative">
+                            <div className="h-1.5 w-full bg-indigo-600 absolute top-0 left-0"></div>
                             <div>
-                                <h2 className="text-xl font-bold text-slate-900">Onboard Solution Unit</h2>
-                                <div className="flex items-center space-x-2 text-sm text-slate-500 mt-1">
+                                <h2 className="text-2xl font-bold text-slate-900">Onboard Solution Unit</h2>
+                                <div className="flex items-center space-x-2 text-sm text-slate-600 mt-2">
                                     <span className={wizardStep === 1 ? 'text-indigo-600 font-bold' : ''}>1. Config</span>
                                     <span className="text-slate-300">/</span>
                                     <span className={wizardStep === 2 ? 'text-indigo-600 font-bold' : ''}>2. Auth</span>
@@ -705,7 +726,7 @@ Environment: ${cert.type}
 
                                     <div className="grid grid-cols-2 gap-5">
                                         <div className="col-span-2">
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center">
+                                            <label className="block text-sm font-bold text-slate-800 mb-1.5 flex items-center">
                                                 <Server size={16} className="mr-1.5 text-indigo-500" />
                                                 Target Environment
                                             </label>
@@ -729,7 +750,7 @@ Environment: ${cert.type}
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">VAT Number</label>
+                                            <label className="block text-sm font-bold text-slate-800 mb-1.5">VAT Number</label>
                                             <input
                                                 type="text"
                                                 placeholder="3000XXXXXXXXXXX"
@@ -740,7 +761,7 @@ Environment: ${cert.type}
                                             <p className="text-xs text-slate-400 mt-1">Must match the VAT registered in ZATCA portal</p>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Common Name (CN)</label>
+                                            <label className="block text-sm font-bold text-slate-800 mb-1.5">Common Name (CN)</label>
                                             <input
                                                 type="text"
                                                 placeholder="TS-RYD-001"
@@ -750,7 +771,7 @@ Environment: ${cert.type}
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Serial Number</label>
+                                            <label className="block text-sm font-bold text-slate-800 mb-1.5">Serial Number</label>
                                             <input
                                                 type="text"
                                                 placeholder="EGS-123456789"
@@ -760,7 +781,7 @@ Environment: ${cert.type}
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Organization</label>
+                                            <label className="block text-sm font-bold text-slate-800 mb-1.5">Organization</label>
                                             <input
                                                 type="text"
                                                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-500 cursor-not-allowed"
@@ -769,7 +790,7 @@ Environment: ${cert.type}
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Org Unit</label>
+                                            <label className="block text-sm font-bold text-slate-800 mb-1.5">Org Unit</label>
                                             <input
                                                 type="text"
                                                 className="w-full px-4 py-2.5 bg-white text-slate-900 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"

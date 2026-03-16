@@ -1,9 +1,9 @@
-
-import React, { useState } from 'react';
-import { mockERPs, mockCertificates, submitInvoiceFromERP } from '../services/mockData';
-import { ERPSystem, Branch } from '../types';
+import React, { useState, useEffect } from 'react';
+import { mockERPs, submitInvoiceFromERP } from '../services/mockData';
+import { ERPSystem, Branch, Certificate } from '../types';
 import { Plus, Server, Database, Cloud, Plug, MoreVertical, Wifi, WifiOff, Copy, Check, RefreshCw, Trash2, Key, ShieldCheck, X, Terminal, Play, Code, MonitorSmartphone, LayoutTemplate } from 'lucide-react';
 import { useToast } from './Toast';
+import { getCertificates } from '../services/api';
 
 interface ERPConnectorsProps {
     selectedBranch?: Branch | null;
@@ -12,9 +12,24 @@ interface ERPConnectorsProps {
 export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) => {
   const { addToast } = useToast();
   const [erps, setErps] = useState<ERPSystem[]>(mockERPs);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'management' | 'simulator'>('management');
+
+  // Fetch Certificates
+  useEffect(() => {
+    const fetchCerts = async () => {
+      if (!selectedBranch?.organizationId) return;
+      try {
+        const data = await getCertificates(selectedBranch.organizationId);
+        setCertificates(data);
+      } catch (error) {
+        console.error('Error fetching certificates for ERP:', error);
+      }
+    };
+    fetchCerts();
+  }, [selectedBranch]);
   
   // Simulator State
   const [simApiKey, setSimApiKey] = useState('sap_prod_8x7d6f5e4w3q2a1s');
@@ -98,7 +113,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
     if (!erp) return;
 
     try {
-        const response = await fetch('http://localhost:3001/api/erp/sync', {
+        const response = await fetch('/api/erp/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -200,7 +215,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
       setSimResponse(null);
       try {
           const payload = JSON.parse(simPayload);
-          const response = await fetch('http://localhost:3001/api/erp/invoices/submit', {
+          const response = await fetch('/api/erp/invoices/submit', {
               method: 'POST',
               headers: { 
                   'Content-Type': 'application/json',
@@ -231,7 +246,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
             syncInterval: 30
         };
 
-        const response = await fetch('http://localhost:3001/api/erp/config', {
+        const response = await fetch('/api/erp/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -286,7 +301,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
   // NOTE: In a real app, ERPSystem would have `organizationId`. We will filter by the linked certificate branch if available.
   const filteredErps = erps.filter(erp => {
       if (!selectedBranch) return true;
-      const linkedCert = mockCertificates.find(c => c.id === erp.linkedCertificateId);
+      const linkedCert = certificates.find(c => c.id === erp.linkedCertificateId);
       // Show if linked cert belongs to this branch OR if no cert is linked (generic connector)
       return !linkedCert || linkedCert.branchId === selectedBranch.id;
   });
@@ -340,7 +355,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredErps.map(erp => {
-            const linkedCert = mockCertificates.find(c => c.id === erp.linkedCertificateId);
+            const linkedCert = certificates.find(c => c.id === erp.linkedCertificateId);
 
             return (
                 <div key={erp.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow relative overflow-hidden group">
@@ -551,18 +566,19 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-100">
-             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <h3 className="font-bold text-lg text-slate-900">Onboard New System</h3>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md transition-opacity">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-200 relative">
+             <div className="h-1.5 w-full bg-slate-900 absolute top-0 left-0"></div>
+             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
+                <h3 className="font-bold text-2xl text-slate-900">Onboard New System</h3>
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors">
                     <X size={20} />
                 </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">System Name</label>
+                  <label className="block text-sm font-bold text-slate-800 mb-1.5">System Name</label>
                   <input 
                     required
                     type="text" 
@@ -575,7 +591,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Vendor Type</label>
+                        <label className="block text-sm font-bold text-slate-800 mb-1.5">Vendor Type</label>
                         <select 
                             className={inputClass}
                             value={newERP.vendor}
@@ -590,7 +606,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Environment</label>
+                        <label className="block text-sm font-bold text-slate-800 mb-1.5">Environment</label>
                         <select 
                             className={inputClass}
                             value={newERP.environment}
@@ -605,7 +621,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
                 {newERP.vendor === 'Custom' && (
                     <div className="space-y-4 border-l-2 border-indigo-100 pl-4">
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Source URL</label>
+                            <label className="block text-sm font-bold text-slate-800 mb-1.5">Source URL</label>
                             <input 
                                 type="url" 
                                 placeholder="http://your-erp/api/invoices"
@@ -615,7 +631,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Auth Header</label>
+                            <label className="block text-sm font-bold text-slate-800 mb-1.5">Auth Header</label>
                             <input 
                                 type="text" 
                                 placeholder="Bearer token123..."
@@ -628,14 +644,14 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
                 )}
 
                 <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Link ZATCA Certificate (CSID)</label>
+                    <label className="block text-sm font-bold text-slate-800 mb-1.5">Link ZATCA Certificate (CSID)</label>
                     <select 
                         className={inputClass}
                         value={newERP.linkedCertificateId}
                         onChange={e => setNewERP({...newERP, linkedCertificateId: e.target.value})}
                     >
                         <option value="">-- Select Active Certificate --</option>
-                        {mockCertificates.filter(c => c.status === 'Active' && (!selectedBranch || c.branchId === selectedBranch.id)).map(cert => (
+                        {certificates.filter(c => c.status === 'Active' && (!selectedBranch || c.branchId === selectedBranch.id)).map(cert => (
                             <option key={cert.id} value={cert.id}>
                                 {cert.commonName} ({cert.type})
                             </option>

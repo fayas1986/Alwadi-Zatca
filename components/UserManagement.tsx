@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserRole } from '../types';
-import { User, Plus, Key, Search, Mail, Building, Loader2, Trash2, Eye, EyeOff } from 'lucide-react';
+import { User, Plus, Key, Search, Mail, Building, Loader2, Trash2, Eye, EyeOff, X } from 'lucide-react';
 import { useToast } from './Toast';
 
 interface UserData {
@@ -253,17 +253,18 @@ export const UserManagement: React.FC<UserManagementProps> = ({ userRole, userNa
 
       {/* Create User Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-bold text-lg text-slate-900">Create New User</h3>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                &times;
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 relative">
+            <div className="h-1.5 w-full bg-slate-900 absolute top-0 left-0"></div>
+            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white">
+              <h3 className="font-bold text-2xl text-slate-900">Create New User</h3>
+              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-full transition-colors font-bold text-xl">
+                <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleCreateUser} className="p-6 space-y-4">
+            <form onSubmit={handleCreateUser} className="p-8 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Full Name</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">Full Name</label>
                 <input 
                   type="text" 
                   required
@@ -302,7 +303,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ userRole, userNa
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Role</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">Role</label>
                 <select 
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   value={formData.role}
@@ -315,10 +316,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ userRole, userNa
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Company Name (Optional)</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">Company Name (Optional)</label>
                 <input 
                   type="text" 
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   value={formData.companyName}
                   onChange={e => setFormData({...formData, companyName: e.target.value})}
                   placeholder="e.g. Tech Solutions Ltd"
@@ -346,15 +347,16 @@ export const UserManagement: React.FC<UserManagementProps> = ({ userRole, userNa
 
       {/* Reset Password Modal */}
       {isResetModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100">
-              <h3 className="font-bold text-lg text-slate-900">Reset Password</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 relative">
+            <div className="h-1.5 w-full bg-rose-600 absolute top-0 left-0"></div>
+            <div className="px-8 py-6 border-b border-slate-100 bg-white">
+              <h3 className="font-bold text-2xl text-slate-900">Reset Password</h3>
               <p className="text-xs text-slate-500 mt-1">For {selectedUser.email}</p>
             </div>
-            <form onSubmit={handleResetPassword} className="p-6 space-y-4">
+            <form onSubmit={handleResetPassword} className="p-8 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">New Password</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">New Password</label>
                 <div className="relative">
                   <input 
                     type={showResetPassword ? "text" : "password"} 

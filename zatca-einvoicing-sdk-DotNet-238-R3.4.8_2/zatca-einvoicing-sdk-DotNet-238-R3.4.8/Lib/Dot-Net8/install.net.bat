@@ -1,3 +1,0 @@
-@echo off
-SET FATOORAH_HOME=%cd%
-SETX PATH "%FATOORAH_HOME%\Test\;%PATH%"

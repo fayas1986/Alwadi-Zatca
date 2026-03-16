@@ -102,6 +102,7 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'certificates', label: 'CSR Settings', icon: ShieldCheck, roles: ['IT_ADMIN'] },
     { id: 'erp-connectors', label: 'ERP Connectors', icon: Plug, roles: ['IT_ADMIN'] },
     { id: 'audit', label: 'Audit Log', icon: Activity, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER', 'SUPER_ADMIN'] },
+    { id: 'api-docs', label: 'API Docs', icon: Code, roles: ['SUPER_ADMIN'] },
   ];
 
   const filteredNavItems = navItems.filter(item => item.roles.includes(userRole));

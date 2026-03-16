@@ -16,7 +16,32 @@ const requireSuperAdmin = (req: any, res: any, next: any) => {
     next();
 };
 
-// GET /api/admin/groups - List all company groups
+const requireAnyAdmin = (req: any, res: any, next: any) => {
+    const userRole = req.headers['x-user-role'];
+    const allowedRoles = ['SUPER_ADMIN', 'IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER'];
+    if (!allowedRoles.includes(userRole)) {
+        return res.status(403).json({ error: 'Access Denied: Unauthorized role' });
+    }
+    next();
+};
+
+/**
+ * @swagger
+ * /api/admin/groups:
+ *   get:
+ *     summary: List all company groups
+ *     tags: [Admin - Groups]
+ *     parameters:
+ *       - in: header
+ *         name: x-user-role
+ *         required: true
+ *         schema:
+ *           type: string
+ *           default: SUPER_ADMIN
+ *     responses:
+ *       200:
+ *         description: List of groups
+ */
 router.get('/groups', requireSuperAdmin, async (req, res) => {
     try {
         const groups = await prisma.company_group.findMany({
@@ -75,8 +100,27 @@ router.delete('/groups/:id', requireSuperAdmin, async (req, res) => {
 });
 
 
-// GET /api/admin/companies - List all companies
-router.get('/companies', requireSuperAdmin, async (req, res) => {
+/**
+ * @swagger
+ * /api/admin/companies:
+ *   get:
+ *     summary: List all companies
+ *     description: Retrieve a list of all companies with their associated users, certificates, and groups.
+ *     tags: [Admin - Companies]
+ *     parameters:
+ *       - in: header
+ *         name: x-user-role
+ *         required: true
+ *         schema:
+ *           type: string
+ *           default: SUPER_ADMIN
+ *     responses:
+ *       200:
+ *         description: List of companies
+ *       403:
+ *         description: Access Denied
+ */
+router.get('/companies', requireAnyAdmin, async (req, res) => {
     try {
         const companies = await prisma.company.findMany({
             include: {
@@ -117,7 +161,42 @@ router.get('/companies', requireSuperAdmin, async (req, res) => {
     }
 });
 
-// POST /api/admin/companies - Create new company
+/**
+ * @swagger
+ * /api/admin/companies:
+ *   post:
+ *     summary: Create a new company
+ *     description: Register a new company and assign it to a group if provided.
+ *     tags: [Admin - Companies]
+ *     parameters:
+ *       - in: header
+ *         name: x-user-role
+ *         required: true
+ *         schema:
+ *           type: string
+ *           default: SUPER_ADMIN
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, vatNumber]
+ *             properties:
+ *               name: { type: string }
+ *               vatNumber: { type: string }
+ *               crNumber: { type: string }
+ *               branchName: { type: string }
+ *               address: { type: string }
+ *               city: { type: string }
+ *               country: { type: string }
+ *               groupId: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Company created successfully
+ *       500:
+ *         description: Failed to create company
+ */
 router.post('/companies', requireSuperAdmin, async (req, res) => {
     try {
         const { name, vatNumber, crNumber, branchName, address, city, country, groupId } = req.body;
@@ -252,7 +331,23 @@ router.delete('/companies/:id', requireSuperAdmin, async (req, res) => {
     }
 });
 
-// GET /api/admin/users - List all users
+/**
+ * @swagger
+ * /api/admin/users:
+ *   get:
+ *     summary: List all users
+ *     tags: [Admin - Users]
+ *     parameters:
+ *       - in: header
+ *         name: x-user-role
+ *         required: true
+ *         schema:
+ *           type: string
+ *           default: SUPER_ADMIN
+ *     responses:
+ *       200:
+ *         description: List of users
+ */
 router.get('/users', requireSuperAdmin, async (req, res) => {
     try {
         const users = await prisma.user.findMany({

@@ -75,26 +75,54 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
 
   const checkAllEnvironments = useCallback(async (showRefresh = false) => {
     if (showRefresh) setIsRefreshing(true);
-    setEnvStatus(prev => {
-      const next = { ...prev };
-      ENV_KEYS.forEach(k => { next[k] = { ...prev[k], state: 'checking' }; });
-      return next;
-    });
+    
+    // Only set to 'checking' if it's a manual refresh or first load
+    if (showRefresh) {
+        setEnvStatus(prev => {
+          const next = { ...prev };
+          ENV_KEYS.forEach(k => { next[k] = { ...prev[k], state: 'checking' }; });
+          return next;
+        });
+    }
+
     await Promise.all(ENV_KEYS.map(async (env) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
       try {
-        const r = await fetch(`/api/zatca/ping/${env}`);
+        console.log(`[ZATCA-Status] Pinging ${env}...`);
+        const r = await fetch(`/api/zatca/ping/${env}`, { 
+            signal: controller.signal,
+            headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' }
+        });
+        clearTimeout(timeoutId);
+        
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
+        
+        console.log(`[ZATCA-Status] ${env} result:`, data);
         setEnvStatus(prev => ({
           ...prev,
           [env]: {
-            state: data.online ? 'online' : 'online', // Simple ping check
+            state: data.online ? 'online' : 'offline',
             latencyMs: data.latencyMs ?? null,
             statusCode: data.statusCode ?? null,
             checkedAt: data.checkedAt ?? new Date().toISOString(),
           }
         }));
-      } catch {
-        // ...
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        const errorMsg = error.name === 'AbortError' ? 'Timeout' : error.message;
+        console.error(`[ZATCA-Status] ${env} failed:`, errorMsg);
+        setEnvStatus(prev => ({
+          ...prev,
+          [env]: {
+            state: 'offline',
+            latencyMs: null,
+            statusCode: null,
+            checkedAt: new Date().toISOString(),
+          }
+        }));
       }
     }));
     if (showRefresh) setIsRefreshing(false);
