@@ -64,10 +64,13 @@ export default async (req: any, res: any) => {
     const { default: app } = await import('../server/src/index.js');
     return app(req, res);
   } catch (error: any) {
+    console.error("Vercel Full App Boot Crash:", error);
     return res.status(500).json({
       error: "Vercel Full App Boot Crash",
       message: error.message,
-      stack: error.stack
+      stack: error.stack,
+      node_version: process.version,
+      cwd: process.cwd()
     });
   }
 };

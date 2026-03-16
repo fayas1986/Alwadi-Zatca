@@ -3,23 +3,42 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { promisify } from 'util';
+import { fileURLToPath } from 'url';
 
 const execAsync = promisify(exec);
 
-const SDK_PATH = process.env.ZATCA_SDK_PATH || '';
-
-if (!SDK_PATH) {
-    console.warn("ZATCA_SDK_PATH is not set in .env");
-}
-
-const getSdkBaseCommand = () => {
-    if (SDK_PATH.toLowerCase().endsWith('.jar')) {
-        return `java -jar "${SDK_PATH}"`;
+const getSDKSettings = () => {
+    const sdkPath = process.env.ZATCA_SDK_PATH || '';
+    const javaExe = process.env.JAVA_EXE_PATH || 'java';
+    
+    if (!sdkPath) {
+        console.warn("ZATCA_SDK_PATH is not set in .env");
     }
-    return `"${SDK_PATH}"`;
+    
+    return { sdkPath, javaExe };
 };
 
-const TEMP_DIR = os.tmpdir();
+const getSdkBaseCommand = () => {
+    const { sdkPath, javaExe } = getSDKSettings();
+    if (sdkPath.toLowerCase().endsWith('.jar')) {
+        return `"${javaExe}" -jar "${sdkPath}"`;
+    }
+    return `"${sdkPath}"`;
+};
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Move TEMP_DIR to /tmp for Vercel compatibility (only writable area)
+const TEMP_DIR = path.join(os.tmpdir(), 'zatca-temp');
+
+if (!fs.existsSync(TEMP_DIR)) {
+    try {
+        fs.mkdirSync(TEMP_DIR, { recursive: true });
+    } catch (err) {
+        console.error(`Failed to create TEMP_DIR: ${TEMP_DIR}`, err);
+    }
+}
 
 const writeTempFile = (filename: string, content: string) => {
     const filePath = path.join(TEMP_DIR, filename);
@@ -101,9 +120,24 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
     const keyPath = writeTempFile(`key_${timestamp}.txt`, cleanKey); // Changed extension to .txt to be consistent
     const signedXmlPath = path.join(TEMP_DIR, `signed_invoice_${timestamp}.xml`);
 
+    console.log(`[DEBUG] signInvoice cert prefix: ${cleanCert.substring(0, 10)}`);
+    console.log(`[DEBUG] signInvoice key prefix: ${cleanKey.substring(0, 10)}`);
+
+    // --- MOCK BYPASS FOR TESTING ---
+
+    if (cleanCert.startsWith('MOCK_') || cleanKey.startsWith('MOCK_')) {
+        console.log('Mock certificate detected. Returning simulated signing result.');
+        return {
+            signedXml: xmlContent.replace('</Invoice>', `<!-- Mock Signed -->\n<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:Reference><ds:DigestValue>mock_hash_content</ds:DigestValue></ds:Reference></ds:SignedInfo></ds:Signature>\n</Invoice>`),
+            hash: 'mock_hash_' + Date.now(),
+            qr: 'mock_qr_code_for_testing'
+        };
+    }
+
     try {
         // Command: fatooraNet sign -invoice <xml> -signedInvoice <out> -certificate <cert> -privateKey <key>
         const cmd = `${getSdkBaseCommand()} sign -invoice "${xmlPath}" -signedInvoice "${signedXmlPath}" -certificate "${certPath}" -privateKey "${keyPath}"`;
+
 
         console.log(`Executing SDK Sign command: ${cmd}`);
         console.log(`Certificate Path: ${certPath} (Size: ${cleanCert.length})`);
@@ -145,6 +179,85 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
         deleteTempFile(certPath);
         deleteTempFile(keyPath);
         deleteTempFile(signedXmlPath);
+    }
+};
+
+export const validateInvoice = async (xmlContent: string) => {
+    const { sdkPath } = getSDKSettings();
+    const sdkDir = path.dirname(sdkPath);
+    const sdkTempDir = path.join(sdkDir, 'temp');
+    
+    if (!fs.existsSync(sdkTempDir)) {
+        fs.mkdirSync(sdkTempDir, { recursive: true });
+    }
+
+    const timestamp = Date.now();
+    const xmlFilename = `validate_${timestamp}.xml`;
+    const xmlPathInSdk = path.join(sdkTempDir, xmlFilename);
+    fs.writeFileSync(xmlPathInSdk, xmlContent);
+
+    try {
+        // Run from SDK directory to resolve Data/Lib dependencies
+        // Invoice path relative to sdkDir
+        const relativeXmlPath = path.join('temp', xmlFilename);
+        
+        const cmd = `${getSdkBaseCommand()} -v -invoice "${relativeXmlPath}"`;
+        console.log(`Executing SDK Validate command in ${sdkDir}: ${cmd}`);
+
+        const { stdout, stderr } = await execAsync(cmd, { cwd: sdkDir });
+        console.log('SDK Validate Command:', cmd);
+        console.log('SDK Validate STDOUT:', stdout);
+        console.log('SDK Validate STDERR:', stderr);
+
+        const errors: string[] = [];
+        const warnings: string[] = [];
+        let isValid = true;
+
+        // Parse stdout/stderr for [ERROR] and [WARNING]
+        // Example output snippet: 2026-03-15 ... [ERROR] ... Message
+        const lines = (stdout + '\n' + stderr).split('\n');
+        for (const line of lines) {
+            if (line.includes('[ERROR]')) {
+                // Heuristic: Extract the message after [ERROR]
+                const msg = line.split('[ERROR]')[1]?.trim() || line;
+                if (!msg.toLowerCase().includes('mainapp') && !msg.toLowerCase().includes('invoicevalidationservice')) {
+                    errors.push(msg);
+                    isValid = false;
+                }
+            } else if (line.includes('[WARNING]')) {
+                const msg = line.split('[WARNING]')[1]?.trim() || line;
+                warnings.push(msg);
+            }
+        }
+
+        // If SDK output implies success but we found errors, trust the errors.
+        // If SDK output has no explicit errors but says "failed", mark invalid.
+        if (stdout.toLowerCase().includes('failed to validate') || stderr.toLowerCase().includes('failed to validate')) {
+            isValid = false;
+            if (errors.length === 0) {
+                errors.push("SDK Validation Failed (check logs for details)");
+            }
+        }
+
+        return {
+            isValid,
+            errors: [...new Set(errors)], // Deduplicate
+            warnings: [...new Set(warnings)],
+            raw: stdout
+        };
+
+    } catch (e: any) {
+        console.error('Validation SDK Execution Error:', e);
+        return {
+            isValid: false,
+            errors: [e.message.includes('failed to validate invoice - null') ? "Invalid XML file or path (SDK Error)" : e.message],
+            warnings: [],
+            raw: e.stdout || e.message
+        };
+    } finally {
+        if (xmlPathInSdk && fs.existsSync(xmlPathInSdk)) {
+            try { fs.unlinkSync(xmlPathInSdk); } catch (e) {}
+        }
     }
 };
 
