@@ -271,8 +271,14 @@ router.get('/invoices', async (req, res) => {
 router.get('/invoices/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        const invoiceId = parseInt(id as string);
+
+        if (isNaN(invoiceId)) {
+            return res.status(400).json({ error: 'Invalid invoice ID format' });
+        }
+
         const invoice = await prisma.invoice.findUnique({
-            where: { id: parseInt(id as string) },
+            where: { id: invoiceId },
             include: {
                 company: true,
                 customer: true
