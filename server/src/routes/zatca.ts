@@ -153,6 +153,63 @@ router.get('/certificates', async (req, res) => {
     }
 });
 
+// Helper to map DB Invoice to Frontend Invoice interface
+const mapInvoiceToFrontend = (inv: any) => {
+    // Map DB status (UPPERCASE) to Frontend Status (Sentence Case)
+    const mapStatus = (s: string): string => {
+        switch (s) {
+            case 'CLEARED': return 'Cleared';
+            case 'REPORTED': return 'Reported';
+            case 'FAILED': return 'Failed';
+            case 'SUBMITTED': return 'Reported'; // Map submitted to reported for UI
+            default: return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+        }
+    };
+
+    return {
+        id: inv.id.toString(),
+        branchId: `br-${inv.company_id}`,
+        uuid: inv.uuid,
+        invoiceNumber: inv.invoice_number,
+        issueDate: inv.date.toISOString(),
+        supplyDate: inv.date.toISOString(),
+        invoiceSubtype: inv.type === 'B2B' ? 'Standard' : 'Simplified',
+        documentType: 'Invoice',
+        totalAmount: Number(inv.total_amount),
+        vatAmount: Number(inv.tax_amount),
+        taxExclusiveAmount: Number(inv.total_amount) - Number(inv.tax_amount),
+        status: mapStatus(inv.status || 'REPORTED'),
+        qrCode: inv.qr_code,
+        xmlContent: inv.xml_payload,
+        zatcaResponse: inv.submission_response ? JSON.parse(inv.submission_response) : null,
+        supplier: {
+            name: inv.company.registered_name,
+            vatNumber: inv.company.vat_number,
+            address: {
+                streetName: inv.company.address || '',
+                cityName: inv.company.city || '',
+                countryCode: inv.company.country || 'SA'
+            }
+        },
+        customer: inv.customer ? {
+            name: inv.customer.name,
+            vatNumber: inv.customer.vat_number || 'N/A',
+            address: {
+                streetName: inv.company.address || '',
+                cityName: inv.company.city || '',
+                countryCode: inv.company.country || 'SA'
+            }
+        } : {
+            name: 'Unknown Customer',
+            vatNumber: 'N/A',
+            address: { streetName: '', cityName: '', countryCode: 'SA' }
+        },
+        items: [], // Expand later if stored in separate table
+        history: [], // Expand later if stored in separate table
+        currencyCode: 'SAR'
+    };
+};
+
 /**
  * @swagger
  * /api/zatca/invoices:
@@ -185,61 +242,7 @@ router.get('/invoices', async (req, res) => {
             }
         });
 
-        // Map to frontend Invoice interface
-        const mappedInvoices = invoices.map(inv => {
-            // Map DB status (UPPERCASE) to Frontend Status (Sentence Case)
-            const mapStatus = (s: string): string => {
-                switch (s) {
-                    case 'CLEARED': return 'Cleared';
-                    case 'REPORTED': return 'Reported';
-                    case 'FAILED': return 'Failed';
-                    case 'SUBMITTED': return 'Reported'; // Map submitted to reported for UI
-                    default: return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-                }
-            };
-
-            return {
-                id: inv.id.toString(),
-                branchId: `br-${inv.company_id}`,
-                uuid: inv.uuid,
-                invoiceNumber: inv.invoice_number,
-                issueDate: inv.date.toISOString(),
-                supplyDate: inv.date.toISOString(),
-                invoiceSubtype: inv.type === 'B2B' ? 'Standard' : 'Simplified',
-                documentType: 'Invoice',
-                totalAmount: Number(inv.total_amount),
-                vatAmount: Number(inv.tax_amount),
-                taxExclusiveAmount: Number(inv.total_amount) - Number(inv.tax_amount),
-                status: mapStatus(inv.status || 'REPORTED'),
-                qrCode: inv.qr_code,
-                xmlContent: inv.xml_payload,
-                supplier: {
-                    name: inv.company.registered_name,
-                    vatNumber: inv.company.vat_number,
-                    address: {
-                        streetName: inv.company.address || '',
-                        cityName: inv.company.city || '',
-                        countryCode: inv.company.country || 'SA'
-                    }
-                },
-                customer: inv.customer ? {
-                    name: inv.customer.name,
-                    vatNumber: inv.customer.vat_number || 'N/A',
-                    address: {
-                        streetName: inv.customer.address || '',
-                        cityName: inv.customer.city || '',
-                        countryCode: inv.customer.country || 'SA'
-                    }
-                } : {
-                    name: 'Unknown Customer',
-                    vatNumber: 'N/A',
-                    address: { streetName: '', cityName: '', countryCode: 'SA' }
-                },
-                items: [],
-                history: [],
-                currencyCode: 'SAR'
-            };
-        });
+        const mappedInvoices = invoices.map(mapInvoiceToFrontend);
 
         console.log(`[ZATCA API] Returning ${mappedInvoices.length} invoices for company ${companyId}`);
         res.json(mappedInvoices);
@@ -249,15 +252,48 @@ router.get('/invoices', async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /api/zatca/invoices/{id}:
+ *   get:
+ *     summary: Get a specific invoice by ID
+ *     tags: [ZATCA - Invoices]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Invoice details
+ */
+router.get('/invoices/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: parseInt(id as string) },
+            include: {
+                company: true,
+                customer: true
+            }
+        });
 
+        if (!invoice) {
+            return res.status(404).json({ error: 'Invoice not found' });
+        }
+
+        res.json(mapInvoiceToFrontend(invoice));
+    } catch (error: any) {
+        console.error('Error fetching invoice detail:', error);
+        res.status(500).json({ error: 'Failed to fetch invoice details' });
+    }
+});
 
 router.post('/onboard', async (req, res) => {
     try {
         const { vat, otp, environment, companyName, branchName, location, industry, invoiceType, serialNumber } = req.body;
 
-        // 1. Generate CSR using SDK
-        // Construct Properties File Content
-        // Ensure serial number follows ZATCA format: 1-SolutionName|2-ModelName|3-SerialNumber
         const formattedSerial = serialNumber?.includes('|')
             ? serialNumber
             : `1-ZatcaConnect|2-Desktop|3-${serialNumber || crypto.randomUUID()}`;
@@ -274,20 +310,10 @@ csr.industry.business.category=${industry || 'IT'}`;
 
         const { csr, privateKey } = await generateCSR(csrConfig, environment !== 'Production');
 
-        // 2. Compliance Request
-        // Note: SDK generates PEM, but API expects Base64 of the body (sometimes). 
-        // onboardCompliance helper does Buffer.from(csr).toString('base64'), so if csr is PEM, we might need to strip headers or just pass it if helper handles it.
-        // zatcaService.ts: csr: Buffer.from(csr).toString('base64') -> This re-encodes the whole PEM string. ZATCA usually accepts this.
-
         const complianceResult = await onboardCompliance(environment, csr, otp);
         const complianceCSID = complianceResult.binarySecurityToken;
         const complianceSecret = complianceResult.secret;
 
-        // 3. Mandatory Compliance Checks (Phase 2 Requirement)
-        // We must report at least one invoice to compliance endpoint before requesting Prod CSID
-        // In a real app, we'd loop through Standard/Simplified, Debit/Credit based on 'invoiceType'
-
-        // Mock Invoice for Compliance
         const sampleInvoice = {
             invoiceNumber: 'COMPLIANCE-001',
             uuid: crypto.randomUUID(),
@@ -309,7 +335,7 @@ csr.industry.business.category=${industry || 'IT'}`;
             },
             customer: {
                 name: 'Test Customer',
-                vatNumber: '300000000000003', // Valid dummy VAT
+                vatNumber: '300000000000003',
                 address: {
                     streetName: 'Test Street',
                     buildingNumber: '1111',
@@ -335,20 +361,14 @@ csr.industry.business.category=${industry || 'IT'}`;
         };
 
         const xml = generateInvoiceXML(sampleInvoice as any);
-
-        // NOTE: The SDK expects the certificate as a raw Base64 string in the file, NOT with PEM headers.
-        // So we just pass the complianceCSID (which is Base64) directly.
-        // Ensure no whitespace
         const complianceCertPem = complianceCSID.trim();
 
         const { signedXml, hash } = await signInvoice(xml, complianceCertPem, privateKey);
 
         console.log("Running Compliance Check...");
-        // Pass the actual UUID from the sample invoice
         await checkCompliance(environment, complianceCSID, complianceSecret, hash, Buffer.from(signedXml).toString('base64'), sampleInvoice.uuid);
         console.log("Compliance Check Passed!");
 
-        // 4. Production Request
         const prodResult = await requestProductionCSID(
             environment,
             complianceCSID,
@@ -356,8 +376,6 @@ csr.industry.business.category=${industry || 'IT'}`;
             complianceResult.requestID
         );
 
-        // 4. Save Credentials (New Schema)
-        // Ensure a user exists to link the company to
         let user = await prisma.user.findFirst();
         if (!user) {
             user = await prisma.user.create({
@@ -389,7 +407,6 @@ csr.industry.business.category=${industry || 'IT'}`;
             }
         });
 
-        // Store Certificate
         const existingCert = await prisma.certificate.findFirst({ where: { company_id: company.id } });
         await prisma.certificate.upsert({
             where: { id: existingCert?.id || 0 },
@@ -414,7 +431,6 @@ csr.industry.business.category=${industry || 'IT'}`;
             }
         });
 
-        // Add Audit Log
         await AuditService.log({
             action: 'Solution Onboarded',
             category: 'Compliance',
@@ -465,13 +481,11 @@ router.post('/renew', async (req, res) => {
         const cert = company.certificates.find((c: any) => c.is_active);
         if (!cert) throw new Error('Active certificate not found');
 
-        // Decrypt current secrets
         const currentCSID = cert.csid!;
         const currentSecret = decrypt(cert.secret!);
 
         const newProdResult = await renewProductionCSID(environment, currentCSID, currentSecret, otp);
 
-        // Update Certificate
         await prisma.certificate.update({
             where: { id: cert.id },
             data: {
@@ -497,7 +511,6 @@ router.post('/invoice/report', async (req, res) => {
     try {
         const { invoice, vat } = req.body;
 
-        // 1. Get Company and Certificate
         const company = await prisma.company.findUnique({
             where: { vat_number: vat },
             include: { certificates: true }
@@ -510,32 +523,22 @@ router.post('/invoice/report', async (req, res) => {
             throw new Error(`No active ${company.environment} certificate found. Please onboard the solution for ${company.environment} mode.`);
         }
 
-
-        // 2. Generate XML (Unsigned)
         const xml = generateInvoiceXML(invoice);
-
-        // 3. Sign XML using SDK
         const decryptedPrivateKey = decrypt(cert.private_key);
         
-        // NOTE: The SDK expects the certificate as a raw Base64 string in the file, NOT with PEM headers.
         let certPem = cert.certificate;
         
-        // If it has headers, strip them.
         if (certPem.includes('BEGIN CERTIFICATE')) {
             certPem = certPem.replace(/-----BEGIN CERTIFICATE-----/g, '')
                              .replace(/-----END CERTIFICATE-----/g, '')
                              .replace(/\s/g, '');
         } else {
-            // Even if no headers, ensure no newlines/spaces
             certPem = certPem.replace(/\s/g, '');
         }
 
         const { signedXml, hash, qr } = await signInvoice(xml, certPem, decryptedPrivateKey);
 
-        // 4. Report/Clear to ZATCA
         let result;
-
-        // Bypassing real ZATCA API for mock certificates to avoid 401 Unauthorized errors during testing
         const isMock = cert.certificate.startsWith('MOCK_') || cert.csid?.startsWith('MOCK_');
 
         if (isMock) {
@@ -570,7 +573,6 @@ router.post('/invoice/report', async (req, res) => {
             }
         }
 
-        // 5. Save Invoice (New Schema)
         const submissionStatus = (result.reportingStatus === 'REPORTED' || result.clearanceStatus === 'CLEARED')
             ? (result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 'REPORTED')
             : 'FAILED';
@@ -591,7 +593,6 @@ router.post('/invoice/report', async (req, res) => {
             }
         });
 
-        // Add Audit Log
         await AuditService.log({
             action: invoice.invoiceSubtype === 'Standard' ? 'Standard Invoice Cleared' : 'Simplified Invoice Reported',
             category: 'Compliance',

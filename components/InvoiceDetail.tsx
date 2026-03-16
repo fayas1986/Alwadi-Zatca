@@ -1,17 +1,19 @@
-
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { getInvoiceById, submitInvoiceToZatca, generateInvoiceXML } from '../services/mockData';
-import { ArrowLeft, CheckCircle, AlertTriangle, XCircle, FileCode, QrCode, ShieldCheck, Info, Loader2, Check, Send, RefreshCw, CheckSquare, Lock, ScanLine, Camera, X, Printer, FileMinus, FilePlus, FileText, Server, PenTool, ChevronUp, ChevronDown, Activity, UserCircle, Scale, Clock, ArrowDown } from 'lucide-react';
+import { submitInvoiceToZatca, generateInvoiceXML } from '../services/mockData';
+import { getInvoiceById } from '../services/api';
+import { ArrowLeft, CheckCircle, AlertTriangle, XCircle, FileCode, QrCode, ShieldCheck, Info, Loader2, Check, Send, RefreshCw, CheckSquare, Lock, ScanLine, Camera, X, Printer, FileMinus, FilePlus, FileText, Server, PenTool, ChevronUp, ChevronDown, Activity, UserCircle, Scale, Clock, ArrowDown, AlertCircle } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Invoice, UserRole, InvoiceHistoryEvent } from '../types';
+import { useToast } from './Toast';
 
 interface InvoiceDetailProps {
   invoiceId: string | null;
   onBack: () => void;
   userRole: UserRole;
+  onNavigate: (path: string) => void;
 }
 
 // Helper to parse ZATCA TLV Base64
@@ -54,10 +56,11 @@ const parseZatcaTLV = (base64: string) => {
   }
 };
 
-export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, userRole }) => {
-  const [invoice, setInvoice] = useState<Invoice | undefined>(
-    invoiceId ? getInvoiceById(invoiceId) : undefined
-  );
+export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack, userRole, onNavigate }) => {
+  const { addToast } = useToast();
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,10 +72,28 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
   const canAction = userRole === 'IT_ADMIN' || userRole === 'FINANCE_ADMIN';
 
   useEffect(() => {
-    if (invoiceId) {
-      setInvoice(getInvoiceById(invoiceId));
-    }
-  }, [invoiceId]);
+    const fetchInvoice = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            if (invoiceId) {
+                const data = await getInvoiceById(invoiceId);
+                setInvoice(data);
+            } else {
+                setInvoice(null);
+                setError("No invoice ID provided.");
+            }
+        } catch (err: any) {
+            console.error('Error fetching invoice:', err);
+            setError(err.message || 'Invoice not found');
+            addToast('error', 'Failed to fetch invoice details');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    fetchInvoice();
+  }, [invoiceId, addToast]);
 
   useEffect(() => {
     let scanner: Html5QrcodeScanner | null = null;
@@ -99,7 +120,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
     return () => {
       if (scanner) scanner.clear().catch(console.error);
     };
-  }, [isScanning]);
+  }, [isScanning, invoice]); // Added invoice to dependency array for handleScanSuccess
 
   const handleScanSuccess = (decodedText: string) => {
      const tlvData = parseZatcaTLV(decodedText);
@@ -319,7 +340,35 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
       return `${Math.floor(diff/3600000)}h`;
   };
 
-  if (!invoice) return <div>Invoice not found</div>;
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl h-full flex flex-col items-center justify-center p-12">
+        <Loader2 className="animate-spin text-indigo-500 mb-4" size={48} />
+        <h3 className="text-xl font-bold text-slate-800">Loading Invoice...</h3>
+        <p className="text-slate-500 mt-2">Retrieving document from secure vault</p>
+      </div>
+    );
+  }
+
+  if (error || !invoice) {
+    return (
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl h-full flex flex-col items-center justify-center p-12 text-center">
+        <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mb-6">
+            <AlertCircle className="text-rose-500" size={40} />
+        </div>
+        <h3 className="text-2xl font-bold text-slate-800">Invoice not found</h3>
+        <p className="text-slate-500 mt-2 max-w-sm mx-auto">
+          {error || "We couldn't locate the invoice you're looking for. It may have been deleted or moved."}
+        </p>
+        <button 
+          onClick={onBack}
+          className="mt-8 flex items-center gap-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl transition-all"
+        >
+          <ArrowLeft size={18} /> Back to Management
+        </button>
+      </div>
+    );
+  }
 
   const canSubmit = !['Cleared', 'Reported'].includes(invoice.status);
   const isRetry = invoice.status === 'Rejected' || invoice.status === 'Failed';

@@ -47,6 +47,14 @@ export const getInvoices = async (companyId: string) => {
     return response.json();
 };
 
+export const getInvoiceById = async (id: string) => {
+    const response = await fetch(`${API_BASE_URL}/invoices/${id}`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch invoice details');
+    }
+    return response.json();
+};
+
 export const getAuditLogs = async (params: any = {}) => {
     const query = new URLSearchParams(params).toString();
     const response = await fetch(`/api/audit-logs?${query}`);

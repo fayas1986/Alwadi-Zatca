@@ -238,7 +238,7 @@ const App: React.FC = () => {
         // If coming from "Issue Credit Note" context, selectedInvoiceId acts as the Reference ID
         return <InvoiceGenerator onNavigate={navigate} referenceInvoiceId={selectedInvoiceId} selectedBranch={currentBranch} organizations={organizations} />;
       case 'invoice-detail':
-        return <InvoiceDetail userRole={userRole} invoiceId={selectedInvoiceId} onBack={() => navigate('invoices')} />;
+        return <InvoiceDetail userRole={userRole} invoiceId={selectedInvoiceId} onBack={() => navigate('invoices')} onNavigate={navigate} />;
       case 'items':
         return <ItemMaster selectedBranch={currentBranch} />;
       case 'certificates':
