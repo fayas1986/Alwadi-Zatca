@@ -360,8 +360,8 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
             // Notify other components (InvoiceList/Dashboard) that mockInvoices changed
             window.dispatchEvent(new CustomEvent('invoices-updated'));
 
-            // Navigate to details to show success/QR
-            onNavigate('invoice-detail', newInvoice.id);
+            // Navigate to details to show success/QR using the server-returned ID
+            onNavigate('invoice-detail', result.id?.toString() || newInvoice.id);
 
         } catch (error: any) {
             console.error(error);

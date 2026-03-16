@@ -271,14 +271,12 @@ router.get('/invoices', async (req, res) => {
 router.get('/invoices/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const invoiceId = parseInt(id as string);
-
-        if (isNaN(invoiceId)) {
-            return res.status(400).json({ error: 'Invalid invoice ID format' });
-        }
-
-        const invoice = await prisma.invoice.findUnique({
-            where: { id: invoiceId },
+        
+        // Handle UUID vs Integer ID
+        const isUuid = id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+        
+        const invoice = await prisma.invoice.findFirst({
+            where: isUuid ? { uuid: id } : { id: parseInt(id) },
             include: {
                 company: true,
                 customer: true
@@ -583,7 +581,7 @@ router.post('/invoice/report', async (req, res) => {
             ? (result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 'REPORTED')
             : 'FAILED';
 
-        await prisma.invoice.create({
+        const savedInvoice = await prisma.invoice.create({
             data: {
                 company: { connect: { id: company.id } },
                 invoice_number: invoice.invoiceNumber,
@@ -614,7 +612,7 @@ router.post('/invoice/report', async (req, res) => {
             }
         });
 
-        res.json({ ...result, signedXml, qr });
+        res.json({ ...result, signedXml, qr, id: savedInvoice.id, uuid: savedInvoice.uuid });
     } catch (error: any) {
         console.error('Invoice Reporting Error:', error);
         res.status(500).json({ success: false, error: error.message });
