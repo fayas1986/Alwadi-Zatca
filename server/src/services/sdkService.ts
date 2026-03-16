@@ -8,11 +8,24 @@ import { fileURLToPath } from 'url';
 const execAsync = promisify(exec);
 
 const getSDKSettings = () => {
-    const sdkPath = process.env.ZATCA_SDK_PATH || '';
+    let sdkPath = process.env.ZATCA_SDK_PATH || '';
     const javaExe = process.env.JAVA_EXE_PATH || 'java';
     
+    // Vercel / Linux path mapping
+    // If we're on Vercel or the path is a Windows absolute path, resolve to the bundled location
+    if (process.env.VERCEL || (sdkPath && sdkPath.includes('\\')) || !sdkPath) {
+        // Correct path in Vercel Lambda: /var/task/server/zatca-sdk/zatca-sdk.jar
+        const bundledPath = path.resolve(process.cwd(), 'server/zatca-sdk/zatca-sdk.jar');
+        if (fs.existsSync(bundledPath)) {
+            console.log(`Using bundled SDK path: ${bundledPath}`);
+            sdkPath = bundledPath;
+        } else {
+            console.warn(`Bundled SDK not found at ${bundledPath}. Current directory: ${process.cwd()}`);
+        }
+    }
+    
     if (!sdkPath) {
-        console.warn("ZATCA_SDK_PATH is not set in .env");
+        console.warn("ZATCA_SDK_PATH is not set and bundled SDK not found.");
     }
     
     return { sdkPath, javaExe };
