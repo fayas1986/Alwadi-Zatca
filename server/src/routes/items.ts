@@ -59,7 +59,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
     try {
         const item = await prisma.item.findUnique({
-            where: { id: req.params.id }
+            where: { id: req.params.id as string }
         });
         if (!item) return res.status(404).json({ error: 'Item not found' });
         res.json(mapToFrontend(item));
@@ -112,7 +112,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         if (taxRate !== undefined) updateData.tax_rate = new Decimal(taxRate);
 
         const updatedItem = await prisma.item.update({
-            where: { id: req.params.id },
+            where: { id: req.params.id as string },
             data: updateData
         });
 
@@ -127,7 +127,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
         await prisma.item.delete({
-            where: { id: req.params.id }
+            where: { id: req.params.id as string }
         });
         res.json({ success: true, message: 'Item deleted' });
     } catch (error: any) {
