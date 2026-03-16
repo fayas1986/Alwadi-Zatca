@@ -1,18 +1,24 @@
-import dotenv from 'dotenv';
-dotenv.config(); // Load env vars before other imports
-
+import './lib/env.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import zatcaRoutes from './routes/zatca.js';
-import erpRoutes from './routes/erp.js';
+import zatcaRouter from './routes/zatca.js';
+import erpRouter from './routes/erp.js';
 import adminRoutes from './routes/admin.js';
 import authRoutes from './routes/auth.js';
-import itemsRoutes from './routes/items.js';
-import { PrismaClient } from '@prisma/client';
+import itemsRouter from './routes/items.js';
+import auditRouter from './routes/audit.js';
+import prisma from './lib/prisma.js';
+
+import { swaggerSpec } from './utils/swagger.js';
 
 const app = express();
-import prisma from './lib/prisma.js';
+
+// Serve the Swagger JSON
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
 const port = process.env.PORT || 3001;
 
 app.use(cors());
@@ -24,11 +30,12 @@ app.use(helmet({
 }));
 
 
-app.use('/api/zatca', zatcaRoutes);
-app.use('/api/erp', erpRoutes);
+app.use('/api/zatca', zatcaRouter);
+app.use('/api/erp', erpRouter);
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/items', itemsRoutes);
+app.use('/api/items', itemsRouter);
+app.use('/api/audit-logs', auditRouter);
 
 app.get('/', (req, res) => {
     res.json({ message: 'ZATCA Fatoora Backend Running' });

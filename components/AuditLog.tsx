@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
-import { mockAuditLogs } from '../services/mockData';
+import React, { useState, useEffect, useMemo } from 'react';
+import { getAuditLogs } from '../services/api';
 import { AuditLogEntry } from '../types';
-import { Terminal, Search, Filter, FileCheck, Download, AlertTriangle, Shield, CheckCircle, Clock, X, Hash, Server, Activity, Lock, Eye, Code, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Terminal, Search, Filter, FileCheck, Download, AlertTriangle, Shield, CheckCircle, Clock, X, Hash, Server, Activity, Lock, Eye, Code, Calendar, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 export const AuditLog: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,45 +13,50 @@ export const AuditLog: React.FC = () => {
   const [ipFilter, setIpFilter] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [totalLogs, setTotalLogs] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const itemsPerPage = 10;
 
-  const filteredLogs = useMemo(() => {
-    return mockAuditLogs.filter(log => {
-      const matchesSearch = 
-        log.details.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (log.resourceId && log.resourceId.toLowerCase().includes(searchTerm.toLowerCase()));
+  const fetchLogs = async () => {
+    setIsLoading(true);
+    try {
+      const result = await getAuditLogs({
+        page: currentPage,
+        limit: itemsPerPage,
+        category: categoryFilter,
+        status: statusFilter,
+        user: searchTerm,
+        action: searchTerm
+      });
       
-      const matchesCategory = categoryFilter === 'All' || log.category === categoryFilter;
-      const matchesStatus = statusFilter === 'All' || log.status === statusFilter;
-      const matchesIp = ipFilter === '' || log.ipAddress.includes(ipFilter);
+      // Map backend ip_address to frontend ipAddress and other camelCase mappings
+      const mappedLogs = result.data.map((l: any) => ({
+        ...l,
+        ipAddress: l.ip_address,
+        resourceId: l.resource_id
+      }));
 
-      let matchesDate = true;
-      if (dateStart) {
-          matchesDate = matchesDate && new Date(log.timestamp) >= new Date(dateStart);
-      }
-      if (dateEnd) {
-          const end = new Date(dateEnd);
-          end.setHours(23, 59, 59, 999);
-          matchesDate = matchesDate && new Date(log.timestamp) <= end;
-      }
+      setLogs(mappedLogs);
+      setTotalLogs(result.pagination.total);
+    } catch (error) {
+      console.error('Failed to fetch audit logs:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      return matchesSearch && matchesCategory && matchesStatus && matchesIp && matchesDate;
-    });
-  }, [searchTerm, categoryFilter, statusFilter, ipFilter, dateStart, dateEnd]);
+  useEffect(() => {
+    fetchLogs();
+  }, [currentPage, categoryFilter, statusFilter, searchTerm]);
 
-  // Reset to first page when any filter changes
-  React.useEffect(() => {
+  // Reset to first page when filters change
+  useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, categoryFilter, statusFilter, ipFilter, dateStart, dateEnd]);
+  }, [categoryFilter, statusFilter, searchTerm]);
 
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
-  const currentItems = useMemo(() => {
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    return filteredLogs.slice(indexOfFirstItem, indexOfLastItem);
-  }, [filteredLogs, currentPage]);
+  const totalPages = Math.ceil(totalLogs / itemsPerPage);
+  const currentItems = logs;
 
   const clearFilters = () => {
       setSearchTerm('');
@@ -65,19 +70,19 @@ export const AuditLog: React.FC = () => {
   // KPI Calculations
   const stats = useMemo(() => {
       return {
-          total: filteredLogs.length,
-          securityAlerts: filteredLogs.filter(l => l.category === 'Security' && l.status !== 'Success').length,
-          failureRate: filteredLogs.length > 0 
-            ? Math.round((filteredLogs.filter(l => l.status === 'Failure').length / filteredLogs.length) * 100) 
+          total: totalLogs,
+          securityAlerts: logs.filter(l => l.category === 'Security' && l.status !== 'Success').length, // This is just for current view
+          failureRate: logs.length > 0 
+            ? Math.round((logs.filter(l => l.status === 'Failure').length / logs.length) * 100) 
             : 0
       };
-  }, [filteredLogs]);
+  }, [logs, totalLogs]);
 
 
 
   const handleExport = () => {
     const headers = ['Timestamp', 'Category', 'User', 'Role', 'IP', 'Action', 'Details', 'Status', 'Hash'];
-    const rows = filteredLogs.map(log => 
+    const rows = logs.map(log => 
       [log.timestamp, log.category, log.user, log.role, log.ipAddress, log.action, log.details, log.status, log.hash].map(f => `"${f}"`).join(',')
     );
     const csvContent = [headers.join(','), ...rows].join('\n');
@@ -253,8 +258,17 @@ export const AuditLog: React.FC = () => {
                 <th className="px-6 py-3 text-right"></th>
                 </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-                {currentItems.length > 0 ? (
+            <tbody className="divide-y divide-slate-100 bg-white relative">
+                {isLoading ? (
+                    <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center">
+                            <div className="flex flex-col items-center justify-center text-slate-400">
+                                <Loader2 size={32} className="animate-spin mb-3 text-indigo-500" />
+                                <p className="text-sm font-medium">Loading audit logs...</p>
+                            </div>
+                        </td>
+                    </tr>
+                ) : currentItems.length > 0 ? (
                     currentItems.map((log) => (
                     <tr 
                         key={log.id} 
@@ -281,12 +295,12 @@ export const AuditLog: React.FC = () => {
                             <span className="text-xs text-slate-500 truncate max-w-[200px] block">{log.details}</span>
                         </td>
                         <td className="px-6 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border ${getStatusColor(log.status)}`}>
+                            <span className={`inline-flex items-center px-3 py-0.5 rounded text-xs font-bold border ${getStatusColor(log.status)}`}>
                                 {log.status}
                             </span>
                         </td>
                         <td className="px-6 py-3 text-right">
-                            <button className="text-slate-300 hover:text-indigo-600 transition-colors">
+                            <button className="text-slate-300 group-hover:text-indigo-600 transition-colors">
                                 <Eye size={16} />
                             </button>
                         </td>
@@ -310,7 +324,7 @@ export const AuditLog: React.FC = () => {
         {/* Pagination Footer */}
         <div className="px-6 py-4 bg-white border-t border-slate-100 flex items-center justify-between">
             <div className="text-sm text-slate-500">
-                Showing <span className="font-semibold text-slate-900">{filteredLogs.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> to <span className="font-semibold text-slate-900">{Math.min(currentPage * itemsPerPage, filteredLogs.length)}</span> of <span className="font-semibold text-slate-900">{filteredLogs.length}</span> entries
+                Showing <span className="font-semibold text-slate-900">{totalLogs > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> to <span className="font-semibold text-slate-900">{Math.min(currentPage * itemsPerPage, totalLogs)}</span> of <span className="font-semibold text-slate-900">{totalLogs}</span> entries
             </div>
             <div className="flex items-center gap-2">
                 <button 
