@@ -404,7 +404,9 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             }
 
         } catch (xmlErr: any) {
-            return res.status(422).json({ success: false, error: `XML generation failed: ${xmlErr.message}` });
+            console.error('[ERP] XML Gen Error:', xmlErr);
+            const errMsg = xmlErr instanceof Error ? xmlErr.message : String(xmlErr);
+            return res.status(422).json({ success: false, error: `XML generation failed: ${errMsg}` });
         }
 
         // ── Determine status ──
