@@ -1,7 +1,0 @@
-{
-  "name": "ZATCA Fatoora Compliant Dashboard",
-  "description": "A comprehensive dashboard for managing ZATCA Phase 2 e-invoicing compliance, including invoice tracking, certificate management, and audit logs.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}

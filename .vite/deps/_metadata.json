@@ -1,0 +1,94 @@
+{
+  "hash": "8f301d9e",
+  "configHash": "4735601d",
+  "lockfileHash": "da049c1f",
+  "browserHash": "c14edc66",
+  "optimized": {
+    "html2canvas": {
+      "src": "../../node_modules/html2canvas/dist/html2canvas.esm.js",
+      "file": "html2canvas.js",
+      "fileHash": "701a37b8",
+      "needsInterop": false
+    },
+    "html5-qrcode": {
+      "src": "../../node_modules/html5-qrcode/esm/index.js",
+      "file": "html5-qrcode.js",
+      "fileHash": "ab22af66",
+      "needsInterop": false
+    },
+    "jspdf": {
+      "src": "../../node_modules/jspdf/dist/jspdf.es.min.js",
+      "file": "jspdf.js",
+      "fileHash": "ab0220b1",
+      "needsInterop": false
+    },
+    "jspdf-autotable": {
+      "src": "../../node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.mjs",
+      "file": "jspdf-autotable.js",
+      "fileHash": "d289c3bb",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
+      "file": "lucide-react.js",
+      "fileHash": "ce48ae49",
+      "needsInterop": false
+    },
+    "qrcode.react": {
+      "src": "../../node_modules/qrcode.react/lib/esm/index.js",
+      "file": "qrcode__react.js",
+      "fileHash": "1542309d",
+      "needsInterop": false
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "2e3abe51",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "eb3d58fc",
+      "needsInterop": true
+    },
+    "recharts": {
+      "src": "../../node_modules/recharts/es6/index.js",
+      "file": "recharts.js",
+      "fileHash": "71522985",
+      "needsInterop": false
+    },
+    "swagger-ui-react": {
+      "src": "../../node_modules/swagger-ui-react/index.mjs",
+      "file": "swagger-ui-react.js",
+      "fileHash": "5cf38f86",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "purify.es-J3TPDSQU": {
+      "file": "purify__es-J3TPDSQU.js"
+    },
+    "index.es-FX3AXMTI": {
+      "file": "index__es-FX3AXMTI.js"
+    },
+    "chunk-SO2FIUG4": {
+      "file": "chunk-SO2FIUG4.js"
+    },
+    "chunk-SITVF2AJ": {
+      "file": "chunk-SITVF2AJ.js"
+    },
+    "chunk-KE7UC4W6": {
+      "file": "chunk-KE7UC4W6.js"
+    },
+    "chunk-TTWVQON2": {
+      "file": "chunk-TTWVQON2.js"
+    },
+    "chunk-CJRLBRQ4": {
+      "file": "chunk-CJRLBRQ4.js"
+    },
+    "chunk-DP4XHQAG": {
+      "file": "chunk-DP4XHQAG.js"
+    }
+  }
+}

@@ -53,7 +53,7 @@ export interface InvoiceItem {
   vatAmount: number;
   subtotal: number; // Excluding VAT
   total: number;    // Including VAT
-  taxCategory?: 'S' | 'Z' | 'E' | 'O'; // ZATCA Tax Category Code: S=Standard, Z=Zero, E=Exempt, O=Out of Scope
+  taxCategory?: 'S' | 'Z' | 'E' | 'O' | 'G' | 'H'; // ZATCA Tax Category Code
 }
 
 export interface InvoiceHistoryEvent {
@@ -97,6 +97,8 @@ export interface Invoice {
   // Totals
   totalAmount: number; // TaxInclusiveAmount
   vatAmount: number;
+  vatRate?: number; // Added for document-wide rate
+  taxCategory?: 'S' | 'Z' | 'E' | 'O' | 'G' | 'H'; // Added for document-wide category
   taxExclusiveAmount: number;
   
   items: InvoiceItem[];
