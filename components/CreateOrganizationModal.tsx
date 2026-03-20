@@ -6,9 +6,10 @@ import { Organization, Branch } from '../types';
 interface CreateOrganizationModalProps {
   onClose: () => void;
   onCreate: (orgData: any) => void;
+  users?: any[];
 }
 
-export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({ onClose, onCreate }) => {
+export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({ onClose, onCreate, users = [] }) => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
@@ -19,7 +20,8 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
     buildingNumber: '',
     city: 'Riyadh',
     district: '',
-    postalCode: ''
+    postalCode: '',
+    ownerId: ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -34,6 +36,8 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
     if (!formData.buildingNumber) newErrors.buildingNumber = 'Building No. is required';
     if (!formData.district) newErrors.district = 'District is required';
     if (!formData.postalCode) newErrors.postalCode = 'Postal Code is required';
+    
+    if (users.length > 0 && !formData.ownerId) newErrors.ownerId = 'Owner assignment is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -51,7 +55,8 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
       address: formData.streetName,
       city: formData.city,
       country: 'SA',
-      groupId: null // Or handle group selection if needed
+      groupId: null,
+      ownerId: formData.ownerId
     });
   };
 
@@ -75,6 +80,26 @@ export const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = (
             {/* Identity Section */}
             <div className="space-y-4">
               <h4 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 mb-2">Organization Identity</h4>
+              
+              {users.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Assign to Owner (Tenant User)</label>
+                  <select 
+                    className={`${inputClass} ${errors.ownerId ? 'border-rose-300' : ''} bg-indigo-50/50 border-indigo-100`}
+                    value={formData.ownerId}
+                    onChange={e => setFormData({...formData, ownerId: e.target.value})}
+                  >
+                    <option value="">-- Select Owner --</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.name || u.email} ({u.role})
+                      </option>
+                    ))}
+                  </select>
+                  {errors.ownerId && <p className="text-xs text-rose-500 mt-1">{errors.ownerId}</p>}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Company Name (English)</label>
                 <input 

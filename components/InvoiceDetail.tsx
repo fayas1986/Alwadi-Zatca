@@ -1,12 +1,12 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { submitInvoiceToZatca, generateInvoiceXML } from '../services/mockData';
-import { getInvoiceById } from '../services/api';
+import { generateInvoiceXML } from '../services/mockData';
+import { getInvoiceById, reportInvoice } from '../services/api';
 import { ArrowLeft, CheckCircle, AlertTriangle, XCircle, FileCode, QrCode, ShieldCheck, Info, Loader2, Check, Send, RefreshCw, CheckSquare, Lock, ScanLine, Camera, X, Printer, FileMinus, FilePlus, FileText, Server, PenTool, ChevronUp, ChevronDown, Activity, UserCircle, Scale, Clock, ArrowDown, AlertCircle } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Invoice, UserRole, InvoiceHistoryEvent } from '../types';
+import { Invoice, UserRole, InvoiceHistoryEvent, InvoiceStatus } from '../types';
 import { useToast } from './Toast';
 
 interface InvoiceDetailProps {
@@ -290,27 +290,37 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
     if (!invoice) return;
     setIsSubmitting(true);
     try {
-        // Backend handles routing to Clear/Report based on invoiceSubtype inside 'reportInvoice' wrapper (which calls api/invoice/report)
-        // Or we can explicitly call clearInvoice if we want to be explicit on the client side.
-        // For now, let's use the single entry point `submitInvoiceToZatca` which calls `reportInvoice` in `mockData.ts` (which is mock).
-        // If we were using real API, we would switch here.
+        // Use real-time ZATCA reporting API
+        const result = await reportInvoice(invoice, invoice.supplier.vatNumber);
         
-        // Let's update `mockData.ts` to actually call our new `api.ts` functions if we want real integration.
-        // But for "Mock" mode, we simulate it.
-        
-        const updatedInvoice = await submitInvoiceToZatca(invoice.id);
-        
-        // Simulate Clearance vs Reporting response
-        if (invoice.invoiceSubtype === 'Standard') {
-             // If this was real, we'd check if it was 'Cleared'
-             // updatedInvoice.status = 'Cleared'; 
-        }
+        // Update local state with signed XML and ZATCA response
+        const newStatus: InvoiceStatus = result.reportingStatus === 'REPORTED' 
+            ? 'Reported' 
+            : (result.clearanceStatus === 'CLEARED' ? 'Cleared' : 'Failed');
 
-        setInvoice(updatedInvoice);
+        setInvoice({
+            ...invoice,
+            status: newStatus,
+            xmlContent: result.signedXml,
+            qrCode: result.qr,
+            zatcaResponse: result.validationResults,
+            history: [
+                ...invoice.history,
+                {
+                    step: result.clearanceStatus === 'CLEARED' ? 'Cleared' : 'Reported',
+                    timestamp: new Date().toISOString(),
+                    user: 'ZATCA API',
+                    status: 'Success',
+                    details: result.note || 'Successfully processed by ZATCA'
+                }
+            ]
+        });
+        
+        addToast('success', `Invoice ${result.clearanceStatus === 'CLEARED' ? 'Cleared' : 'Reported'} successfully`);
         setShowValidationDetails(true);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Submission failed", error);
-        alert("Submission failed. Check network.");
+        addToast('error', error.message || "Submission failed. Check network components.");
     } finally {
         setIsSubmitting(false);
     }
@@ -525,7 +535,10 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                     </div>
                     {invoice.items.map((item, idx) => (
                         <div key={idx} className="grid grid-cols-12 gap-1 text-[10px] py-1 border-b border-dashed border-slate-100 last:border-0">
-                            <div className="col-span-4 font-bold truncate">{item.name}</div>
+                            <div className="col-span-4 font-bold flex flex-col">
+                                <span className="truncate">{item.name}</span>
+                                {item.nameAr && <span className="text-[9px] font-arabic mt-0.5">{item.nameAr}</span>}
+                            </div>
                             <div className="col-span-2 text-center">{item.quantity}</div>
                             <div className="col-span-3 text-right">{Number(item.unitPrice).toFixed(2)}</div>
                             <div className="col-span-3 text-right font-bold">{Number(item.total).toFixed(2)}</div>
@@ -740,7 +753,13 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                             {invoice.items && invoice.items.length > 0 ? (
                                 invoice.items.map((item, idx) => (
                                 <tr key={idx} className="hover:bg-slate-50/50 transition-colors text-slate-700">
-                                    <td className="p-3 font-medium text-slate-900">{item.name}</td>
+                                    <td className="p-3">
+                                        <div className="font-medium text-slate-900">{item.name}</div>
+                                        {item.nameAr && <div className="text-xs text-slate-500 font-arabic mt-0.5">{item.nameAr}</div>}
+                                        {item.description && !item.nameAr?.includes(item.description) && (
+                                            <div className="text-[10px] text-slate-400 mt-0.5 italic">{item.description}</div>
+                                        )}
+                                    </td>
                                     <td className="p-3 text-center">{item.quantity}</td>
                                     <td className="p-3 text-right">{Number(item.unitPrice).toFixed(2)}</td>
                                     <td className="p-3 text-center">

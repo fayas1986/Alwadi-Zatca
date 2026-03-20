@@ -7,6 +7,16 @@ const router = Router();
 console.log('[Admin] Admin routes initializing...');
 import prisma from '../lib/prisma.js';
 import { encrypt } from '../utils/crypto.js';
+import fs from 'fs';
+import path from 'path';
+
+const LOG_FILE = 'c:/Users/Fayas/Downloads/Dev/KSA-TaxFilling/admin_access.log';
+function logAdmin(msg: string) {
+    try {
+        const time = new Date().toISOString();
+        fs.appendFileSync(LOG_FILE, `[${time}] ${msg}\n`);
+    } catch(e) {}
+}
 
 const requireSuperAdmin = (req: any, res: any, next: any) => {
     const userRole = req.headers['x-user-role'];
@@ -122,7 +132,38 @@ router.delete('/groups/:id', requireSuperAdmin, async (req, res) => {
  */
 router.get('/companies', requireAnyAdmin, async (req, res) => {
     try {
+        const rawRole = req.headers['x-user-role'] as string;
+        const userRole = rawRole?.toUpperCase();
+        const userEmail = req.headers['x-user-email'] as string;
+
+        logAdmin(`>> [ISOLATION] Fetch Request - Role: ${userRole}, Email: ${userEmail}`);
+
+        const where: any = {};
+        
+        // STRICT Isolation: Only SUPER_ADMIN can see all. All others MUST match user_id.
+        if (userRole !== 'SUPER_ADMIN') {
+            if (!userEmail) {
+                logAdmin(`!! [ISOLATION] Denied: Missing x-user-email for role ${userRole}`);
+                res.setHeader('x-isolation-status', 'denied-missing-email');
+                return res.json([]);
+            }
+
+            // Find the user by email to get their canonical ID
+            const user = await prisma.user.findUnique({ where: { email: userEmail } });
+            if (user) {
+                where.user_id = user.id;
+                logAdmin(`++ [ISOLATION] Isolated to user_id: ${user.id} (${userEmail})`);
+            } else {
+                logAdmin(`!! [ISOLATION] Blocked: No user found for ${userEmail}`);
+                res.setHeader('x-isolation-status', 'blocked-user-not-found');
+                return res.json([]);
+            }
+        } else {
+            logAdmin(`** [ISOLATION] Bypass: Super Admin active`);
+        }
+
         const companies = await prisma.company.findMany({
+            where,
             include: {
                 user: true,
                 certificates: true,
@@ -154,6 +195,9 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
             }]
         }));
 
+        res.setHeader('x-isolation-status', 'active-v2');
+        res.setHeader('x-debug-role', userRole || 'NONE');
+        res.setHeader('x-debug-email', userEmail || 'NONE');
         res.json(organizations);
     } catch (error) {
         console.error('Error fetching companies:', error);
@@ -199,29 +243,36 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
  */
 router.post('/companies', requireSuperAdmin, async (req, res) => {
     try {
-        const { name, vatNumber, crNumber, branchName, address, city, country, groupId } = req.body;
+        const { name, vatNumber, crNumber, branchName, address, city, country, groupId, ownerId } = req.body;
 
         const defaultUserId = 'system_admin';
+        const finalOwnerId = ownerId || defaultUserId;
         
-        // Ensure default user exists
+        // Ensure the owner exists
         try {
-            await prisma.user.upsert({
-                where: { id: defaultUserId },
-                update: {},
-                create: {
-                    id: defaultUserId,
-                    email: 'admin@system.local',
-                    role: 'SUPER_ADMIN',
-                    password: encrypt('Zatca#Secure!2026@Connect')
-                }
-            });
+            const owner = await prisma.user.findUnique({ where: { id: finalOwnerId } });
+            if (!owner && finalOwnerId === defaultUserId) {
+                // Create default user if it's the target and missing
+                await prisma.user.upsert({
+                    where: { id: defaultUserId },
+                    update: {},
+                    create: {
+                        id: defaultUserId,
+                        email: 'admin@system.local',
+                        role: 'SUPER_ADMIN',
+                        password: encrypt('Zatca#Secure!2026@Connect')
+                    }
+                });
+            } else if (!owner) {
+                return res.status(404).json({ error: `Owner user with ID ${finalOwnerId} not found` });
+            }
         } catch (uErr: any) {
-            console.error('[Admin] Error ensuring system_admin exists:', uErr.message);
+            console.error('[Admin] Error verifying owner exists:', uErr.message);
         }
 
         const newCompany = await prisma.company.create({
             data: {
-                user_id: defaultUserId,
+                user_id: finalOwnerId,
                 group_id: groupId ? parseInt(groupId) : null,
                 registered_name: name,
                 vat_number: vatNumber,
@@ -267,7 +318,7 @@ router.post('/companies', requireSuperAdmin, async (req, res) => {
 });
 
 // PUT /api/admin/companies/:id - Update company detail
-router.put('/companies/:id', requireSuperAdmin, async (req, res) => {
+router.put('/companies/:id', requireAnyAdmin, async (req, res) => {
     console.log(`[Admin] PUT request for company ID: ${req.params.id}`);
     try {
         const { id } = req.params;
@@ -319,6 +370,8 @@ router.delete('/companies/:id', requireSuperAdmin, async (req, res) => {
         await prisma.invoice.deleteMany({ where: { company_id: companyId } });
         await prisma.certificate.deleteMany({ where: { company_id: companyId } });
         await prisma.customer.deleteMany({ where: { company_id: companyId } });
+        await prisma.erp_configuration.deleteMany({ where: { company_id: companyId } });
+        await prisma.item.deleteMany({ where: { company_id: companyId } });
         
         await prisma.company.delete({
             where: { id: companyId }
@@ -399,6 +452,24 @@ router.post('/users', requireSuperAdmin, async (req, res) => {
             }
         });
 
+        // Sync ownership if company name is provided
+        if (companyName) {
+            try {
+                const targetCompany = await prisma.company.findFirst({
+                    where: { registered_name: companyName }
+                });
+                if (targetCompany) {
+                    await prisma.company.update({
+                        where: { id: targetCompany.id },
+                        data: { user_id: newUser.id }
+                    });
+                    console.log(`[Admin] Synchronized ownership for company "${companyName}" to user ${newUser.id}`);
+                }
+            } catch (syncErr: any) {
+                console.error('[Admin] Failed to sync company ownership:', syncErr.message);
+            }
+        }
+
         console.log('[Admin] User created successfully:', newUser.id);
         res.json({
             id: newUser.id,
@@ -458,11 +529,21 @@ router.delete('/users/:id', requireSuperAdmin, async (req, res) => {
             }
         }
 
+        // Before deleting, re-assign any companies owned by this user to 'system_admin'
+        // to avoid foreign key constraint violations
+        await prisma.company.updateMany({
+            where: { user_id: id },
+            data: { user_id: 'system_admin' }
+        });
+
         await prisma.user.delete({ where: { id } });
         res.json({ message: 'User deleted successfully' });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error deleting user:', error);
-        res.status(500).json({ error: 'Failed to delete user' });
+        res.status(500).json({ 
+            error: 'Failed to delete user', 
+            details: error.message 
+        });
     }
 });
 

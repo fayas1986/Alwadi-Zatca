@@ -1,6 +1,7 @@
-
 import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 
 export interface AuditLogParams {
     action: string;
@@ -16,16 +17,22 @@ export interface AuditLogParams {
 }
 
 export class AuditService {
-    /**
-     * Creates a new audit log entry
-     */
     static async log(params: AuditLogParams) {
+        // Fire and forget to avoid blocking real-time operations
+        this._privateLog(params).catch(err => {
+            console.error('Audit Log (Background) Failed:', err);
+        });
+        return { success: true, queued: true };
+    }
+
+    private static async _privateLog(params: AuditLogParams) {
         try {
             // Generate integrity hash of the log entry content
-            const contentToHash = `${params.timestamp || new Date().toISOString()}|${params.action}|${params.user}|${params.details}|${params.status}`;
+            const timestamp = params.timestamp || new Date().toISOString();
+            const contentToHash = `${timestamp}|${params.action}|${params.user}|${params.details}|${params.status}`;
             const hash = crypto.createHash('sha256').update(contentToHash).digest('hex');
 
-            const logEntry = await (prisma as any).audit_log.create({
+            await (prisma as any).audit_log.create({
                 data: {
                     action: params.action,
                     category: params.category,
@@ -39,12 +46,18 @@ export class AuditService {
                     hash: hash
                 }
             });
-
-            return logEntry;
         } catch (error) {
-            console.error('Failed to create audit log:', error);
-            // We don't throw here to avoid crashing the main process if logging fails
-            return null;
+            console.error('Failed to create audit log entry in DB, falling back to file:', error);
+            // Fallback to local file logging
+            try {
+                const logDir = path.join(process.cwd(), 'logs');
+                if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
+                const logFile = path.join(logDir, 'audit_failover.log');
+                const logLine = JSON.stringify({ ...params, timestamp: new Date().toISOString() }) + '\n';
+                fs.appendFileSync(logFile, logLine);
+            } catch (fsError) {
+                console.error('Critical: Audit Log File Fallback Failed:', fsError);
+            }
         }
     }
 
@@ -57,8 +70,17 @@ export class AuditService {
         const where: any = {};
         if (filters.category && filters.category !== 'All') where.category = filters.category;
         if (filters.status && filters.status !== 'All') where.status = filters.status;
-        if (filters.user) where.user = { contains: filters.user, mode: 'insensitive' };
-        if (filters.action) where.action = { contains: filters.action, mode: 'insensitive' };
+        
+        // Handle search term using OR logic for User, Action, or ResourceID
+        if (filters.action || filters.user) {
+            const searchTerm = filters.action || filters.user;
+            where.OR = [
+                { user: { contains: searchTerm, mode: 'insensitive' } },
+                { action: { contains: searchTerm, mode: 'insensitive' } },
+                { details: { contains: searchTerm, mode: 'insensitive' } },
+                { resource_id: { contains: searchTerm, mode: 'insensitive' } }
+            ];
+        }
         
         const [logs, total] = await Promise.all([
             (prisma as any).audit_log.findMany({

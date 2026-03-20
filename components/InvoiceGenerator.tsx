@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2, Save, Send, RefreshCw, Calculator, FileText, User, MapPin, Tag, Box, AlertTriangle, CheckCircle, ArrowRight, Calendar, CreditCard, FileMinus, FilePlus, Search, Link as LinkIcon, Percent, QrCode, X, Users, AlertCircle, MonitorSmartphone } from 'lucide-react';
 import { Invoice, InvoiceItem, InvoiceSubtype, Party, DocumentType, Item, Branch, Organization } from '../types';
-import { createInternalInvoice, getInvoiceById, mockInvoices, defaultSupplier } from '../services/mockData';
-import { computeSHA256, mockSign, generateZatcaQR } from '../services/crypto';
+import { getInvoiceById, defaultSupplier, generateInvoiceXML } from '../services/mockData';
+import { computeSHA256, generateZatcaQR } from '../services/crypto';
 import { reportInvoice } from '../services/api';
 import { getItems } from '../services/itemApi';
 
@@ -30,9 +30,11 @@ interface InvoiceGeneratorProps {
     referenceInvoiceId?: string | null;
     selectedBranch: Branch | null;
     organizations: Organization[];
+    userRole: string;
+    userEmail: string;
 }
 
-export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, referenceInvoiceId, selectedBranch, organizations }) => {
+export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, referenceInvoiceId, selectedBranch, organizations, userRole, userEmail }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [invoiceType, setInvoiceType] = useState<InvoiceSubtype>('Standard');
     const [documentType, setDocumentType] = useState<DocumentType>('Invoice');
@@ -112,7 +114,10 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
     const fetchAvailableItems = async () => {
         if (!selectedBranch) return;
         try {
-            const data = await getItems(selectedBranch.organizationId);
+            const data = await getItems(selectedBranch.organizationId, {
+                'x-user-role': userRole,
+                'x-user-email': userEmail
+            });
             setAvailableItems(data);
         } catch (error) {
             console.error('Error fetching items for invoice:', error);
@@ -337,31 +342,17 @@ export const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({ onNavigate, 
                 }]
             };
 
-            const result = await reportInvoice(payload, defaultSupplier.vatNumber);
+            const supplierVat = selectedBranch ? 
+                (organizations.find(o => o.id === selectedBranch.organizationId)?.vatNumber || defaultSupplier.vatNumber) : 
+                defaultSupplier.vatNumber;
 
-            // Generate QR code locally
-            const invoiceForQR = { ...payload } as Invoice;
-            const xmlContent = JSON.stringify(invoiceForQR); // simplified content for hashing
-            const hash = await computeSHA256(xmlContent);
-            const signature = await mockSign(hash, 'cert-001');
-            const qrCode = await generateZatcaQR(invoiceForQR, hash, signature, 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...');
+            const result = await reportInvoice(payload, supplierVat);
 
-            // Complete the payload and add it to frontend mock state so InvoiceDetail can load it
-            const newInvoice = { 
-                ...payload,
-                qrCode,
-                invoiceHash: hash,
-                signature,
-                status: (result.reportingStatus === 'REPORTED' || result.clearanceStatus === 'CLEARED') ? 'Reported' : 'Failed',
-                zatcaResponse: result
-            } as any;
-            mockInvoices.unshift(newInvoice);
-
-            // Notify other components (InvoiceList/Dashboard) that mockInvoices changed
+            // Notify other components that invoices changed
             window.dispatchEvent(new CustomEvent('invoices-updated'));
 
             // Navigate to details to show success/QR using the server-returned ID
-            onNavigate('invoice-detail', result.id?.toString() || newInvoice.id);
+            onNavigate('invoice-detail', result.id?.toString() || (payload.id as string));
 
         } catch (error: any) {
             console.error(error);

@@ -22,7 +22,9 @@ import {
   MapPin,
   Plus,
   Trash2,
-  Package
+  Package,
+  FileBarChart,
+  Layout as LayoutIcon
 } from 'lucide-react';
 import { UserRole, Organization, Branch } from '../types';
 
@@ -72,20 +74,26 @@ export const Layout: React.FC<LayoutProps> = ({
   }, []);
 
   // Define Navigation Items with Role Restrictions
-  const navItems = [
+  const standardNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER', 'SUPER_ADMIN'] },
-    { id: 'users', label: 'User Management', icon: UserCircle, roles: ['SUPER_ADMIN'] }, // New User Management Item
     { id: 'invoices', label: 'Invoices', icon: FileText, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER'] },
     { id: 'items', label: 'Item Master', icon: Package, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER'] },
-    { id: 'create-invoice', label: 'New Invoice', icon: PlusCircle, roles: ['IT_ADMIN', 'FINANCE_ADMIN'] }, // New Menu Item
-    { id: 'validator', label: 'XML Validator', icon: Code, roles: ['IT_ADMIN', 'FINANCE_ADMIN'] }, // New Validator Item
+    { id: 'create-invoice', label: 'New Invoice', icon: PlusCircle, roles: ['IT_ADMIN', 'FINANCE_ADMIN'] },
+    { id: 'validator', label: 'XML Validator', icon: Code, roles: ['IT_ADMIN', 'FINANCE_ADMIN'] },
     { id: 'certificates', label: 'CSR Settings', icon: ShieldCheck, roles: ['IT_ADMIN'] },
     { id: 'erp-connectors', label: 'ERP Connectors', icon: Plug, roles: ['IT_ADMIN'] },
+    { id: 'reports', label: 'Report Center', icon: FileBarChart, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER', 'SUPER_ADMIN'] },
     { id: 'audit', label: 'Audit Log', icon: Activity, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER', 'SUPER_ADMIN'] },
+  ];
+
+  const adminNavItems = [
+    { id: 'users', label: 'User Management', icon: UserCircle, roles: ['SUPER_ADMIN'] },
+    { id: 'report-designer', label: 'Report Designer', icon: LayoutIcon, roles: ['SUPER_ADMIN'] },
     { id: 'api-docs', label: 'API Docs', icon: Code, roles: ['SUPER_ADMIN'] },
   ];
 
-  const filteredNavItems = navItems.filter(item => item.roles.includes(userRole));
+  const filteredNavItems = standardNavItems.filter(item => item.roles.includes(userRole));
+  const filteredAdminItems = adminNavItems.filter(item => item.roles.includes(userRole));
 
   const roleLabels = {
     IT_ADMIN: 'IT Administrator',
@@ -253,6 +261,31 @@ export const Layout: React.FC<LayoutProps> = ({
               </button>
             );
           })}
+
+          {filteredAdminItems.length > 0 && (
+            <div className="mt-8 pt-4 border-t border-slate-800/50">
+              {sidebarOpen && <p className="px-3 text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-3">SaaS Console</p>}
+              {filteredAdminItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentRoute === item.id;
+                
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onNavigate(item.id)}
+                    className={`w-full flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${
+                      isActive 
+                        ? 'bg-indigo-900/30 text-indigo-200 border-l-4 border-indigo-500 shadow-inner' 
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-indigo-300'
+                    }`}
+                  >
+                    <Icon size={18} className={`min-w-[18px] ${isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-indigo-400 transition-colors'}`} />
+                    {sidebarOpen && <span className="ml-3 font-medium text-sm">{item.label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="p-4 border-t border-slate-800 bg-[#0f172a]">
@@ -286,6 +319,17 @@ export const Layout: React.FC<LayoutProps> = ({
                   <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-700 text-xs font-bold text-slate-400 uppercase tracking-wider">
                     My Account
                   </div>
+                  {userRole === 'SUPER_ADMIN' && (
+                    <button 
+                        onClick={() => {
+                            onNavigate('users');
+                            setProfileMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm text-indigo-400 hover:bg-slate-700 hover:text-indigo-300 transition-colors flex items-center border-b border-slate-700"
+                    >
+                        <ShieldCheck size={14} className="mr-2" /> SaaS Master Console
+                    </button>
+                  )}
                   <button 
                     onClick={onLogout}
                     className="w-full text-left px-4 py-3 text-sm text-rose-400 hover:bg-slate-700 hover:text-rose-300 transition-colors flex items-center"
@@ -313,6 +357,8 @@ export const Layout: React.FC<LayoutProps> = ({
               {currentRoute === 'certificates' && 'Zatca CSR Settings'}
               {currentRoute === 'erp-connectors' && 'ERP Integration Hub'}
               {currentRoute === 'audit' && 'System Audit Log'}
+              {currentRoute === 'reports' && 'Report Generation Center'}
+              {currentRoute === 'report-designer' && 'Dynamic Report Designer'}
               {currentRoute === 'settings' && 'System Configuration'}
             </h1>
           </div>

@@ -50,6 +50,8 @@ router.get('/', async (req, res) => {
             limit
         );
 
+        console.log(`[Audit Route] Returning ${result.logs.length} logs. Total: ${result.total}`);
+
         res.json({
             success: true,
             data: result.logs,

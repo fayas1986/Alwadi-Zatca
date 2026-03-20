@@ -39,8 +39,14 @@ export const getCertificates = async (companyId: string) => {
     return response.json();
 };
 
-export const getInvoices = async (companyId: string) => {
-    const response = await fetch(`${API_BASE_URL}/invoices?companyId=${companyId}`);
+export const getInvoices = async (companyId: string, headers: any = {}) => {
+    const response = await fetch(`${API_BASE_URL}/invoices?companyId=${companyId}`, {
+        headers: {
+            'x-user-role': headers.role || '',
+            'x-user-email': headers.email || '',
+            ...headers
+        }
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch invoices');
     }
@@ -60,6 +66,26 @@ export const getAuditLogs = async (params: any = {}) => {
     const response = await fetch(`/api/audit-logs?${query}`);
     if (!response.ok) {
         throw new Error('Failed to fetch audit logs');
+    }
+    return response.json();
+};
+
+export const getConfigs = async (companyId: string) => {
+    const response = await fetch(`${API_BASE_URL.replace('/zatca', '/erp')}/configs?companyId=${companyId}`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch ERP configurations');
+    }
+    return response.json();
+};
+
+export const saveERPConfig = async (data: any) => {
+    const response = await fetch(`${API_BASE_URL.replace('/zatca', '/erp')}/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+        throw new Error('Failed to save ERP configuration');
     }
     return response.json();
 };

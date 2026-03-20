@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { mockERPs, submitInvoiceFromERP } from '../services/mockData';
 import { ERPSystem, Branch, Certificate } from '../types';
 import { Plus, Server, Database, Cloud, Plug, MoreVertical, Wifi, WifiOff, Copy, Check, RefreshCw, Trash2, Key, ShieldCheck, X, Terminal, Play, Code, MonitorSmartphone, LayoutTemplate } from 'lucide-react';
 import { useToast } from './Toast';
-import { getCertificates } from '../services/api';
+import { getCertificates, getConfigs, saveERPConfig } from '../services/api';
 
 interface ERPConnectorsProps {
     selectedBranch?: Branch | null;
@@ -11,24 +10,53 @@ interface ERPConnectorsProps {
 
 export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) => {
   const { addToast } = useToast();
-  const [erps, setErps] = useState<ERPSystem[]>(mockERPs);
+  const [erps, setErps] = useState<ERPSystem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'management' | 'simulator'>('management');
 
-  // Fetch Certificates
+  // Fetch Configurations & Certificates
   useEffect(() => {
-    const fetchCerts = async () => {
+    const fetchData = async () => {
       if (!selectedBranch?.organizationId) return;
+      setLoading(true);
       try {
-        const data = await getCertificates(selectedBranch.organizationId);
-        setCertificates(data);
+        const [certs, configs] = await Promise.all([
+            getCertificates(selectedBranch.organizationId),
+            getConfigs(selectedBranch.organizationId)
+        ]);
+        console.log(`[DEBUG] ERPConnectors fetched ${certs.length} certificates for org ${selectedBranch.organizationId}`);
+        setCertificates(certs);
+        
+        if (certs.length === 0) {
+            console.log('[DEBUG] No certificates found for this organization');
+        } else {
+            certs.forEach((c: any) => {
+                console.log(`[DEBUG] Certificate: ID=${c.id}, BranchID=${c.branchId}, Status=${c.status}`);
+            });
+        }
+        
+        // Map backend config to frontend ERPSystem interface
+        const mappedConfigs: ERPSystem[] = configs.map((c: any) => ({
+            id: c.id,
+            name: `${c.type} Connection`,
+            vendor: c.type as any,
+            environment: c.environment ? (c.environment.charAt(0) + c.environment.slice(1).toLowerCase()) : 'Production', 
+            apiKey: c.api_key || '••••••••',
+            status: c.is_active ? 'Connected' : 'Disconnected',
+            lastSync: c.updated_at,
+            linkedCertificateId: '' // Would need deeper join if required
+        }));
+        setErps(mappedConfigs);
       } catch (error) {
-        console.error('Error fetching certificates for ERP:', error);
+        console.error('Error fetching ERP data:', error);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchCerts();
+    fetchData();
   }, [selectedBranch]);
   
   // Simulator State
@@ -83,14 +111,14 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
   const [newERP, setNewERP] = useState<{
     name: string;
     vendor: ERPSystem['vendor'];
-    environment: 'Production' | 'Sandbox';
+    environment: 'Production' | 'Simulation' | 'Sandbox';
     linkedCertificateId: string;
     sourceUrl: string;
     authHeader: string;
   }>({
     name: '',
     vendor: 'SAP',
-    environment: 'Production',
+    environment: 'Simulation',
     linkedCertificateId: '',
     sourceUrl: '',
     authHeader: ''
@@ -113,7 +141,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
     if (!erp) return;
 
     try {
-        const response = await fetch('/api/erp/sync', {
+        const response = await fetch(`/api/erp/sync/${id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -234,15 +262,27 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const prefix = newERP.vendor === 'POS' ? 'pos' : newERP.vendor.toLowerCase().slice(0,3);
-    const apiKey = `${prefix}_${newERP.environment === 'Production' ? 'prod' : 'sbx'}_${Math.random().toString(36).substring(2,18)}`;
     
+    if (!selectedBranch?.organizationId) {
+        addToast('error', 'No organization context selected. Please select a branch first.');
+        return;
+    }
+
+    // Generate a professional-looking API Key (format: vendor_key_random)
+    const prefix = (newERP.vendor || 'API').toLowerCase().substring(0, 3);
+    const randomPart = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+    const generatedKey = `sk_${prefix}_${newERP.environment === 'Production' ? 'live' : 'test'}_${randomPart}`;
+    
+    // If Custom, use the user-provided authHeader as the key, otherwise use the generated one
+    const finalApiKey = newERP.vendor === 'Custom' ? newERP.authHeader : generatedKey;
+
     try {
         const payload = {
-            companyId: 'org-001',
+            companyId: selectedBranch.organizationId,
             type: newERP.vendor.toUpperCase(),
-            baseUrl: newERP.sourceUrl || 'http://localhost:3001/mock-erp',
-            apiKey: newERP.vendor === 'Custom' ? newERP.authHeader : apiKey,
+            baseUrl: newERP.sourceUrl || 'http://localhost:3001/api/erp/mock-server',
+            apiKey: finalApiKey,
+            environment: newERP.environment.toUpperCase(), // Send environment to backend
             syncInterval: 30
         };
 
@@ -260,7 +300,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
                 name: newERP.name,
                 vendor: newERP.vendor,
                 environment: newERP.environment,
-                apiKey: apiKey,
+                apiKey: finalApiKey!,
                 status: 'Connected',
                 lastSync: new Date().toISOString(),
                 linkedCertificateId: newERP.linkedCertificateId || undefined,
@@ -269,7 +309,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
             };
 
             setErps([...erps, erp]);
-            addToast('success', 'ERP Connection Configuration Saved Successfully');
+            addToast('success', `ERP Connected! Your API Key is: ${finalApiKey}`);
             setIsModalOpen(false);
             setNewERP({ name: '', vendor: 'SAP', environment: 'Production', linkedCertificateId: '', sourceUrl: '', authHeader: '' });
         } else {
@@ -303,7 +343,10 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
       if (!selectedBranch) return true;
       const linkedCert = certificates.find(c => c.id === erp.linkedCertificateId);
       // Show if linked cert belongs to this branch OR if no cert is linked (generic connector)
-      return !linkedCert || linkedCert.branchId === selectedBranch.id;
+      const isBranchMatch = !linkedCert || 
+                           linkedCert.branchId === selectedBranch.id || 
+                           linkedCert.branchId === `br-${selectedBranch.organizationId}`;
+      return isBranchMatch;
   });
 
   const inputClass = "w-full px-4 py-2.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-900 placeholder:text-slate-400";
@@ -612,8 +655,9 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
                             value={newERP.environment}
                             onChange={e => setNewERP({...newERP, environment: e.target.value as any})}
                         >
-                            <option value="Production">Production</option>
+                            <option value="Simulation">Simulation</option>
                             <option value="Sandbox">Sandbox</option>
+                            <option value="Production">Production</option>
                         </select>
                     </div>
                 </div>
@@ -651,7 +695,17 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
                         onChange={e => setNewERP({...newERP, linkedCertificateId: e.target.value})}
                     >
                         <option value="">-- Select Active Certificate --</option>
-                        {certificates.filter(c => c.status === 'Active' && (!selectedBranch || c.branchId === selectedBranch.id)).map(cert => (
+                        {certificates.filter(c => {
+                            const isStatusActive = c.status.toLowerCase() === 'active';
+                            const isEnvMatch = c.type.toLowerCase() === newERP.environment.toLowerCase();
+                            
+                            // Flexible branch matching: match if selectedBranch matches c.branchId OR if we're in HQ and want to see all
+                            const isBranchMatch = !selectedBranch || 
+                                                 c.branchId === selectedBranch.id || 
+                                                 c.branchId === `br-${selectedBranch.organizationId}`;
+
+                            return isStatusActive && isBranchMatch && isEnvMatch;
+                        }).map(cert => (
                             <option key={cert.id} value={cert.id}>
                                 {cert.commonName} ({cert.type})
                             </option>

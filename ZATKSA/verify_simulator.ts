@@ -57,7 +57,7 @@ async function testSimulator() {
                 }
             },
             "supplier": {
-                "name": "Tech Solutions Ltd",
+                "name": "Satguru Travels Tourism",
                 "vatNumber": "300000000000003",
                 "address": { "streetName": "Olaya", "buildingNumber": "1234", "cityName": "Riyadh", "postalZone": "12211", "countryCode": "SA" }
             }

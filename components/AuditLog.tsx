@@ -2,9 +2,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getAuditLogs } from '../services/api';
 import { AuditLogEntry } from '../types';
+import { useToast } from './Toast';
 import { Terminal, Search, Filter, FileCheck, Download, AlertTriangle, Shield, CheckCircle, Clock, X, Hash, Server, Activity, Lock, Eye, Code, Calendar, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 export const AuditLog: React.FC = () => {
+  const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -41,6 +43,7 @@ export const AuditLog: React.FC = () => {
       setTotalLogs(result.pagination.total);
     } catch (error) {
       console.error('Failed to fetch audit logs:', error);
+      addToast('error', 'Connectivity issue: Failed to fetch audit logs');
     } finally {
       setIsLoading(false);
     }
@@ -48,6 +51,13 @@ export const AuditLog: React.FC = () => {
 
   useEffect(() => {
     fetchLogs();
+    
+    // Implement auto-refresh every 30 seconds for "real-time" experience
+    const interval = setInterval(() => {
+        fetchLogs();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, [currentPage, categoryFilter, statusFilter, searchTerm]);
 
   // Reset to first page when filters change
@@ -371,6 +381,14 @@ export const AuditLog: React.FC = () => {
                             <span className={`px-2.5 py-1 rounded-md text-sm font-bold border ${getStatusColor(selectedLog.status)}`}>
                                 {selectedLog.status}
                             </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-slate-500">Action</span>
+                            <span className="text-sm font-bold text-slate-900">{selectedLog.action}</span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <span className="text-sm font-semibold text-slate-500">Details</span>
+                            <span className="text-sm text-slate-700 bg-slate-50 p-2 rounded border border-slate-100 break-words">{selectedLog.details}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-semibold text-slate-500">Timestamp</span>

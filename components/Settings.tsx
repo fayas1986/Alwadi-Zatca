@@ -139,9 +139,9 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
       name: '',
       vatNumber: '',
       crNumber: '',
-      email: 'finance@tech-solutions.sa',
-      phone: '+966 11 444 5555',
-      website: 'www.tech-solutions.sa',
+      email: '',
+      phone: '',
+      website: '',
       logoUrl: '',
       streetName: '',
       buildingNumber: '',
@@ -156,18 +156,23 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
     if (selectedBranch) {
         const org = organizations.find(o => o.id === selectedBranch.organizationId);
         if (org) {
+            const settings = (selectedBranch as any).settings || {};
+            const profile = settings.profile || {};
+
             setOrgDetails(prev => ({
                 ...prev,
                 name: org.name,
                 vatNumber: org.vatNumber,
                 crNumber: org.crNumber,
+                email: profile.email || '',
+                phone: profile.phone || '',
+                website: profile.website || '',
                 ...selectedBranch.address,
                 additionalNumber: selectedBranch.address.additionalNumber || '',
                 logoUrl: org.logoUrl || ''
             }));
 
             // Sync other configs
-            const settings = (selectedBranch as any).settings || {};
             if (settings.compliance) setComplianceConfig(prev => ({ ...prev, ...settings.compliance, environment: (selectedBranch as any).environment || prev.environment }));
             if (settings.security) setSecurityConfig(prev => ({ ...prev, ...settings.security }));
             if (settings.notifications) setNotifConfig(prev => ({ ...prev, ...settings.notifications }));
@@ -212,14 +217,25 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
                   'x-user-role': userRole
               },
               body: JSON.stringify({
-                   branchName: selectedBranch.name,
-                   environment: complianceConfig.environment,
-                   settings: {
-                       compliance: complianceConfig,
-                       security: securityConfig,
-                       notifications: notifConfig
-                   }
-               })
+                    name: orgDetails.name,
+                    vatNumber: orgDetails.vatNumber,
+                    crNumber: orgDetails.crNumber,
+                    address: orgDetails.streetName,
+                    city: orgDetails.cityName,
+                    country: orgDetails.countryCode,
+                    branchName: selectedBranch.name,
+                    environment: complianceConfig.environment,
+                    settings: {
+                        profile: {
+                            email: orgDetails.email,
+                            phone: orgDetails.phone,
+                            website: orgDetails.website
+                        },
+                        compliance: complianceConfig,
+                        security: securityConfig,
+                        notifications: notifConfig
+                    }
+                })
            });
 
           if (response.ok) {
@@ -476,7 +492,7 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                   <InputGroup label="CSR Common Name (CN)" value={complianceConfig.csrCommonName} onChange={(v: string) => setComplianceConfig({...complianceConfig, csrCommonName: v})} placeholder="TS-RYD-01" />
-                                  <InputGroup label="Organization Unit (OU)" value={selectedBranch ? selectedBranch.name : "Riyadh Branch"} onChange={() => {}} placeholder="Riyadh Branch" disabled />
+                                  <InputGroup label="Organization Unit (OU)" value={selectedBranch ? selectedBranch.name : "Satguru Branch"} onChange={() => {}} placeholder="Satguru Branch" disabled />
                                   
                                   <div className="md:col-span-2">
                                       <Toggle 

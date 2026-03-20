@@ -1,9 +1,9 @@
-
+import crypto from 'crypto';
 import axios from 'axios';
 import { generateInvoiceXML } from './xmlService.js';
 import { signInvoice } from './sdkService.js';
 import { reportInvoice, clearInvoice } from './zatcaService.js';
-import { decrypt } from '../utils/crypto.js';
+import { SecurityService } from './securityService.js';
 import prisma from '../lib/prisma.js';
 
 interface ExternalInvoice {
@@ -16,8 +16,8 @@ interface ExternalInvoice {
     items: any[];
 }
 
-export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: string, vatNumber: string) => {
-    console.log(`Fetching invoices from ${sourceUrl}...`);
+export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: string, vatNumber: string, environment?: string) => {
+    console.log(`Fetching invoices from ${sourceUrl} for environment: ${environment || 'Default'}...`);
 
     try {
         // 1. Fetch from ERP
@@ -43,7 +43,20 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
         });
 
         if (!company) throw new Error(`Company with VAT ${vatNumber} not found`);
-        const cert = company.certificates.find((c: any) => c.is_active);
+        
+        // Find certificate matching the ERP environment, or fallback to any active cert
+        let cert = company.certificates.find((c: any) => {
+            if (!c.is_active) return false;
+            if (!environment) return true;
+            
+            const certType = c.type.toUpperCase();
+            const targetEnv = environment.toUpperCase();
+            
+            return certType === targetEnv;
+        });
+        
+        // If still no exact match, fallback to any active cert
+        if (!cert) cert = company.certificates.find((c: any) => c.is_active);
         
         // Mock certificate data if none exists (for testing purposes)
         // In prod, this should fail.
@@ -61,13 +74,13 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
             try {
                  // Check if key is actually encrypted (contains IV separator)
                  if (cert.private_key.includes(':')) {
-                     decryptedPrivateKey = decrypt(cert.private_key);
+                     decryptedPrivateKey = SecurityService.decrypt(cert.private_key);
                  } else {
                      decryptedPrivateKey = cert.private_key; // Assume plaintext fallback
                  }
 
                  if (cert.secret && cert.secret.includes(':')) {
-                     decryptedSecret = decrypt(cert.secret);
+                     decryptedSecret = SecurityService.decrypt(cert.secret);
                  } else {
                      decryptedSecret = cert.secret || '';
                  }
@@ -85,9 +98,13 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
 
         for (const inv of invoices) {
             try {
-                // Check if invoice already exists
+                console.log(`[Integration] Processing invoice ${inv.invoiceNumber} for company ${company.id}`);
+                // 4. Check if already processed (scoped to company)
                 const existingInvoice = await prisma.invoice.findFirst({
-                    where: { invoice_number: inv.invoiceNumber }
+                    where: { 
+                        invoice_number: inv.invoiceNumber,
+                        company_id: company.id
+                    }
                 });
 
                 if (existingInvoice) {
@@ -131,7 +148,12 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                             postalZone: '00000',
                             countryCode: 'SA'
                         }
-                    }
+                    },
+                    items: inv.items.map((it: any) => ({
+                        ...it,
+                        nameAr: it.nameAr || it.arabicName || it.itemDescriptionArabic || null,
+                        description: it.description || it.itemDescription || null
+                    }))
                 };
 
                 // Generate XML
@@ -163,6 +185,9 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 // Mock Reporting if using mock credentials
                 const isMock = certPem.startsWith('MOCK_') || (cert?.csid?.startsWith('MOCK_'));
 
+                // Use the provided environment (from ERP config) if available, otherwise fallback to company environment
+                const targetZatcaEnv = (environment || company.environment || 'SANDBOX').toLowerCase();
+
                 if (isMock || hash === 'mock-hash-123') {
                      console.log(`[Integration] Mock certificate detected for ${inv.invoiceNumber}. Bypassing real ZATCA API.`);
                      result = {
@@ -175,24 +200,27 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 } else {
                     if (inv.invoiceSubtype === 'Standard') {
                         result = await clearInvoice(
-                            company.environment as any,
+                            targetZatcaEnv,
                             cert?.csid || 'MOCK-CSID',
                             decryptedSecret,
                             hash,
-                            Buffer.from(signedXml).toString('base64')
+                            Buffer.from(signedXml).toString('base64'),
+                            zatcaInvoice.uuid
                         );
                     } else {
                         result = await reportInvoice(
-                            company.environment as any,
+                            targetZatcaEnv,
                             cert?.csid || 'MOCK-CSID',
                             decryptedSecret,
                             hash,
-                            Buffer.from(signedXml).toString('base64')
+                            Buffer.from(signedXml).toString('base64'),
+                            zatcaInvoice.uuid
                         );
                     }
                 }
                 
                 // Save to Database
+                console.log(`[Integration] Attempting to create invoice ${inv.invoiceNumber} in DB...`);
                 await prisma.invoice.create({
                     data: {
                         company_id: company.id,
@@ -203,11 +231,15 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                         tax_amount: inv.vatAmount,
                         status: result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 
                                 result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED',
-                        type: 'B2B', // Or derive from customer type
+                        type: inv.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
                         hash: hash,
                         xml_payload: Buffer.from(signedXml).toString('base64'),
                         qr_code: qr,
-                        submission_response: JSON.stringify(result)
+                        submission_response: JSON.stringify(result),
+                        metadata: {
+                            items: zatcaInvoice.items,
+                            erp_raw: inv as any
+                        }
                     }
                 });
 

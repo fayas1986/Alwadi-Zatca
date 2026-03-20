@@ -11,19 +11,19 @@ import { decrypt } from '../utils/crypto.js';
 const FALLBACK_USERS: Record<string, { id: string; email: string; password: string; name: string; role: string; company_name: string }> = {
     'superadmin@tech-solutions.sa': {
         id: 'u-001', email: 'superadmin@tech-solutions.sa', password: 'Zatca#Secure!2026@Connect',
-        name: 'Super Admin', role: 'SUPER_ADMIN', company_name: 'Tech Solutions Ltd'
+        name: 'Super Admin', role: 'SUPER_ADMIN', company_name: 'Satguru Travels Tourism'
     },
     'admin@tech-solutions.sa': {
         id: 'u-002', email: 'admin@tech-solutions.sa', password: 'password123',
-        name: 'IT Administrator', role: 'IT_ADMIN', company_name: 'Tech Solutions Ltd'
+        name: 'IT Administrator', role: 'IT_ADMIN', company_name: 'Satguru Travels Tourism'
     },
     'finance@tech-solutions.sa': {
         id: 'u-003', email: 'finance@tech-solutions.sa', password: 'password123',
-        name: 'Finance Manager', role: 'FINANCE_ADMIN', company_name: 'Tech Solutions Ltd'
+        name: 'Finance Manager', role: 'FINANCE_ADMIN', company_name: 'Satguru Travels Tourism'
     },
     'tax@tech-solutions.sa': {
         id: 'u-004', email: 'tax@tech-solutions.sa', password: 'password123',
-        name: 'Tax Officer', role: 'TAX_OFFICER', company_name: 'Tech Solutions Ltd'
+        name: 'Tax Officer', role: 'TAX_OFFICER', company_name: 'Satguru Travels Tourism'
     },
 };
 

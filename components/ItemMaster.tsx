@@ -5,9 +5,11 @@ import { getItems, createItem, updateItem, deleteItem, bulkCreateItems } from '.
 
 interface ItemMasterProps {
     selectedBranch: Branch | null;
+    userRole: string;
+    userEmail: string;
 }
 
-export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch }) => {
+export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch, userRole, userEmail }) => {
     const [items, setItems] = useState<Item[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -32,7 +34,10 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch }) => {
         if (!selectedBranch) return;
         setIsLoading(true);
         try {
-            const data = await getItems(selectedBranch.organizationId);
+            const data = await getItems(selectedBranch.organizationId, {
+                'x-user-role': userRole,
+                'x-user-email': userEmail
+            });
             setItems(data);
         } catch (error) {
             console.error('Error fetching items:', error);
@@ -61,11 +66,17 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch }) => {
         setIsLoading(true);
         try {
             if (currentItem.id) {
-                await updateItem(currentItem.id, currentItem);
+                await updateItem(currentItem.id, currentItem, {
+                    'x-user-role': userRole,
+                    'x-user-email': userEmail
+                });
             } else {
                 await createItem({
                     ...currentItem as any,
                     companyId: selectedBranch.organizationId
+                }, {
+                    'x-user-role': userRole,
+                    'x-user-email': userEmail
                 });
             }
             setIsEditing(false);
@@ -81,7 +92,10 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch }) => {
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this item?')) return;
         try {
-            await deleteItem(id);
+            await deleteItem(id, {
+                'x-user-role': userRole,
+                'x-user-email': userEmail
+            });
             fetchItems();
         } catch (error) {
             console.error('Error deleting item:', error);
@@ -140,7 +154,10 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch }) => {
                     return item;
                 });
 
-                await bulkCreateItems(data, selectedBranch.organizationId);
+                await bulkCreateItems(data, selectedBranch.organizationId, {
+                    'x-user-role': userRole,
+                    'x-user-email': userEmail
+                });
                 alert(`Successfully uploaded ${data.length} items!`);
                 fetchItems();
             } catch (error: any) {

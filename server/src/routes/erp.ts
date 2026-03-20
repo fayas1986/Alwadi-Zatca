@@ -77,32 +77,47 @@ router.post('/pull', async (req: Request, res: Response) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/erp/config  — save a new ERP configuration
+//  GET /api/erp/configs  — list all ERP configurations
 // ─────────────────────────────────────────────────────────────────────────────
+router.get('/configs', async (req: Request, res: Response) => {
+    try {
+        const { companyId } = req.query;
+        if (!companyId) return res.status(400).json({ error: 'companyId is required' });
+
+        const configs = await prisma.erp_configuration.findMany({
+            where: { company_id: parseInt(companyId as string) }
+        });
+        res.json(configs);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  POST /api/erp/config  — save a new ERP configuration
 router.post('/config', async (req: Request, res: Response) => {
     try {
-        const { companyId, type, baseUrl, apiKey, syncInterval } = req.body;
+        const { companyId, type, baseUrl, apiKey, syncInterval, environment } = req.body;
+        console.log(`[ERP Config] Creating config for Company: ${companyId}, Type: ${type}, Env: ${environment}, API Key Prefix: ${apiKey?.substring(0, 10)}...`);
 
-        if (!type || !baseUrl) {
-            res.status(400).json({ success: false, error: 'type and baseUrl are required' });
-            return;
+        if (!companyId || !type || !baseUrl) {
+            return res.status(400).json({ success: false, error: 'companyId, type and baseUrl are required' });
         }
 
-        // For demo: return a simulated success with a generated config id
-        const configId = `erp-config-${Date.now()}`;
-        console.log(`ERP Config Saved: ${type} → ${baseUrl}`);
+        const config = await (prisma as any).erp_configuration.create({
+            data: {
+                company_id: parseInt(companyId),
+                type,
+                base_url: baseUrl,
+                api_key: apiKey,
+                environment: environment || 'PRODUCTION',
+                sync_interval: syncInterval || 30
+            }
+        });
 
         res.json({
             success: true,
-            data: {
-                id: configId,
-                type,
-                baseUrl,
-                apiKey: apiKey || `auto_${Math.random().toString(36).substring(2, 14)}`,
-                syncInterval: syncInterval || 30,
-                isActive: true,
-                createdAt: new Date().toISOString()
-            }
+            data: config
         });
 
     } catch (error: any) {
@@ -114,11 +129,33 @@ router.post('/config', async (req: Request, res: Response) => {
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/erp/sync  — trigger a manual sync
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/sync', async (req: Request, res: Response) => {
+router.post('/sync/:id', async (req: Request, res: Response) => {
     try {
-        console.log('Manual ERP sync triggered');
-        // In a real app this would kick off a job queue
-        res.json({ success: true, message: 'Sync triggered', timestamp: new Date().toISOString() });
+        const { id } = req.params;
+        console.log(`Manual ERP sync triggered for config ${id}`);
+
+        const config = await prisma.erp_configuration.findUnique({
+            where: { id: id as string },
+            include: { company: true }
+        });
+
+        if (!config) {
+            return res.status(404).json({ success: false, error: 'ERP Configuration not found' });
+        }
+
+        const results = await fetchAndProcessInvoices(
+            config.base_url, 
+            config.api_key || '', 
+            config.company.vat_number,
+            config.environment || undefined // Pass environment to pull logic
+        );
+
+        res.json({ 
+            success: true, 
+            message: `Sync completed. Processed ${results.length} invoices.`,
+            results 
+        });
+
     } catch (error: any) {
         console.error('Sync Error:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -166,6 +203,9 @@ router.post('/sync', async (req: Request, res: Response) => {
  *                     unitPrice: { type: number }
  *                     taxCategory: { type: string, example: "S" }
  *                     vatRate: { type: number, example: 0.15 }
+ *               documentType: { type: string, enum: [Invoice, "Credit Note", "Debit Note"], default: "Invoice" }
+ *               billingReference: { type: string, description: "Required for Credit/Debit Notes. ID of original invoice." }
+ *               instructionNote: { type: string, description: "Reason for the note." }
  *     responses:
  *       200:
  *         description: Invoice processed successfully
@@ -190,12 +230,24 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
     try {
         const authHeader = req.headers['authorization'] || '';
         const apiKey = authHeader.replace(/^Bearer\s+/i, '');
+        const idempotencyKey = req.headers['idempotency-key'] as string;
 
         if (!apiKey) {
             return res.status(401).json({ success: false, error: 'Missing Authorization header' });
         }
 
         const invoice = req.body;
+        
+        // ── Idempotency Check ──
+        if (idempotencyKey) {
+            const duplicate = await prisma.invoice.findFirst({
+                where: { submission_id: idempotencyKey }
+            });
+            if (duplicate) {
+                console.log(`[ERP Push] Returning cached response for Idempotency-Key: ${idempotencyKey}`);
+                return res.json(JSON.parse(duplicate.submission_response || '{}'));
+            }
+        }
 
         // Validate required fields
         const required = ['invoiceNumber', 'invoiceSubtype', 'issueDate', 'totalAmount', 'vatAmount'];
@@ -207,15 +259,62 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
 
         const vatNumber = invoice.supplier?.vatNumber || '300000000000003';
 
-        // ── Look up company by supplier VAT (DB might be sleeping — fall back gracefully) ──
-        let company: any = null;
-        try {
-            company = await prisma.company.findUnique({
-                where: { vat_number: vatNumber },
-                include: { certificates: true }
+        // ── Look up ERP Configuration by API Key ──
+        const erpConfig = await prisma.erp_configuration.findFirst({
+            where: { api_key: apiKey },
+            include: { company: { include: { certificates: true } } }
+        });
+
+        let company: any = erpConfig?.company || null;
+        let targetEnv = erpConfig?.environment || company?.environment || 'SANDBOX';
+
+        // fallback if no config found (legacy / master key support)
+        if (!company) {
+            try {
+                company = await prisma.company.findUnique({
+                    where: { vat_number: vatNumber },
+                    include: { certificates: true }
+                });
+            } catch (dbLookupErr: any) {
+                console.warn('DB lookup failed:', dbLookupErr.message);
+            }
+        }
+
+        if (!company) {
+            await AuditService.log({
+                action: 'ERP Push Submission',
+                category: 'Operational',
+                user: 'External API',
+                role: 'IT_ADMIN',
+                ipAddress: req.ip || '127.0.0.1',
+                details: `Failed to submit invoice. Unrecognized API Key or VAT: ${vatNumber}`,
+                status: 'Failure',
+                resourceId: invoice.invoiceNumber,
+                metadata: { error: 'Company not found' }
             });
-        } catch (dbLookupErr: any) {
-            console.warn('DB lookup failed (DB might be sleeping), falling back to simulation:', dbLookupErr.message);
+            return res.status(404).json({ success: false, error: `Valid ERP configuration or Company with VAT ${vatNumber} not found.` });
+        }
+
+        const existingInvoice = await prisma.invoice.findFirst({
+            where: {
+               company_id: company.id,
+               invoice_number: invoice.invoiceNumber
+            }
+        });
+
+        if (existingInvoice) {
+             await AuditService.log({
+                action: 'ERP Push Submission',
+                category: 'Operational',
+                user: 'External API',
+                role: 'IT_ADMIN',
+                ipAddress: req.ip || '127.0.0.1',
+                details: `Duplicate invoice submission rejected: ${invoice.invoiceNumber}`,
+                status: 'Failure',
+                resourceId: invoice.invoiceNumber,
+                metadata: { error: 'Invoice already exists' }
+            });
+            return res.status(409).json({ success: false, error: 'Invoice already exists' });
         }
 
         // ── Build ZATCA-shaped invoice ──
@@ -223,18 +322,22 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
         const zatcaInvoice: any = {
             ...invoice,
             uuid: crypto.randomUUID(),
-            documentType: 'Invoice',
+            documentType: invoice.documentType || 'Invoice',
+            billingReference: invoice.billingReference,
+            instructionNote: invoice.instructionNote,
             currencyCode: invoice.currencyCode || 'SAR',
             previousInvoiceHash: pih,
         };
 
-        // ── XML Generation ──
-        let signedXml: string;
-        let hash: string;
-        let qr: string;
-        let zatcaResult: any;
+        let signedXml: string = '';
+        let hash: string = '';
+        let qr: string = '';
+        let zatcaResult: any = null;
 
-        const cert = company?.certificates?.find((c: any) => c.is_active);
+        // ── Find active certificate for the target environment ──
+        const cert = company?.certificates?.find((c: any) => 
+            c.is_active && c.type.toUpperCase() === targetEnv.toString().toUpperCase()
+        ) || company?.certificates?.find((c: any) => c.is_active);
 
         try {
             const xml = generateInvoiceXML(zatcaInvoice);
@@ -262,37 +365,40 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             }
 
             // ── ZATCA Report / Clear ──
+            const normalizedEnv = targetEnv.toString().toLowerCase();
             const isMock = certPem.startsWith('MOCK_') || cert?.csid?.startsWith('MOCK_');
 
             if (isMock) {
-                console.log(`[ERP Submit] Mock certificate detected for ${vatNumber}. Bypassing real ZATCA API.`);
+                console.log(`[ERP Submit] Mock certificate detected for ${vatNumber} in ${normalizedEnv}. Bypassing real ZATCA API.`);
                 zatcaResult = {
                     reportingStatus: invoice.invoiceSubtype === 'Simplified' ? 'REPORTED' : undefined,
                     clearanceStatus: invoice.invoiceSubtype === 'Standard' ? 'CLEARED' : undefined,
                     validationResults: { status: 'PASS', messages: [] },
-                    note: 'Simulated response for Mock Certificate'
+                    note: `Simulated response for Mock Certificate in ${normalizedEnv}`
                 };
             } else if (cert?.csid) {
                 try {
                     if (invoice.invoiceSubtype === 'Standard') {
                         zatcaResult = await clearInvoice(
-                            (company!.environment as any),
-                            cert.csid,
+                            normalizedEnv,
+                            cert.csid!,
                             secret,
                             hash,
-                            Buffer.from(signedXml).toString('base64')
+                            Buffer.from(signedXml || '').toString('base64'),
+                            zatcaInvoice.uuid
                         );
                     } else {
                         zatcaResult = await reportInvoice(
-                            (company!.environment as any),
+                            normalizedEnv,
                             cert.csid,
                             secret,
                             hash,
-                            Buffer.from(signedXml).toString('base64')
+                            Buffer.from(signedXml).toString('base64'),
+                            zatcaInvoice.uuid
                         );
                     }
                 } catch (zErr: any) {
-                    console.warn('ZATCA call failed:', zErr.message);
+                    console.warn(`ZATCA call failed for ${normalizedEnv}:`, zErr.message);
                     zatcaResult = null;
                 }
             }
@@ -306,29 +412,47 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
         const isReported = zatcaResult?.reportingStatus === 'REPORTED';
         const status = isCleared ? 'CLEARED' : isReported ? 'REPORTED' : 'SIMULATED';
 
-        // ── Save to DB if company exists ──
+        // ── Save to DB ──
         let savedInvoice;
-        if (company) {
-            try {
-                savedInvoice = await prisma.invoice.create({
-                    data: {
-                        company_id: company.id,
-                        invoice_number: invoice.invoiceNumber,
+        try {
+            savedInvoice = await prisma.invoice.create({
+                data: {
+                    company_id: company.id,
+                    invoice_number: invoice.invoiceNumber,
+                    uuid: zatcaInvoice.uuid,
+                    date: new Date(invoice.issueDate),
+                    total_amount: invoice.totalAmount,
+                    tax_amount: invoice.vatAmount,
+                    status: status as any,
+                    type: invoice.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
+                    hash,
+                    qr_code: qr,
+                    xml_payload: signedXml,
+                    submission_id: idempotencyKey, 
+                    submission_response: JSON.stringify({
+                        success: true,
+                        status,
                         uuid: zatcaInvoice.uuid,
-                        date: new Date(invoice.issueDate),
-                        total_amount: invoice.totalAmount,
-                        tax_amount: invoice.vatAmount,
-                        status: status as any,
-                        type: invoice.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
                         hash,
-                        qr_code: qr,
-                        xml_payload: signedXml,
-                        submission_response: JSON.stringify(zatcaResult || { status, note: 'Simulated' })
-                    }
-                });
-            } catch (dbError: any) {
-                console.warn('Could not save to DB (duplicate?):', dbError.message);
-            }
+                        qrCode: qr,
+                        zatcaResponse: zatcaResult || { status, note: 'Simulated' }
+                    })
+                }
+            });
+        } catch (dbError: any) {
+            console.warn('Could not save to DB:', dbError.message);
+            await AuditService.log({
+                action: 'ERP Push Submission',
+                category: 'Operational',
+                user: 'External API',
+                role: 'IT_ADMIN',
+                ipAddress: req.ip || '127.0.0.1',
+                details: `Failed to save invoice ${invoice.invoiceNumber} to DB`,
+                status: 'Failure',
+                resourceId: invoice.invoiceNumber,
+                metadata: { error: dbError.message }
+            });
+            return res.status(500).json({ success: false, error: 'Failed to save invoice to database' });
         }
 
         // ── Response ──
@@ -344,7 +468,7 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             zatcaResponse: zatcaResult || {
                 reportingStatus: status === 'SIMULATED' ? 'SIMULATED' : isReported ? 'REPORTED' : undefined,
                 clearanceStatus: isCleared ? 'CLEARED' : undefined,
-                note: company ? (cert ? 'Live ZATCA submission' : 'No active cert — simulated') : 'Company not found — simulated response',
+                note: cert ? 'Live ZATCA submission' : 'No active cert — simulated',
             },
             timestamp: new Date().toISOString()
         });

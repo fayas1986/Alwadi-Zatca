@@ -8,6 +8,9 @@ import adminRoutes from './routes/admin.js';
 import authRoutes from './routes/auth.js';
 import itemsRouter from './routes/items.js';
 import auditRouter from './routes/audit.js';
+import QueueService from './services/queueService.js';
+import SyncService from './services/syncService.js';
+import reportsRouter from './routes/reports.js';
 import prisma from './lib/prisma.js';
 
 import { swaggerSpec } from './utils/swagger.js';
@@ -23,6 +26,14 @@ const port = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// Initialize Background Queue & Sync
+QueueService.resume().then(() => {
+    console.log('[Queue] Background queue resumed successfully');
+    SyncService.start(); // Start ERP Sync after queue is ready
+}).catch(err => {
+    console.error('[Queue] Failed to resume background queue:', err);
+});
 // Disable CSP to allow all resources (fonts, styles, etc.) for development
 app.use(helmet({
     contentSecurityPolicy: false,
@@ -32,6 +43,7 @@ app.use(helmet({
 
 app.use('/api/zatca', zatcaRouter);
 app.use('/api/erp', erpRouter);
+app.use('/api/admin/reports', reportsRouter);
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemsRouter);
@@ -58,6 +70,15 @@ app.get('/api/db-test', async (req, res) => {
             stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
         });
     }
+});
+ 
+// Global Error Handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('[GLOBAL ERROR]', err);
+    res.status(err.status || 500).json({
+        error: err.message || 'Internal Server Error',
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
 });
 
 // Export app for Vercel serverless functions

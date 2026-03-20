@@ -12,7 +12,6 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { mockInvoices } from '../services/mockData';
 import { 
   CheckCircle, 
   XCircle, 
@@ -27,6 +26,7 @@ import {
   MoreHorizontal
 } from 'lucide-react';
 import { Branch } from '../types';
+import { getInvoices } from '../services/api';
 
 interface DashboardProps {
   onNavigate: (route: string) => void;
@@ -38,13 +38,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
 
-  // 1. Filter Invoices based on Time Range AND Branch
+  const [invoices, setInvoices] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchInvoices = async () => {
+      if (!selectedBranch) return;
+      setLoading(true);
+      try {
+        const data = await getInvoices(selectedBranch.organizationId || selectedBranch.id.toString());
+        setInvoices(data);
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInvoices();
+
+    // Polling for real-time updates (every 30 seconds)
+    const interval = setInterval(() => {
+        // Silent refresh (don't set loading to true)
+        getInvoices(selectedBranch.organizationId || selectedBranch.id.toString())
+            .then(setInvoices)
+            .catch(err => console.error('Dashboard poll failed:', err));
+    }, 30 * 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedBranch]);
+
+  // 1. Filter Invoices based on Time Range
   const filteredInvoices = useMemo(() => {
-    let relevantInvoices = mockInvoices;
-    // Branch Filter
-    if (selectedBranch) {
-        relevantInvoices = mockInvoices.filter(inv => inv.branchId === selectedBranch.id);
-    }
+    let relevantInvoices = invoices;
 
     const now = new Date();
     if (timeRange === 'All Time') return relevantInvoices;
@@ -91,7 +117,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
     return {
         totalCount: filteredInvoices.length,
         totalVolume: totalVol,
-        cleared: filteredInvoices.filter(i => i.status === 'Cleared').length,
+        cleared: filteredInvoices.filter(i => i.status === 'Cleared' || i.status === 'Reported').length,
         reported: filteredInvoices.filter(i => i.status === 'Reported').length,
         rejected: filteredInvoices.filter(i => i.status === 'Rejected').length,
         pending: filteredInvoices.filter(i => i.status === 'Pending').length,
@@ -270,7 +296,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card 
           title="Total Volume" 
-          value={`SAR ${(stats.totalVolume / 1000000).toFixed(2)}M`} 
+          value={stats.totalVolume >= 1000000 
+            ? `SAR ${(stats.totalVolume / 1000000).toFixed(2)}M` 
+            : `SAR ${stats.totalVolume.toLocaleString()}`} 
           subtext={`${stats.totalCount} total documents`}
           icon={Wallet} 
           colorClass="text-indigo-600"

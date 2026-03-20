@@ -17,7 +17,7 @@ async function main() {
     update: {},
     create: {
       id: 'org-001',
-      name: 'Tech Solutions Group',
+      name: 'Satguru Travels Tourism',
       vatNumber: '300000000000003',
       address: {
         streetName: 'Olaya Street',

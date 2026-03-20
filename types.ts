@@ -45,6 +45,8 @@ export interface Party {
 export interface InvoiceItem {
   id: string;
   name: string;
+  nameAr?: string;   // Added for Arabic Support
+  description?: string; // Added for detailed description
   quantity: number;
   unitPrice: number;
   discount: number;
@@ -111,7 +113,10 @@ export interface Invoice {
   taxExclusiveAmount: number;
   
   items: InvoiceItem[];
-  
+  metadata?: {
+    items?: InvoiceItem[];
+    erp_raw?: any;
+  };
   status: InvoiceStatus;
   xmlContent?: string;
   qrCode?: string; // Base64 TLV
@@ -159,7 +164,7 @@ export interface ERPSystem {
   id: string;
   name: string;
   vendor: 'SAP' | 'Oracle' | 'Microsoft' | 'Salesforce' | 'Custom' | 'POS';
-  environment: 'Production' | 'Sandbox';
+  environment: 'Production' | 'Simulation' | 'Sandbox';
   apiKey: string; // Stored masked or full for demo
   status: 'Connected' | 'Disconnected' | 'Maintenance';
   lastSync: string;

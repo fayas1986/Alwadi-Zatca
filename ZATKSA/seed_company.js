@@ -29,19 +29,21 @@ async function main() {
   console.log('--- SEEDING/UPDATING COMPANY ---');
   try {
     const data = {
-      name: 'Tech Solutions Group',
-      vatNumber: '300000000000003',
-      address: {
-        streetName: 'King Fahd Road',
-        buildingNumber: '1234',
-        cityName: 'Riyadh',
-        postalZone: '12345',
-        countryCode: 'SA'
-      },
-      environment: 'Production',
-      privateKey: encrypt('dummy-private-key'),
-      productionSecret: encrypt('dummy-secret'),
-      productionCSID: 'dummy-csid-certificate-content'
+      registered_name: 'Satguru Travels Tourism',
+      vat_number: '300000000000003',
+      cr_number: '1010101010',
+      branch_name: 'Main Branch',
+      address: 'King Fahd Road, 1234',
+      city: 'Riyadh',
+      country: 'SA',
+      environment: 'SANDBOX',
+      settings: {
+        profile: {
+          email: 'finance@satguru-travels.sa',
+          phone: '+966 11 444 5555',
+          website: 'www.satguru-travels.sa'
+        }
+      }
     };
 
     const company = await prisma.company.upsert({

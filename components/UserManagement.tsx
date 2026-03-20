@@ -20,6 +20,7 @@ interface UserManagementProps {
 export const UserManagement: React.FC<UserManagementProps> = ({ userRole, userName }) => {
   const { addToast } = useToast();
   const [users, setUsers] = useState<UserData[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -42,7 +43,22 @@ export const UserManagement: React.FC<UserManagementProps> = ({ userRole, userNa
 
   useEffect(() => {
     fetchUsers();
+    fetchCompanies();
   }, []);
+
+  const fetchCompanies = async () => {
+    try {
+      const res = await fetch('/api/admin/companies', {
+        headers: { 'x-user-role': userRole }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCompanies(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch companies:', error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -316,14 +332,17 @@ export const UserManagement: React.FC<UserManagementProps> = ({ userRole, userNa
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">Company Name (Optional)</label>
-                <input 
-                  type="text" 
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">Company Access (Optional)</label>
+                <select 
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   value={formData.companyName}
                   onChange={e => setFormData({...formData, companyName: e.target.value})}
-                  placeholder="e.g. Tech Solutions Ltd"
-                />
+                >
+                  <option value="" disabled>Select a Company...</option>
+                  {companies.map(c => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="pt-4 flex gap-3">
                 <button 

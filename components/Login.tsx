@@ -4,7 +4,7 @@ import { ShieldCheck, Lock, User, ArrowRight, Loader2, CheckCircle2, Eye, EyeOff
 import { UserRole } from '../types';
 
 interface LoginProps {
-  onLogin: (role: UserRole, name: string) => void;
+  onLogin: (role: UserRole, name: string, email: string) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -14,15 +14,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [activeTab, setActiveTab] = useState<UserRole>('IT_ADMIN');
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showAdvancedRoles, setShowAdvancedRoles] = useState(false);
 
-  const roles: {id: UserRole, label: string, desc: string}[] = [
+  const allRoles: {id: UserRole, label: string, desc: string}[] = [
       { id: 'IT_ADMIN', label: 'IT Administrator', desc: 'Full System Access' },
       { id: 'FINANCE_ADMIN', label: 'Finance Manager', desc: 'Invoice Operations' },
       { id: 'TAX_OFFICER', label: 'Tax Officer', desc: 'Compliance & Audit' },
-    { id: 'SUPER_ADMIN', label: 'Super Admin', desc: 'SaaS Owner Only' },
+      { id: 'SUPER_ADMIN', label: 'Super Admin', desc: 'SaaS Owner Only' },
   ];
 
-  const handleRoleSelect = (role: typeof roles[0]) => {
+  const visibleRoles = allRoles.filter(role => role.id !== 'SUPER_ADMIN' || showAdvancedRoles);
+
+  const handleRoleSelect = (role: typeof allRoles[0]) => {
       setActiveTab(role.id);
       setEmail('');
       setPassword(''); 
@@ -33,7 +36,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       setIsLoading(true);
       
       try {
-          // Use the auth API
           const response = await fetch('/api/auth/login', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -42,40 +44,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           if (response.ok) {
               const data = await response.json();
-              console.log('Login successful:', data);
-              onLogin(data.role, data.name || 'User');
+              onLogin(data.role, data.name || 'User', data.email || email);
           } else {
               let errorMessage = "Login failed. Please check your credentials.";
-              let debugDetail = "";
               try {
                   const error = await response.json();
                   errorMessage = error.error || errorMessage;
-                  
-                  // Collect all debug info for Vercel troubleshooting
-                  if (error.message || error.stack || error.node_version) {
-                      debugDetail = `\n\n--- DEBUG INFO ---`;
-                      if (error.message) debugDetail += `\nMessage: ${error.message}`;
-                      if (error.node_version) debugDetail += `\nNode: ${error.node_version}`;
-                      if (error.cwd) debugDetail += `\nCWD: ${error.cwd}`;
-                      if (error.stack) debugDetail += `\nStack: ${error.stack.substring(0, 300)}...`;
-                  }
-              } catch (e) {
-                  console.error("Failed to parse error response:", e);
-                  errorMessage = `Server Error: ${response.status} ${response.statusText}`;
-              }
-              console.error("Login failed:", errorMessage);
-              alert(`${errorMessage}${debugDetail}`);
+              } catch (e) {}
+              alert(errorMessage);
           }
       } catch (error: any) {
-          console.error("Network error details:", error);
-          
-          // Enhanced debug info if we get a crash response
-          let debugInfo = "";
-          if (error.message && error.stack) {
-              debugInfo = `\n\nDebug Info:\n${error.message}\n${error.stack.substring(0, 200)}...`;
-          }
-
-          alert(`Network error: ${error.message || 'Unable to connect to server'}${debugInfo}\n\nPlease ensure backend is running.`);
+          alert(`Network error: ${error.message || 'Unable to connect to server'}`);
       } finally {
           setIsLoading(false);
       }
@@ -91,7 +70,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 -ml-16 -mb-16 animate-pulse"></div>
 
             <div className="relative z-10">
-                <div className="flex items-center space-x-3 mb-8">
+                <div 
+                    className="flex items-center space-x-3 mb-8 cursor-pointer select-none active:opacity-80 transition-opacity"
+                    onClick={() => setShowAdvancedRoles(!showAdvancedRoles)}
+                    title="Toggle Advanced Roles"
+                >
                     <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-900/20">
                         <span className="font-bold text-white text-xl">Z</span>
                     </div>
@@ -138,10 +121,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
 
             {/* Role Switcher Pills */}
-            <div className="grid grid-cols-1 gap-3 mb-8">
-                {roles.map(role => (
+            <div className="grid grid-cols-1 gap-3 mb-8 max-h-[220px] overflow-y-auto pr-1">
+                {visibleRoles.map(role => (
                     <button
                         key={role.id}
+                        type="button"
                         onClick={() => handleRoleSelect(role)}
                         className={`text-left p-4 rounded-xl border transition-all flex items-center justify-between group ${
                             activeTab === role.id 
@@ -171,6 +155,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             placeholder="name@company.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            required
                         />
                     </div>
                 </div>
@@ -185,6 +170,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             placeholder="••••••••"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)} 
+                            required
                         />
                         <button
                             type="button"

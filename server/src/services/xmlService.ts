@@ -26,9 +26,19 @@ export const generateInvoiceXML = (invoice: Invoice) => {
         .ele('cbc:ID').txt(invoice.invoiceNumber || 'SIM-' + Date.now()).up()
         .ele('cbc:UUID').txt(crypto.randomUUID()).up()
         .ele('cbc:IssueDate').txt(datePart).up()
-        .ele('cbc:IssueTime').txt(timePart).up()
-        .ele('cbc:InvoiceTypeCode', { name: invoice.invoiceSubtype === 'Standard' ? '0100000' : '0200000' }).txt('388').up()
-        .ele('cbc:Note').txt('This is a computer generated invoice').up()
+        .ele('cbc:IssueTime').txt(timePart).up();
+
+    // Map Document Type to ZATCA InvoiceTypeCode
+    // 388 = Invoice, 381 = Credit Note, 383 = Debit Note
+    let typeCode = '388';
+    if (invoice.documentType === 'Credit Note') typeCode = '381';
+    else if (invoice.documentType === 'Debit Note') typeCode = '383';
+
+    // Subtype (Simplified vs Standard)
+    const subtypeCode = invoice.invoiceSubtype === 'Standard' ? '0100000' : '0200000';
+
+    xml.ele('cbc:InvoiceTypeCode', { name: subtypeCode }).txt(typeCode).up()
+        .ele('cbc:Note').txt(invoice.instructionNote || 'This is a computer generated invoice').up()
         .ele('cbc:DocumentCurrencyCode').txt(invoice.currencyCode || 'SAR').up()
         .ele('cbc:TaxCurrencyCode').txt('SAR').up()
 
@@ -39,11 +49,19 @@ export const generateInvoiceXML = (invoice: Invoice) => {
         .ele('cbc:EmbeddedDocumentBinaryObject', { mimeCode: 'text/plain' })
         .txt(invoice.previousInvoiceHash || 'NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMjRiZmQ3NTI0MjkzZjBlYTRiM2IzZTk4MTU1MWNiMA==')
         .up()
-        .up()
-        .up()
+        .up();
 
-        // Supplier
-        .ele('cac:AccountingSupplierParty')
+    // Billing Reference (Mandatory for Credit/Debit Notes)
+    if (invoice.billingReference) {
+        xml.ele('cac:BillingReference')
+            .ele('cac:InvoiceDocumentReference')
+            .ele('cbc:ID').txt(invoice.billingReference).up()
+            .up()
+            .up();
+    }
+
+    // Supplier
+    xml.ele('cac:AccountingSupplierParty')
         .ele('cac:Party')
         .ele('cac:PartyIdentification')
         .ele('cbc:ID', { schemeID: 'CRN' }).txt('1010010000').up() // Should be dynamic
@@ -121,8 +139,9 @@ export const generateInvoiceXML = (invoice: Invoice) => {
     // Map items...
     if (Array.isArray(invoice.items)) {
         invoice.items.forEach((item, index) => {
+            const vatRate = safeNum(item.vatRate) || 0.15;
             const lineExtensionAmount = safeNum(item.subtotal).toFixed(2);
-            const itemTaxAmount = (safeNum(item.subtotal) * 0.15).toFixed(2); // Assuming 15% VAT
+            const itemTaxAmount = (safeNum(item.subtotal) * vatRate).toFixed(2);
 
             xml.ele('cac:InvoiceLine')
                 .ele('cbc:ID').txt((index + 1).toString()).up()
@@ -146,6 +165,7 @@ export const generateInvoiceXML = (invoice: Invoice) => {
 
                 .ele('cac:Item')
                 .ele('cbc:Name').txt(item.name || 'Item').up()
+                .ele('cbc:Description').txt(item.nameAr || item.description || '').up()
                 .ele('cac:ClassifiedTaxCategory')
                 .ele('cbc:ID').txt('S').up()
                 .ele('cbc:Percent').txt('15.00').up()

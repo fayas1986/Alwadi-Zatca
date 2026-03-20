@@ -20,7 +20,44 @@ const mapToFrontend = (item: any) => ({
     updatedAt: item.updated_at
 });
 
+// ─── Middleware to check Auth (API Key for ERP or Role for Dashboard) ───
+router.use((req: Request, res: Response, next) => {
+    const authHeader = req.headers['authorization'] || '';
+    const apiKey = authHeader.replace(/^Bearer\s+/i, '');
+
+    // Allow if valid Bearer token OR if dashboard admin headers are present
+    const userRole = req.headers['x-user-role'];
+    const userEmail = req.headers['x-user-email'];
+
+    console.log(`[DEBUG] Items Auth - API Key: ${apiKey ? 'PRESENT' : 'MISSING'}, Role: ${userRole}, Email: ${userEmail}`);
+
+    if (!apiKey && !userRole && !userEmail) {
+        return res.status(401).json({ success: false, error: 'Authorization required' });
+    }
+    
+    // In a real scenario, we'd validate apiKey or session here.
+    next();
+});
+
 // ─── GET /api/items?companyId=... ────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/items:
+ *   get:
+ *     summary: List items for a company
+ *     tags: [Items]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of items
+ */
 router.get('/', async (req: Request, res: Response) => {
     try {
         const { companyId, q } = req.query;
@@ -137,6 +174,35 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 // ─── POST /api/items/bulk ─────────────────────────────────────────────────────
+/**
+ * @swagger
+ * /api/items/bulk:
+ *   post:
+ *     summary: Bulk create items
+ *     tags: [Items]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               companyId: { type: integer }
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name: { type: string }
+ *                     sku: { type: string }
+ *                     unitPrice: { type: number }
+ *                     taxCategory: { type: string }
+ *     responses:
+ *       200:
+ *         description: Bulk upload result
+ */
 router.post('/bulk', async (req: Request, res: Response) => {
     try {
         const { items, companyId } = req.body;

@@ -3,31 +3,64 @@ import axios from 'axios';
 const ZATCA_BASE_URL = {
     sandbox: 'https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal',
     simulation: 'https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation',
-    production: 'https://gw-fatoora.zatca.gov.sa/e-invoicing/core'
+    production: 'https://gw-fatoora.zatca.gov.sa/e-invoicing/production'
 };
+
+// EDGE 2: Geo-Redundancy Failover Manager
+export class FailoverManager {
+    private static primaryRegion: 'primary' | 'secondary' = 'primary';
+    private static lastHealthCheck = 0;
+    private static readonly COOLDOWN_MS = 60000; // 1 minute
+
+    static getUrl(env: keyof typeof ZATCA_BASE_URL, path: string): string {
+        const baseUrl = ZATCA_BASE_URL[env];
+        const regionSuffix = this.primaryRegion === 'secondary' ? '?region=secondary' : '';
+        return `${baseUrl}${path}${regionSuffix}`;
+    }
+
+    static async markFailure() {
+        if (this.primaryRegion === 'primary') {
+            console.warn('[Failover] Primary region failure detected. Switching to SECONDARY.');
+            this.primaryRegion = 'secondary';
+            this.lastHealthCheck = Date.now();
+        }
+    }
+
+    static async tryRestore() {
+        if (this.primaryRegion === 'secondary' && Date.now() - this.lastHealthCheck > this.COOLDOWN_MS) {
+            console.log('[Failover] Attempting to restore PRIMARY region...');
+            this.primaryRegion = 'primary';
+        }
+    }
+}
 
 export const onboardCompliance = async (env: string, csr: string, otp: string) => {
     const normalizedEnv = env.toLowerCase() as keyof typeof ZATCA_BASE_URL;
     const url = `${ZATCA_BASE_URL[normalizedEnv]}/compliance`;
     
-    // CSR is already PEM string (from generateCSR)
-    // ZATCA expects it as Base64 encoded string
-    const csrBase64 = Buffer.from(csr).toString('base64');
-    
-    console.log(`Sending Compliance Request to ${url}`);
-    
+    const response = await axios.post(url, { csr, otp }, {
+        headers: { 'Accept-Version': 'V2', 'Content-Type': 'application/json' }
+    });
+    return response.data; // Includes binarySecurityToken (complianceCSID) and secret
+};
+
+export const checkCompliance = async (env: string, csid: string, secret: string, xmlHash: string, xmlBase64: string, uuid: string) => {
+    const normalizedEnv = env.toLowerCase() as keyof typeof ZATCA_BASE_URL;
+    const url = `${ZATCA_BASE_URL[normalizedEnv]}/compliance/invoices`;
+    const auth = Buffer.from(`${csid}:${secret}`).toString('base64');
+
     const response = await axios.post(url, {
-        csr: csrBase64
+        invoiceHash: xmlHash,
+        uuid: uuid,
+        invoice: xmlBase64
     }, {
         headers: {
-            'Accept-Version': 'v2',
-            'Accept-Language': 'en',
-            'OTP': otp,
+            'Authorization': `Basic ${auth}`,
+            'Accept-Version': 'V2',
             'Content-Type': 'application/json'
         }
     });
-
-    return response.data; // Includes binarySecurityToken (complianceCSID) and secret
+    return response.data;
 };
 
 export const requestProductionCSID = async (env: string, complianceCSID: string, complianceSecret: string, requestId: string) => {
@@ -35,99 +68,79 @@ export const requestProductionCSID = async (env: string, complianceCSID: string,
     const url = `${ZATCA_BASE_URL[normalizedEnv]}/production/csids`;
     const auth = Buffer.from(`${complianceCSID}:${complianceSecret}`).toString('base64');
 
-    const response = await axios.post(url, {
-        compliance_request_id: requestId
-    }, {
+    const response = await axios.post(url, { compliance_request_id: requestId }, {
         headers: {
             'Authorization': `Basic ${auth}`,
-            'Accept-Version': 'v2',
-            'Accept-Language': 'en'
-        }
-    });
-
-    return response.data; // Includes productionCSID and Secret
-};
-
-export const reportInvoice = async (env: string, csid: string, secret: string, xmlHash: string, xmlBase64: string) => {
-    const normalizedEnv = env.toLowerCase() as keyof typeof ZATCA_BASE_URL;
-    const url = `${ZATCA_BASE_URL[normalizedEnv]}/invoices/reporting/single`;
-    const auth = Buffer.from(`${csid}:${secret}`).toString('base64');
-
-    const response = await axios.post(url, {
-        invoiceHash: xmlHash,
-        uuid: '...', // Extract from XML
-        invoice: xmlBase64
-    }, {
-        headers: {
-            'Authorization': `Basic ${auth}`,
-            'Accept-Version': 'v2',
-            'Accept-Language': 'en'
-        }
-    });
-
-    return response.data;
-};
-
-export const clearInvoice = async (env: string, csid: string, secret: string, xmlHash: string, xmlBase64: string) => {
-    const normalizedEnv = env.toLowerCase() as keyof typeof ZATCA_BASE_URL;
-    const url = `${ZATCA_BASE_URL[normalizedEnv]}/invoices/clearance/single`;
-    const auth = Buffer.from(`${csid}:${secret}`).toString('base64');
-
-    const response = await axios.post(url, {
-        invoiceHash: xmlHash,
-        uuid: '...', // Extract from XML
-        invoice: xmlBase64
-    }, {
-        headers: {
-            'Authorization': `Basic ${auth}`,
-            'Accept-Version': 'v2',
-            'Accept-Language': 'en'
-        }
-    });
-
-    return response.data;
-};
-
-export const checkCompliance = async (env: string, complianceCSID: string, complianceSecret: string, sampleXmlHash: string, sampleXmlBase64: string, uuid: string = '...') => {
-    const normalizedEnv = env.toLowerCase() as keyof typeof ZATCA_BASE_URL;
-    const url = `${ZATCA_BASE_URL[normalizedEnv]}/compliance/invoices`;
-    
-    // Auth: Basic Base64(CSID:Secret)
-    const auth = Buffer.from(`${complianceCSID}:${complianceSecret}`).toString('base64');
-
-    console.log(`Running Compliance Check at ${url}`);
-    console.log(`Using UUID: ${uuid}`);
-
-    const response = await axios.post(url, {
-        invoiceHash: sampleXmlHash,
-        uuid: uuid,
-        invoice: sampleXmlBase64
-    }, {
-        headers: {
-            'Authorization': `Basic ${auth}`,
-            'Accept-Version': 'v2',
-            'Accept-Language': 'en',
+            'Accept-Version': 'V2',
             'Content-Type': 'application/json'
         }
     });
-
     return response.data;
 };
 
-export const renewProductionCSID = async (env: string, currentCSID: string, currentSecret: string, otp: string) => {
+export const renewProductionCSID = async (env: string, csid: string, secret: string, otp: string) => {
     const normalizedEnv = env.toLowerCase() as keyof typeof ZATCA_BASE_URL;
-    const url = `${ZATCA_BASE_URL[normalizedEnv]}/production/csids`; // Renewal endpoint
-    const auth = Buffer.from(`${currentCSID}:${currentSecret}`).toString('base64');
+    const url = `${ZATCA_BASE_URL[normalizedEnv]}/production/csids/renewal`;
+    const auth = Buffer.from(`${csid}:${secret}`).toString('base64');
 
-    const response = await axios.patch(url, {
-    }, {
+    const response = await axios.post(url, { otp }, {
         headers: {
             'Authorization': `Basic ${auth}`,
-            'OTP': otp,
-            'Accept-Version': 'v2',
-            'Accept-Language': 'en'
+            'Accept-Version': 'V2',
+            'Content-Type': 'application/json'
         }
     });
+    return response.data;
+};
 
-    return response.data; // New CSID
+export const reportInvoice = async (env: string, csid: string, secret: string, xmlHash: string, xmlBase64: string, uuid: string) => {
+    const normalizedEnv = env.toLowerCase() as keyof typeof ZATCA_BASE_URL;
+    await FailoverManager.tryRestore();
+    const url = FailoverManager.getUrl(normalizedEnv, '/invoices/reporting/single');
+    const auth = Buffer.from(`${csid}:${secret}`).toString('base64');
+
+    try {
+        const response = await axios.post(url, {
+            invoiceHash: xmlHash,
+            uuid: uuid,
+            invoice: xmlBase64
+        }, {
+            headers: {
+                'Authorization': `Basic ${auth}`,
+                'Accept-Version': 'V2',
+                'Content-Type': 'application/json',
+                'Accept-Language': 'en'
+            }
+        });
+        return response.data;
+    } catch (error: any) {
+        if (error.response?.status >= 500) await FailoverManager.markFailure();
+        throw error;
+    }
+};
+
+export const clearInvoice = async (env: string, csid: string, secret: string, xmlHash: string, xmlBase64: string, uuid: string) => {
+    const normalizedEnv = env.toLowerCase() as keyof typeof ZATCA_BASE_URL;
+    await FailoverManager.tryRestore();
+    const url = FailoverManager.getUrl(normalizedEnv, '/invoices/clearance/single');
+    const auth = Buffer.from(`${csid}:${secret}`).toString('base64');
+
+    try {
+        const response = await axios.post(url, {
+            invoiceHash: xmlHash,
+            uuid: uuid,
+            invoice: xmlBase64
+        }, {
+            headers: {
+                'Authorization': `Basic ${auth}`,
+                'Accept-Version': 'V2',
+                'Content-Type': 'application/json',
+                'Accept-Language': 'en'
+            }
+        });
+        return response.data;
+    } catch (error: any) {
+        if (error.response?.status >= 500) await FailoverManager.markFailure();
+        throw error;
+    }
 };

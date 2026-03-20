@@ -14,9 +14,10 @@ import { Login } from './components/Login';
 import { XMLValidator } from './components/XMLValidator';
 import { CreateOrganizationModal } from './components/CreateOrganizationModal';
 import { UserManagement } from './components/UserManagement';
+import { ReportCenter } from './components/ReportCenter';
+import { ReportDesigner } from './components/ReportDesigner';
 import ApiDocs from './components/ApiDocs';
 import { UserRole, Branch, Organization } from './types';
-import { mockOrganizations, syncOfflineData } from './services/mockData';
 import { WifiOff, RefreshCw } from 'lucide-react';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -29,6 +30,7 @@ const App: React.FC = () => {
   // Auth State
   const [userRole, setUserRole] = useState<UserRole>('IT_ADMIN');
   const [userName, setUserName] = useState<string>('');
+  const [userEmail, setUserEmail] = useState<string>('');
 
   // Multi-Tenancy State
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -39,27 +41,33 @@ const App: React.FC = () => {
   // Connectivity State
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
 
   // Fetch Organizations
   useEffect(() => {
     if (isAuthenticated) {
         fetchOrganizations();
     }
-  }, [isAuthenticated, userRole]);
+  }, [isAuthenticated, userRole, userEmail]);
 
   const fetchOrganizations = async () => {
     setIsOrganizationsLoading(true);
     try {
-        const response = await fetch('/api/admin/companies', {
-            headers: { 'x-user-role': userRole }
-        });
-        if (response.ok) {
-            const data = await response.json();
-            setOrganizations(data);
+      console.log(`[DEBUG] fetchOrganizations - Email: ${userEmail}, Role: ${userRole}`);
+      const res = await fetch('/api/admin/companies', {
+        headers: { 
+          'x-user-email': userEmail || '',
+          'x-user-role': userRole || ''
+        }
+      });
+        if (res.ok) {
+            const data = await res.json();
+            const sortedData = data.sort((a: any, b: any) => b.id - a.id);
+            setOrganizations(sortedData);
             
             // Auto switch to the first branch of the first org if none selected
-            if (!currentBranch && data.length > 0 && data[0].branches.length > 0) {
-                setCurrentBranch(data[0].branches[0]);
+            if (!currentBranch && sortedData.length > 0 && sortedData[0].branches.length > 0) {
+                setCurrentBranch(sortedData[0].branches[0]);
             }
         }
     } catch (error) {
@@ -69,13 +77,29 @@ const App: React.FC = () => {
     }
   };
 
+  const fetchUsers = async () => {
+    if (userRole !== 'SUPER_ADMIN') return;
+    try {
+        const response = await fetch('/api/admin/users', {
+            headers: { 'x-user-role': userRole }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            setUsers(data);
+        }
+    } catch (error) {
+        console.error('Failed to fetch users:', error);
+    }
+  };
+
   useEffect(() => {
-      const handleOnline = async () => {
-          setIsOnline(true);
-          setIsSyncing(true);
-          await syncOfflineData();
-          setIsSyncing(false);
-      };
+    if (isAuthenticated && userRole === 'SUPER_ADMIN') {
+        fetchUsers();
+    }
+  }, [isAuthenticated, userRole]);
+
+  useEffect(() => {
+      const handleOnline = () => setIsOnline(true);
       const handleOffline = () => setIsOnline(false);
 
       window.addEventListener('online', handleOnline);
@@ -100,17 +124,21 @@ const App: React.FC = () => {
     window.location.hash = route;
   };
 
-  const handleLogin = (role: UserRole, name: string) => {
+  const handleLogin = (role: UserRole, name: string, email: string) => {
       setUserRole(role);
       setUserName(name);
+      setUserEmail(email);
       setIsAuthenticated(true);
       setCurrentRoute('dashboard');
   };
 
   const handleLogout = () => {
       setIsAuthenticated(false);
-      setUserRole('IT_ADMIN'); // Reset to default or keep last
+      setUserRole('IT_ADMIN'); 
       setUserName('');
+      setUserEmail('');
+      setOrganizations([]);
+      setCurrentBranch(null);
       setCurrentRoute('dashboard');
   };
 
@@ -233,16 +261,16 @@ const App: React.FC = () => {
       case 'users':
         return <UserManagement userRole={userRole} userName={userName} />;
       case 'invoices':
-        return <InvoiceList userRole={userRole} onSelectInvoice={(id) => navigate('invoice-detail', id)} onNavigate={navigate} selectedBranch={currentBranch} />;
+        return <InvoiceList userRole={userRole} userEmail={userEmail} onSelectInvoice={(id) => navigate('invoice-detail', id)} onNavigate={navigate} selectedBranch={currentBranch} />;
       case 'create-invoice':
         // If coming from "Issue Credit Note" context, selectedInvoiceId acts as the Reference ID
-        return <InvoiceGenerator onNavigate={navigate} referenceInvoiceId={selectedInvoiceId} selectedBranch={currentBranch} organizations={organizations} />;
+        return <InvoiceGenerator onNavigate={navigate} referenceInvoiceId={selectedInvoiceId} selectedBranch={currentBranch} organizations={organizations} userRole={userRole} userEmail={userEmail} />;
       case 'invoice-detail':
         return <InvoiceDetail userRole={userRole} invoiceId={selectedInvoiceId} onBack={() => navigate('invoices')} onNavigate={navigate} />;
       case 'items':
-        return <ItemMaster selectedBranch={currentBranch} />;
+        return <ItemMaster selectedBranch={currentBranch} userRole={userRole} userEmail={userEmail} />;
       case 'certificates':
-        return <CertificateManager selectedBranch={currentBranch} />;
+        return <CertificateManager selectedBranch={currentBranch} organizations={organizations} />;
       case 'erp-connectors':
         return <ERPConnectors selectedBranch={currentBranch} />;
       case 'audit':
@@ -258,6 +286,30 @@ const App: React.FC = () => {
             onRefresh={fetchOrganizations}
           />
         );
+      case 'reports':
+        return <ReportCenter userRole={userRole} userEmail={userEmail} />;
+      case 'report-designer':
+        if (userRole !== 'SUPER_ADMIN') {
+            return (
+                <div className="flex flex-col items-center justify-center h-full text-center p-8 animate-in zoom-in duration-300">
+                  <div className="bg-rose-50 p-6 rounded-full mb-6">
+                     <span className="text-4xl">🚫</span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-900">Access Denied</h2>
+                  <p className="text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
+                    You do not have permission to access the Report Designer. 
+                    This area is restricted to Super Administrators.
+                  </p>
+                  <button 
+                    onClick={() => navigate('dashboard')}
+                    className="mt-8 px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all font-medium shadow-lg shadow-slate-900/10"
+                  >
+                    Return to Dashboard
+                  </button>
+                </div>
+            );
+        }
+        return <ReportDesigner userRole={userRole} />;
       case 'api-docs':
         return <ApiDocs />;
       default:
@@ -303,6 +355,7 @@ const App: React.FC = () => {
             <CreateOrganizationModal 
                 onClose={() => setIsCreateOrgModalOpen(false)}
                 onCreate={handleCreateOrganization}
+                users={userRole === 'SUPER_ADMIN' ? users : []}
             />
         )}
     </ToastProvider>

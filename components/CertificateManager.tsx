@@ -1,14 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { complianceChecks, defaultSupplier } from '../services/mockData';
 import { Plus, RefreshCw, X, AlertTriangle, Loader2, CheckCircle, ArrowRight, ShieldCheck, Activity, KeyRound, Info, FileText, ChevronDown, List, MoreHorizontal, Heart, MessageSquare, Server, Copy, Calendar, Download, Trash2, Eye, Filter, Tag } from 'lucide-react';
-import { Certificate, Branch } from '../types';
+import { Certificate, Branch, Organization } from '../types';
 import { onboardSolution, getCertificates } from '../services/api';
 
 interface CertificateManagerProps {
     selectedBranch?: Branch | null;
+    organizations?: Organization[];
 }
 
-export const CertificateManager: React.FC<CertificateManagerProps> = ({ selectedBranch }) => {
+export const CertificateManager: React.FC<CertificateManagerProps> = ({ selectedBranch, organizations = [] }) => {
     const [certificates, setCertificates] = useState<Certificate[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -44,9 +45,19 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({ selected
     // Onboarding Process State
     const [complianceCsid, setComplianceCsid] = useState<string | null>(null);
     const [isAcquiringCcsid, setIsAcquiringCcsid] = useState(false);
+    const [onboardingStatus, setOnboardingStatus] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [completedChecks, setCompletedChecks] = useState<string[]>([]);
     const [isRunningChecks, setIsRunningChecks] = useState(false);
     const [checkLogs, setCheckLogs] = useState<string[]>([]);
+
+    // Toast auto-clear
+    useEffect(() => {
+        if (toast) {
+            const timer = setTimeout(() => setToast(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [toast]);
 
     // Onboarding Form State
     const [onboardData, setOnboardData] = useState({
@@ -55,13 +66,28 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({ selected
         commonName: 'TS-RYD-01',
         serialNumber: '1-ZatcaConnect|2-Desktop|3-EGS-123456789',
         organizationUnit: 'Riyadh Branch',
-        organization: 'Tech Solutions Ltd',
+        organization: selectedBranch?.name || 'Tech Solutions Ltd',
         otp: '',
         location: 'Riyadh',
         industry: 'IT',
         invoiceType: '1100',
-        csrFile: null as File | null
+        csrFile: null as File | null,
+        tin: '' // 10-digit TIN Number required by SDK v3 for some environments
     });
+
+    // Keep form in sync with selected branch
+    useEffect(() => {
+        if (selectedBranch && organizations.length > 0) {
+            const org = organizations.find(o => o.id === selectedBranch.organizationId);
+            setOnboardData(prev => ({
+                ...prev,
+                organization: selectedBranch.name,
+                vatNumber: org?.vatNumber || prev.vatNumber,
+                organizationUnit: selectedBranch.name.includes('Branch') ? selectedBranch.name : `${selectedBranch.name} HQ`,
+                location: selectedBranch.address?.cityName || 'Riyadh'
+            }));
+        }
+    }, [selectedBranch, organizations]);
 
     // Filter State (Mock)
     const [filterAssigned, setFilterAssigned] = useState('');
@@ -215,12 +241,17 @@ Environment: ${cert.type}
 
     const handleAcquireCcsid = async () => {
         if (!onboardData.otp || onboardData.otp.length !== 6) {
-            alert("Please enter a valid 6-digit OTP from Fatoora Portal");
+            setToast({ message: "Please enter a valid 6-digit OTP from Fatoora Portal", type: 'error' });
             return;
         }
         setIsAcquiringCcsid(true);
+        setOnboardingStatus("Connecting to ZATCA...");
 
         try {
+            // Artificial delay to show "Connecting" status for better UX
+            await new Promise(r => setTimeout(r, 800));
+            setOnboardingStatus("Generating CSR & Validating OTP...");
+
             const result = await onboardSolution({
                 vat: onboardData.vatNumber,
                 otp: onboardData.otp,
@@ -230,20 +261,28 @@ Environment: ${cert.type}
                 location: onboardData.location,
                 industry: onboardData.industry,
                 invoiceType: onboardData.invoiceType,
-                serialNumber: onboardData.serialNumber
+                serialNumber: onboardData.serialNumber,
+                commonName: onboardData.commonName,
+                tin: onboardData.tin // Pass the 10-digit TIN
             });
 
             if (result.success) {
+                setOnboardingStatus("Acquiring Production CSID...");
+                await new Promise(r => setTimeout(r, 500));
+                
                 setComplianceCsid(result.binarySecurityToken || 'PCSID-SUCCESS');
+                setToast({ message: "Success! Solution unit onboarded and CSID acquired.", type: 'success' });
                 setWizardStep(3); // Auto advance to checks
             } else {
-                alert("Onboarding failed: " + result.error);
+                setToast({ message: `Onboarding failed: ${result.error}`, type: 'error' });
             }
         } catch (error: any) {
             console.error("Onboarding failed", error);
-            alert("Failed to acquire CSID: " + error.message);
+            const msg = error.message.includes('OTP') ? "Invalid OTP: Verification failed." : error.message;
+            setToast({ message: `Failed: ${msg}`, type: 'error' });
         } finally {
             setIsAcquiringCcsid(false);
+            setOnboardingStatus(null);
         }
     };
 
@@ -303,12 +342,13 @@ Environment: ${cert.type}
             commonName: 'TS-RYD-01',
             serialNumber: '1-ZatcaConnect|2-Desktop|3-EGS-123456789',
             organizationUnit: 'Riyadh Branch',
-            organization: 'Tech Solutions Ltd',
+            organization: selectedBranch?.name || 'Tech Solutions Ltd',
             otp: '',
             location: 'Riyadh',
             industry: 'IT',
             invoiceType: '1100',
-            csrFile: null
+            csrFile: null,
+            tin: ''
         });
     };
 
@@ -750,15 +790,33 @@ Environment: ${cert.type}
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-bold text-slate-800 mb-1.5">VAT Number</label>
+                                            <label className="block text-sm font-bold text-slate-800 mb-1.5 flex justify-between items-center">
+                                                VAT Number
+                                                <span className="text-[10px] font-normal text-slate-400">15 Digits</span>
+                                            </label>
                                             <input
                                                 type="text"
                                                 placeholder="3000XXXXXXXXXXX"
                                                 className="w-full px-4 py-2.5 bg-white text-slate-900 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-mono"
                                                 value={onboardData.vatNumber}
-                                                onChange={e => setOnboardData({ ...onboardData, vatNumber: e.target.value })}
+                                                onChange={e => setOnboardData({ ...onboardData, vatNumber: e.target.value.replace(/[^0-9]/g, '') })}
                                             />
-                                            <p className="text-xs text-slate-400 mt-1">Must match the VAT registered in ZATCA portal</p>
+                                            <p className="text-[10px] text-slate-400 mt-1 italic">Used for XML invoice reporting (Production)</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-800 mb-1.5 flex justify-between items-center">
+                                                TIN Number
+                                                <span className="text-[10px] font-normal text-indigo-400">10 Digits (Required for Simulation)</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                maxLength={10}
+                                                placeholder="3000XXXXXX"
+                                                className="w-full px-4 py-2.5 bg-white text-slate-900 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-mono"
+                                                value={onboardData.tin}
+                                                onChange={e => setOnboardData({ ...onboardData, tin: e.target.value.replace(/[^0-9]/g, '') })}
+                                            />
+                                            <p className="text-[10px] text-indigo-400 mt-1 italic">Used for CSR validation in Sandbox/Simulation</p>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-slate-800 mb-1.5">Common Name (CN)</label>
@@ -784,9 +842,9 @@ Environment: ${cert.type}
                                             <label className="block text-sm font-bold text-slate-800 mb-1.5">Organization</label>
                                             <input
                                                 type="text"
-                                                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-500 cursor-not-allowed"
+                                                className="w-full px-4 py-2.5 bg-white text-slate-900 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                                                 value={onboardData.organization}
-                                                readOnly
+                                                onChange={e => setOnboardData({ ...onboardData, organization: e.target.value })}
                                             />
                                         </div>
                                         <div>
@@ -884,12 +942,25 @@ Environment: ${cert.type}
                                         <button
                                             onClick={handleAcquireCcsid}
                                             disabled={isAcquiringCcsid || onboardData.otp.length !== 6}
-                                            className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+                                            className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 relative overflow-hidden group"
                                         >
-                                            {isAcquiringCcsid ? (
-                                                <span className="flex items-center"><Loader2 size={18} className="animate-spin mr-2" /> Acquiring CCSID...</span>
-                                            ) : "Get Compliance CSID"}
+                                            <span className={`inline-flex items-center transition-all ${isAcquiringCcsid ? 'opacity-0' : 'opacity-100'}`}>
+                                                Get Compliance CSID
+                                            </span>
+                                            {isAcquiringCcsid && (
+                                                <div className="absolute inset-0 flex items-center justify-center bg-indigo-600">
+                                                    <Loader2 size={18} className="animate-spin mr-2" />
+                                                    <span className="text-sm">Processing...</span>
+                                                </div>
+                                            )}
                                         </button>
+                                        
+                                        {onboardingStatus && (
+                                            <div className="mt-4 flex items-center justify-center gap-2 animate-pulse">
+                                                <Activity size={14} className="text-indigo-500" />
+                                                <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">{onboardingStatus}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -1023,6 +1094,26 @@ Environment: ${cert.type}
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Toast Notifications */}
+            {toast && (
+                <div className={`fixed bottom-6 right-6 z-[9999] p-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom duration-300 border ${
+                    toast.type === 'success' 
+                        ? 'bg-emerald-600 text-white border-emerald-500' 
+                        : toast.type === 'error' 
+                            ? 'bg-rose-600 text-white border-rose-500' 
+                            : 'bg-slate-800 text-white border-slate-700'
+                }`}>
+                    {toast.type === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
+                    <div className="pr-4">
+                        <p className="text-sm font-bold">{toast.type === 'success' ? 'Success' : 'Error'}</p>
+                        <p className="text-xs opacity-90">{toast.message}</p>
+                    </div>
+                    <button onClick={() => setToast(null)} className="p-1 hover:bg-black/10 rounded-lg transition-colors">
+                        <X size={16} />
+                    </button>
                 </div>
             )}
         </div>

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { submitInvoiceToZatca, generateInvoiceXML } from '../services/mockData';
+import { generateInvoiceXML } from '../services/mockData';
 import { Search, Filter, Eye, Download, RefreshCw, ChevronLeft, ChevronRight, FileDown, MoreHorizontal, Loader2, ShieldCheck, ShieldAlert, Lock, Tag, FileMinus, FilePlus, FileText, CheckCircle, ChevronDown, ArrowUpRight, Calendar } from 'lucide-react';
 import { InvoiceStatus, Invoice, UserRole, Branch } from '../types';
 import { useToast } from './Toast';
@@ -9,11 +9,12 @@ import { getInvoices } from '../services/api';
 interface InvoiceListProps {
   onSelectInvoice: (id: string) => void;
   userRole: UserRole;
+  userEmail: string;
   onNavigate?: (route: string, id?: string) => void;
   selectedBranch: Branch | null;
 }
 
-export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userRole, onNavigate, selectedBranch }) => {
+export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userRole, userEmail, onNavigate, selectedBranch }) => {
   const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -34,18 +35,30 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
   useEffect(() => {
     if (selectedBranch) {
         fetchInvoices();
+        
+        // Polling for real-time updates (every 30 seconds)
+        const interval = setInterval(() => {
+            fetchInvoices();
+        }, 30 * 1000);
+        
+        return () => clearInterval(interval);
     }
   }, [selectedBranch]);
 
   const fetchInvoices = async () => {
-      if (!selectedBranch) return;
+      if (!selectedBranch) return false;
       setIsLoading(true);
       try {
-          const data = await getInvoices(selectedBranch.organizationId);
+          const orgId = selectedBranch.organizationId || selectedBranch.id;
+          console.log(`[InvoiceList] Fetching for OrgID: ${orgId}, BranchID: ${selectedBranch.id}`);
+          const data = await getInvoices(orgId.toString(), { role: userRole, email: userEmail });
+          console.log(`[InvoiceList] Received ${data.length} invoices from backend.`);
           setLocalInvoices(data);
+          return true;
       } catch (error) {
           console.error('Error fetching invoices:', error);
           addToast('error', 'Failed to fetch invoices');
+          return false;
       } finally {
           setIsLoading(false);
       }
@@ -57,8 +70,10 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
   }, [selectedBranch]);
 
   const handleSync = async () => {
-    await fetchInvoices();
-    addToast('success', 'Invoices synced successfully');
+    const success = await fetchInvoices();
+    if (success) {
+        addToast('success', 'Invoices synced successfully');
+    }
   };
 
   const handleExportCSV = () => {
@@ -128,13 +143,15 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
     URL.revokeObjectURL(url);
   };
 
-  const filteredInvoices = localInvoices.filter(inv => {
+  const filteredInvoices = localInvoices.filter((inv, index) => {
     // Branch Filter
-    if (selectedBranch && inv.branchId !== selectedBranch.id) return false;
+    const matchesBranch = !selectedBranch || inv.branchId === selectedBranch.id;
 
     // Search Filter
-    const matchesSearch = inv.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || 
+      (inv.invoiceNumber && inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (inv.customer && inv.customer.name && inv.customer.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (inv.customer && inv.customer.vatNumber && inv.customer.vatNumber.toLowerCase().includes(searchTerm.toLowerCase()));
     
     // Dropdown Filters
     const matchesStatus = statusFilter === 'All' || inv.status === statusFilter;
@@ -182,7 +199,14 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
         }
     }
 
-    return matchesSearch && matchesStatus && matchesType && matchesDate;
+    const isVisible = matchesBranch && matchesSearch && matchesStatus && matchesType && matchesDate;
+    
+    if (index === 0 && localInvoices.length > 0) {
+        // Log first item only to avoid flooding, but show count and branch info
+        console.log(`[InvoiceList] Filtering ${localInvoices.length} invoices for branch ${selectedBranch?.id}. Matches: ${isVisible ? 'YES' : 'NO'} (Branch: ${matchesBranch}, Type: ${matchesType}, Status: ${matchesStatus})`);
+    }
+
+    return isVisible;
   }).sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime());
 
   const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
