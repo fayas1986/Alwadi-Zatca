@@ -343,8 +343,8 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             const xml = generateInvoiceXML(zatcaInvoice);
 
             let certPem = cert?.certificate || 'MockCert';
-            let privateKey = cert ? decrypt(cert.private_key) : 'MockPrivateKey';
-            let secret = cert?.secret ? decrypt(cert.secret) : 'MockSecret';
+            let privateKey = cert ? (cert.private_key.startsWith('MOCK') ? cert.private_key : decrypt(cert.private_key)) : 'MockPrivateKey';
+            let secret = cert?.secret ? (cert.secret.startsWith('MOCK') ? cert.secret : decrypt(cert.secret)) : 'MockSecret';
 
             if (cert && certPem.includes('BEGIN CERTIFICATE')) {
                 certPem = certPem
@@ -425,7 +425,7 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
                     date: new Date(invoice.issueDate),
                     total_amount: invoice.totalAmount,
                     tax_amount: invoice.vatAmount,
-                    status: status as any,
+                    status: (status === 'SIMULATED' ? 'REPORTED' : status) as any,
                     type: invoice.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
                     hash,
                     qr_code: qr,

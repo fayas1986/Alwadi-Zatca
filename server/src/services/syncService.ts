@@ -46,12 +46,7 @@ export class SyncService {
 
             for (const config of activeConfigs) {
                 try {
-                    // Skip local mock URLs to prevent unnecessary mock generation
-                    const isLocal = config.base_url.includes('localhost') || config.base_url.includes('127.0.0.1');
-                    if (isLocal && config.base_url !== '') {
-                        console.warn(`[Sync] Skipping local mock sync for ${config.company.registered_name} (${config.base_url})`);
-                        continue;
-                    }
+                    // Removed localhost check so that local mock ERP server can be synced during testing
 
                     if (!config.base_url) {
                         console.warn(`[Sync] Skipping sync for ${config.company.registered_name} - No base_url configured.`);

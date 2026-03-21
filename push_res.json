@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "status": "SIMULATED",
+  "invoiceId": 2901,
+  "uuid": "2d6d906b-59b3-4822-9a5d-61e13caed5af",
+  "hash": "sim-hash-bc8957dfc31e7bbb",
+  "qrCode": "sim-qr-MzAwMDAwMDAwMDAwMDAzRVJQLVBVU0gtMTc3NDExMzA4NjM2Nw==",
+  "vatNumber": "300000000000003",
+  "invoiceNumber": "ERP-PUSH-1774113086367",
+  "zatcaResponse": {
+    "reportingStatus": "SIMULATED",
+    "note": "No active cert — simulated"
+  },
+  "timestamp": "2026-03-21T17:11:30.332Z"
+}
