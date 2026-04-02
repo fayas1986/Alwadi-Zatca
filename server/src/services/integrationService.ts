@@ -33,13 +33,16 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
         // Support various JSON wrappers: .invoices, .data, .list, or direct array
         const invoices: ExternalInvoice[] = 
           response.data.invoices || 
-          response.data.data || 
+          (Array.isArray(response.data.data) ? response.data.data : response.data.data?.rows || response.data.data?.list) || 
           response.data.list || 
           (Array.isArray(response.data) ? response.data : null);
 
           if (!invoices || !Array.isArray(invoices)) {
               console.error('[Integration] raw response:', response.data);
-              throw new Error('Invalid response format: Expected array of invoices (checked .invoices, .data, .list)');
+              const responseSnippet = typeof response.data === 'string' 
+                ? response.data.substring(0, 200) 
+                : JSON.stringify(response.data).substring(0, 200);
+              throw new Error(`Invalid response format: Expected array of invoices (checked .invoices, .data, .list). Received: ${responseSnippet}...`);
           }
 
         console.log(`Fetched ${invoices.length} invoices. Processing...`);
@@ -102,7 +105,35 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 throw new Error("Failed to decrypt credentials. Please re-onboard.");
             }
 
-        for (const inv of invoices) {
+        // Helper for robust mapping
+        const normalizeInvoice = (raw: any): ExternalInvoice => {
+            return {
+                invoiceNumber: String(raw.invoiceNumber || raw.invoice_number || raw.id || raw.number || `ERP-${Date.now()}`),
+                issueDate: raw.issueDate || raw.issue_date || raw.date || new Date().toISOString(),
+                invoiceSubtype: raw.invoiceSubtype || raw.invoice_subtype || (raw.customer?.vatNumber || raw.customer_vat ? 'Standard' : 'Simplified'),
+                totalAmount: Number(raw.totalAmount || raw.total_amount || raw.total || 0),
+                vatAmount: Number(raw.vatAmount || raw.vat_amount || raw.tax_amount || raw.tax || 0),
+                customer: {
+                    name: raw.customer?.name || raw.customer_name || raw.client_name || 'Cash Client',
+                    vatNumber: raw.customer?.vatNumber || raw.customer_vat || raw.vat_number || null,
+                    address: raw.customer?.address || raw.customer_address || raw.address || null,
+                    city: raw.customer?.city || raw.customer_city || raw.city || 'Riyadh'
+                },
+                items: (raw.items || []).map((it: any) => ({
+                    ...it,
+                    name: it.name || it.description || it.item_name || it.item_description || 'Item',
+                    quantity: Number(it.quantity || it.qty || it.count || 1),
+                    unitPrice: Number(it.unitPrice || it.unit_price || it.price || it.rate || 0),
+                    taxAmount: Number(it.taxAmount || it.tax_amount || it.vat_amount || it.tax || 0),
+                    totalAmount: Number(it.totalAmount || it.total_amount || it.total || it.amount || 0),
+                    nameAr: it.nameAr || it.arabicName || it.itemDescriptionArabic || it.item_name_ar || null,
+                    description: it.description || it.itemDescription || it.name || 'Goods/Services'
+                }))
+            };
+        };
+
+        for (const rawInv of invoices) {
+            const inv = normalizeInvoice(rawInv);
             try {
                 console.log(`[Integration] Processing invoice ${inv.invoiceNumber} for company ${company.id}`);
                 
@@ -136,8 +167,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 });
                 const pih = lastInvoice?.hash || 'NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMjRiZmQ3NTI0MjkzZjBlYTRiM2IzZTk4MTU1MWNiMA==';
 
-                // Map External Invoice to ZATCA Schema (Simple mapping assumption)
-                // In a real scenario, we might need a mapping layer/config
+                // Map External Invoice to ZATCA Schema
                 const zatcaInvoice = {
                     ...inv,
                     uuid: crypto.randomUUID(),
@@ -168,8 +198,9 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                     },
                     items: inv.items.map((it: any) => ({
                         ...it,
-                        nameAr: it.nameAr || it.arabicName || it.itemDescriptionArabic || null,
-                        description: it.description || it.itemDescription || null
+                        name: it.name || 'Item',
+                        nameAr: it.nameAr || null,
+                        description: it.description || it.name || 'Goods/Services'
                     }))
                 };
 
@@ -177,7 +208,6 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 const xml = generateInvoiceXML(zatcaInvoice as any);
 
                 // ── ZATCA Report / Clear ──
-                // Determine if this is a simulation based on the environment
                 const targetZatcaEnv = (environment || company.environment || 'SANDBOX').toLowerCase();
                 const isSimulation = targetZatcaEnv === 'simulation';
 
@@ -236,7 +266,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                         submission_response: JSON.stringify(result),
                         metadata: {
                             items: zatcaInvoice.items,
-                            erp_raw: inv as any
+                            erp_raw: rawInv as any
                         }
                     }
                 });

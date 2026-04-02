@@ -105,9 +105,9 @@ router.post('/config', async (req: Request, res: Response) => {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/erp/sync-all  — trigger a sync for all active configs (Cron Job)
+//  GET /api/erp/sync-all  — trigger a sync for all active configs (Cron Job)
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/sync-all', async (req: Request, res: Response) => {
+router.get('/sync-all', async (req: Request, res: Response) => {
     try {
         // Security check: Only allow Vercel Cron or a defined CRON_SECRET
         const isVercelCron = req.headers['x-vercel-cron'] === '1';

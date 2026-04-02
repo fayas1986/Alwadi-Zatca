@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ERPSystem, Branch, Certificate } from '../types';
-import { Plus, Server, Database, Cloud, Plug, MoreVertical, Wifi, WifiOff, Copy, Check, RefreshCw, Trash2, Key, ShieldCheck, X, Terminal, Play, Code, MonitorSmartphone, LayoutTemplate } from 'lucide-react';
+import { Plus, Server, Database, Cloud, Plug, MoreVertical, Wifi, WifiOff, Copy, Check, RefreshCw, Trash2, Key, ShieldCheck, X, Terminal, Play, Code, MonitorSmartphone, LayoutTemplate, Eye, EyeOff } from 'lucide-react';
 import { useToast } from './Toast';
 import { getCertificates, getConfigs, saveERPConfig } from '../services/api';
 
@@ -15,6 +15,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'management' | 'simulator'>('management');
 
   // Fetch Configurations & Certificates
@@ -129,6 +130,15 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
     navigator.clipboard.writeText(key);
     setCopiedKeyId(id);
     setTimeout(() => setCopiedKeyId(null), 2000);
+  };
+
+  const toggleKeyVisibility = (id: string) => {
+    setVisibleKeys(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -307,7 +317,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
     const generatedKey = `sk_${prefix}_${newERP.environment === 'Production' ? 'live' : 'test'}_${randomPart}`;
     
     // If Custom, use the user-provided authHeader as the key, otherwise use the generated one
-    const finalApiKey = newERP.vendor === 'Custom' ? newERP.authHeader : generatedKey;
+    const finalApiKey = (newERP.vendor === 'Custom' && newERP.authHeader) ? newERP.authHeader : generatedKey;
 
     try {
         const payload = {
@@ -478,14 +488,28 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
                                 </span>
                             </div>
                             <div className="flex items-center justify-between font-mono text-xs text-slate-700 bg-white p-2 rounded border border-slate-200">
-                                <span className="truncate mr-2">{erp.apiKey.substring(0, 12)}••••••••</span>
-                                <button 
-                                    onClick={() => handleCopy(erp.apiKey, erp.id)}
-                                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors"
-                                    title="Copy full key"
-                                >
-                                    {copiedKeyId === erp.id ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-                                </button>
+                                <span className="truncate mr-2">
+                                    {visibleKeys.has(erp.id) ? 
+                                        (erp.apiKey === '••••••••' ? '(No Key Configured)' : erp.apiKey) : 
+                                        (erp.apiKey === '••••••••' ? '••••••••' : 
+                                         erp.apiKey.length > 12 ? `${erp.apiKey.substring(0, 12)}••••` : erp.apiKey)}
+                                </span>
+                                <div className="flex items-center space-x-1">
+                                    <button 
+                                        onClick={() => toggleKeyVisibility(erp.id)}
+                                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors"
+                                        title={visibleKeys.has(erp.id) ? "Hide key" : "Show key"}
+                                    >
+                                        {visibleKeys.has(erp.id) ? <EyeOff size={14} /> : <Eye size={14} />}
+                                    </button>
+                                    <button 
+                                        onClick={() => handleCopy(erp.apiKey, erp.id)}
+                                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors"
+                                        title="Copy full key"
+                                    >
+                                        {copiedKeyId === erp.id ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
