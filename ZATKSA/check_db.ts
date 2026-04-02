@@ -1,9 +1,7 @@
 
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient({
-  datasourceUrl: "postgresql://neondb_owner:npg_NdXaf4t7kDOK@ep-nameless-bar-a15lniim-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
-});
+const prisma = new PrismaClient();
 
 async function main() {
   console.log('--- DATABASE CHECK ---');

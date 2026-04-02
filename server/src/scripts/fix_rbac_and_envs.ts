@@ -55,28 +55,34 @@ async function main() {
     const environments = ['SANDBOX', 'SIMULATION', 'PRODUCTION'];
     for (const env of environments) {
         console.log(`[Setup] Ensuring ERP Config for ${env}...`);
-        await prisma.erp_configuration.upsert({
+        // Note: Using findFirst/create pattern as there's no unique constraint on company_id+environment
+        const existing = await prisma.erp_configuration.findFirst({
             where: {
-                company_id_environment: {
-                    company_id: company.id,
-                    environment: env
-                }
-            },
-            update: {
-                base_url: mockUrl,
-                is_active: true,
-                last_sync: new Date()
-            },
-            create: {
-                id: `erp-${company.id}-${env.toLowerCase()}`,
                 company_id: company.id,
-                base_url: mockUrl,
-                api_key: `mock-key-${env.toLowerCase()}`,
-                environment: env,
-                is_active: true,
-                last_sync: new Date()
+                environment: env
             }
         });
+
+        if (existing) {
+            await prisma.erp_configuration.update({
+                where: { id: existing.id },
+                data: {
+                    base_url: mockUrl,
+                    is_active: true
+                }
+            });
+        } else {
+            await prisma.erp_configuration.create({
+                data: {
+                    company_id: company.id,
+                    base_url: mockUrl,
+                    api_key: `mock-key-${env.toLowerCase()}`,
+                    environment: env,
+                    type: 'Custom',
+                    is_active: true
+                }
+            });
+        }
     }
 
     console.log('[Setup] Fix completed successfully.');

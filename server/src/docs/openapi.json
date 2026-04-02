@@ -1,0 +1,944 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "ZATCA Enterprise API V2",
+    "version": "2.0.0",
+    "description": "The final Enterprise ZATCA API with HMAC Auth, Async Webhooks, and SaaS Scale Architecture."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/admin/groups": {
+      "get": {
+        "summary": "List all company groups",
+        "tags": [
+          "Admin - Groups"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-user-role",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "SUPER_ADMIN"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of groups"
+          }
+        }
+      }
+    },
+    "/api/admin/companies": {
+      "get": {
+        "summary": "List all companies",
+        "description": "Retrieve a list of all companies with their associated users, certificates, and groups.",
+        "tags": [
+          "Admin - Companies"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-user-role",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "SUPER_ADMIN"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of companies"
+          },
+          "403": {
+            "description": "Access Denied"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new company",
+        "description": "Register a new company and assign it to a group if provided.",
+        "tags": [
+          "Admin - Companies"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-user-role",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "SUPER_ADMIN"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "vatNumber"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "vatNumber": {
+                    "type": "string"
+                  },
+                  "crNumber": {
+                    "type": "string"
+                  },
+                  "branchName": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  },
+                  "groupId": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Company created successfully"
+          },
+          "500": {
+            "description": "Failed to create company"
+          }
+        }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "summary": "List all users",
+        "tags": [
+          "Admin - Users"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-user-role",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "SUPER_ADMIN"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of users"
+          }
+        }
+      }
+    },
+    "/api/v1/erp/invoices": {
+      "post": {
+        "summary": "Submit Invoice (Async V2)",
+        "description": "Submit an invoice for asynchronous processing.\nSupports both Standard (B2B) and Simplified (B2C) types.\nIncludes automatic ZATCA signing and reporting.\n",
+        "tags": [
+          "Enterprise V2"
+        ],
+        "security": [
+          {
+            "hmacAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "invoiceNumber",
+                  "totalAmount",
+                  "vatAmount"
+                ],
+                "properties": {
+                  "invoiceNumber": {
+                    "type": "string",
+                    "example": "INV-2026-001"
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "example": "req-unique-123"
+                  },
+                  "invoiceSubtype": {
+                    "type": "string",
+                    "enum": [
+                      "Standard",
+                      "Simplified"
+                    ],
+                    "default": "Simplified"
+                  },
+                  "issueDate": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "totalAmount": {
+                    "type": "number",
+                    "example": 115
+                  },
+                  "vatAmount": {
+                    "type": "number",
+                    "example": 15
+                  },
+                  "customer": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "example": "Test Customer"
+                      },
+                      "vatNumber": {
+                        "type": "string",
+                        "example": "300000000000003"
+                      }
+                    }
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "example": "Product A"
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "unitPrice": {
+                          "type": "number",
+                          "example": 100
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted. Returns jobId for status tracking.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ACCEPTED"
+                    },
+                    "jobId": {
+                      "type": "string"
+                    },
+                    "idempotencyKey": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/erp/webhooks": {
+      "post": {
+        "summary": "Register Webhook (V2)",
+        "description": "Subscribe to invoice events (ACCEPTED, CLEARED, REJECTED). All outgoing webhooks include `x-webhook-signature` for verification.",
+        "tags": [
+          "Enterprise V2"
+        ],
+        "security": [
+          {
+            "hmacAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "url",
+                  "events"
+                ],
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "example": "https://your-system.com/webhook"
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "INVOICE_CLEARED",
+                      "INVOICE_REJECTED"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully registered. Returns webhookSecret for HMAC verification."
+          }
+        }
+      }
+    },
+    "/api/v1/erp/status/{uuid}/failures": {
+      "get": {
+        "summary": "Get Job Failures (DLQ)",
+        "description": "Retrieve detailed error logs and ZATCA rejection messages for a failed job.",
+        "tags": [
+          "Enterprise V2 - Observability"
+        ],
+        "security": [
+          {
+            "hmacAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uuid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Failure details"
+          },
+          "404": {
+            "description": "No failures found for this ID"
+          }
+        }
+      }
+    },
+    "/api/v1/erp/status/{uuid}": {
+      "get": {
+        "summary": "Get Job Status (Mandatory Fallback)",
+        "description": "Retrieve the current status, ZATCA results, and compliance information for a job.\n**Mandatory fallback** if webhooks are blocked by firewalls or network issues.\n",
+        "tags": [
+          "Enterprise V2"
+        ],
+        "security": [
+          {
+            "hmacAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uuid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns the full status contract (Processing, Completed, or Failed)."
+          }
+        }
+      }
+    },
+    "/api/audit-logs": {
+      "get": {
+        "summary": "Retrieve system audit logs",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "User Login",
+        "description": "Authenticate a user with email and password. Supports both real DB and fallback users.",
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "superadmin@tech-solutions.sa"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "Zatca#Secure!2026@Connect"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string"
+                    },
+                    "companyName": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/erp/invoices/submit": {
+      "post": {
+        "summary": "External ERP Invoice Submission (Push)",
+        "description": "Submit an invoice from an external ERP. Includes automatic signing and ZATCA reporting/clearance.",
+        "tags": [
+          "External Integration"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "invoiceNumber",
+                  "invoiceSubtype",
+                  "issueDate",
+                  "totalAmount",
+                  "vatAmount"
+                ],
+                "properties": {
+                  "invoiceNumber": {
+                    "type": "string",
+                    "example": "INV-2026-001"
+                  },
+                  "invoiceSubtype": {
+                    "type": "string",
+                    "enum": [
+                      "Standard",
+                      "Simplified"
+                    ],
+                    "example": "Simplified"
+                  },
+                  "issueDate": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-03-13T10:00:00Z"
+                  },
+                  "totalAmount": {
+                    "type": "number",
+                    "example": 115
+                  },
+                  "vatAmount": {
+                    "type": "number",
+                    "example": 15
+                  },
+                  "taxExclusiveAmount": {
+                    "type": "number",
+                    "example": 100
+                  },
+                  "supplier": {
+                    "type": "object",
+                    "properties": {
+                      "vatNumber": {
+                        "type": "string",
+                        "example": "300000000000003"
+                      }
+                    }
+                  },
+                  "customer": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "example": "Walk-in Customer"
+                      }
+                    }
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "quantity": {
+                          "type": "number"
+                        },
+                        "unitPrice": {
+                          "type": "number"
+                        },
+                        "taxCategory": {
+                          "type": "string",
+                          "example": "S"
+                        },
+                        "vatRate": {
+                          "type": "number",
+                          "example": 0.15
+                        }
+                      }
+                    }
+                  },
+                  "documentType": {
+                    "type": "string",
+                    "enum": [
+                      "Invoice",
+                      "Credit Note",
+                      "Debit Note"
+                    ],
+                    "default": "Invoice"
+                  },
+                  "billingReference": {
+                    "type": "string",
+                    "description": "Required for Credit/Debit Notes. ID of original invoice."
+                  },
+                  "instructionNote": {
+                    "type": "string",
+                    "description": "Reason for the note."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invoice processed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "REPORTED",
+                        "CLEARED",
+                        "SIMULATED"
+                      ]
+                    },
+                    "uuid": {
+                      "type": "string"
+                    },
+                    "hash": {
+                      "type": "string"
+                    },
+                    "qrCode": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid API Key"
+          },
+          "422": {
+            "description": "Validation error in payload"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/erp/invoices/{uuid}/status": {
+      "get": {
+        "summary": "Check Invoice Submission Status",
+        "description": "Retrieve the current status of an invoice submission using its UUID.",
+        "tags": [
+          "External Integration"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uuid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The UUID of the invoice returned during submission."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "invoiceNumber": {
+                      "type": "string"
+                    },
+                    "uuid": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "CLEARED",
+                        "REPORTED",
+                        "SIMULATED",
+                        "FAILED",
+                        "PENDING"
+                      ]
+                    },
+                    "zatcaResponse": {
+                      "type": "object"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invoice not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/items": {
+      "get": {
+        "summary": "List items for a company",
+        "tags": [
+          "Items"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "companyId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of items"
+          }
+        }
+      }
+    },
+    "/api/items/bulk": {
+      "post": {
+        "summary": "Bulk create items",
+        "tags": [
+          "Items"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "companyId": {
+                    "type": "integer"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "sku": {
+                          "type": "string"
+                        },
+                        "unitPrice": {
+                          "type": "number"
+                        },
+                        "taxCategory": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bulk upload result"
+          }
+        }
+      }
+    },
+    "/api/zatca/ping/{env}": {
+      "get": {
+        "summary": "real-time ZATCA environment reachability check",
+        "tags": [
+          "ZATCA - Utilities"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "env",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sandbox",
+                "simulation",
+                "production"
+              ]
+            },
+            "description": "The ZATCA environment to ping."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reachability status"
+          }
+        }
+      }
+    },
+    "/api/zatca/certificates": {
+      "get": {
+        "summary": "List all certificates for a company",
+        "tags": [
+          "ZATCA - Certificates"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "companyId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of certificates"
+          }
+        }
+      }
+    },
+    "/api/zatca/invoices": {
+      "get": {
+        "summary": "List all invoices for a company",
+        "tags": [
+          "ZATCA - Invoices"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "companyId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of invoices"
+          }
+        }
+      }
+    },
+    "/api/zatca/invoices/{id}": {
+      "get": {
+        "summary": "Get a specific invoice by ID",
+        "tags": [
+          "ZATCA - Invoices"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice details"
+          }
+        }
+      }
+    }
+  },
+  "tags": []
+}
