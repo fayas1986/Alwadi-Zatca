@@ -23,6 +23,7 @@ import {
   ArrowRight,
   Calendar,
   Wallet,
+  AlertTriangle,
   MoreHorizontal
 } from 'lucide-react';
 import { Branch } from '../types';
@@ -233,6 +234,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
+
+      {/* Environment Status Ribbon */}
+      {selectedBranch && (
+        <div className={`p-3 rounded-2xl border flex items-center justify-between animate-in slide-in-from-top duration-500 ${
+          selectedBranch.environment === 'SIMULATION' 
+          ? 'bg-amber-50 border-amber-200 text-amber-800' 
+          : selectedBranch.environment === 'SANDBOX'
+          ? 'bg-blue-50 border-blue-200 text-blue-800'
+          : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-xl ${
+              selectedBranch.environment === 'SIMULATION' ? 'bg-amber-100 text-amber-600' : 
+              selectedBranch.environment === 'SANDBOX' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'
+            }`}>
+              {selectedBranch.environment === 'SIMULATION' ? <AlertTriangle size={18} /> : <Activity size={18} />}
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest opacity-60">System Mode</p>
+              <p className="text-sm font-bold flex items-center gap-2">
+                {selectedBranch.environment === 'SIMULATION' ? 'Simulation (Local Mocks Only)' : 
+                 selectedBranch.environment === 'SANDBOX' ? 'Sandbox (Real-time ZATCA Replica)' : 'Production (Live Tax Compliance)'}
+                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                  selectedBranch.environment === 'SIMULATION' ? 'bg-amber-500' : 
+                  selectedBranch.environment === 'SANDBOX' ? 'bg-blue-500' : 'bg-emerald-500'
+                }`}></span>
+              </p>
+            </div>
+          </div>
+          <div className="hidden sm:block">
+             <p className="text-[10px] font-medium max-w-[200px] text-right opacity-70">
+                {selectedBranch.environment === 'SIMULATION' 
+                  ? 'All ZATCA API calls are currently bypassed using local signature mocks.' 
+                  : selectedBranch.environment === 'SANDBOX'
+                  ? 'Connected to ZATCA Fatoora Sandbox. CSR and Certificates must be Sandbox-specific.'
+                  : 'Connected to ZATCA Production. Every submission is a real legal tax event.'}
+             </p>
+          </div>
+        </div>
+      )}
       
       {/* Header & Filter Toolbar */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">

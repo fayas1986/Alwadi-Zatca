@@ -4,7 +4,7 @@ import { ShieldCheck, Lock, User, ArrowRight, Loader2, CheckCircle2, Eye, EyeOff
 import { UserRole } from '../types';
 
 interface LoginProps {
-  onLogin: (role: UserRole, name: string, email: string) => void;
+  onLogin: (role: UserRole, name: string, email: string, companyId?: number) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -44,7 +44,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           if (response.ok) {
               const data = await response.json();
-              onLogin(data.role, data.name || 'User', data.email || email);
+              onLogin(data.role, data.name || 'User', data.email || email, data.companyId);
           } else {
               let errorMessage = "Login failed. Please check your credentials.";
               try {

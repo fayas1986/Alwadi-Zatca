@@ -14,7 +14,7 @@ export interface CSRData {
     vatNumber: string;
 }
 
-export const generateZatcaCSR = async (data: CSRData) => {
+export const generateZatcaCSR = async (data: CSRData, isSimulation: boolean = true) => {
     // 1. Prepare Configuration for SDK
     // The SDK expects a properties file or arguments. 
     // Let's create a properties file content based on the standard ZATCA config format.
@@ -61,9 +61,9 @@ csr.industry.business.category=${data.industry}
     `.trim();
 
     try {
-        console.log("Attempting to generate CSR via SDK...");
+        console.log(`Attempting to generate CSR via SDK (Simulation: ${isSimulation})...`);
         // Use the SDK service
-        const result = await generateSDKCSR(configContent);
+        const result = await generateSDKCSR(configContent, isSimulation);
         return {
             csr: result.csr,
             privateKey: result.privateKey,

@@ -41,15 +41,16 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
         // Map backend config to frontend ERPSystem interface
         const mappedConfigs: ERPSystem[] = configs.map((c: any) => ({
             id: c.id,
-            name: `${c.type} Connection`,
+            name: c.name || `${c.type} Connection`,
             vendor: c.type as any,
             environment: c.environment ? (c.environment.charAt(0) + c.environment.slice(1).toLowerCase()) : 'Production', 
             apiKey: c.api_key || '••••••••',
             status: c.is_active ? 'Connected' : 'Disconnected',
             lastSync: c.updated_at,
-            linkedCertificateId: '' // Would need deeper join if required
+            linkedCertificateId: c.certificate_id ? c.certificate_id.toString() : ''
         }));
         setErps(mappedConfigs);
+
       } catch (error) {
         console.error('Error fetching ERP data:', error);
       } finally {
@@ -130,16 +131,46 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
     setTimeout(() => setCopiedKeyId(null), 2000);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to disconnect this ERP system? This will revoke API access immediately.')) {
-      setErps(prev => prev.filter(e => e.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to disconnect this ERP system? This will revoke API access immediately.')) return;
+    
+    try {
+        const response = await fetch(`/api/erp/config/${id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            let errorDetail = `Status: ${response.status} ${response.statusText}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.error) errorDetail = errorData.error;
+            } catch (e) {
+                // Not JSON
+            }
+            throw new Error(errorDetail);
+        }
+
+        const result = await response.json();
+        if (result.success) {
+            setErps(prev => prev.filter(e => e.id !== id));
+            addToast('success', 'ERP System Disconnected Successfully');
+        } else {
+            throw new Error(result.error || 'Server rejected request');
+        }
+    } catch (error: any) {
+        console.error('Delete Error:', error);
+        addToast('error', `Disconnect Failed: ${error.message || 'Network Error'}`);
     }
   };
+
+  const [syncingId, setSyncingId] = useState<string | null>(null);
 
   const handleSync = async (id: string) => {
     const erp = erps.find(e => e.id === id);
     if (!erp) return;
 
+    setSyncingId(id);
     try {
         const response = await fetch(`/api/erp/sync/${id}`, {
             method: 'POST',
@@ -148,16 +179,18 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
 
         const result = await response.json();
         if (result.success) {
-            addToast('success', `Sync Triggered Successfully!`);
+            addToast('success', result.message || `Sync Completed! Processed ${result.results?.length || 0} invoices.`);
+            // Update last sync time in local state for real-time feel
+            setErps(prev => prev.map(e => e.id === id ? { ...e, lastSync: new Date().toISOString() } : e));
         } else {
             addToast('error', `Sync Failed: ${result.error}`);
         }
     } catch (error) {
         console.error(error);
         addToast('error', 'Sync Failed: Network Error');
+    } finally {
+        setSyncingId(null);
     }
-    
-    setErps(prev => prev.map(e => e.id === id ? { ...e, lastSync: new Date().toISOString() } : e));
   };
 
   const loadTemplate = (type: 'standard' | 'pos') => {
@@ -279,12 +312,15 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
     try {
         const payload = {
             companyId: selectedBranch.organizationId,
+            name: newERP.name,
             type: newERP.vendor.toUpperCase(),
             baseUrl: newERP.sourceUrl || 'http://localhost:3001/api/erp/mock-server',
             apiKey: finalApiKey,
-            environment: newERP.environment.toUpperCase(), // Send environment to backend
+            environment: newERP.environment.toUpperCase(), 
+            certificateId: newERP.linkedCertificateId || null,
             syncInterval: 30
         };
+
 
         const response = await fetch('/api/erp/config', {
             method: 'POST',
@@ -474,9 +510,14 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
                         <div className="flex items-center gap-2 pt-4 border-t border-slate-50">
                             <button 
                                 onClick={() => handleSync(erp.id)}
-                                className="flex-1 py-2 text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center justify-center"
+                                disabled={syncingId === erp.id}
+                                className="flex-1 py-2 text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50"
                             >
-                                <RefreshCw size={16} className="mr-2" /> Sync
+                                {syncingId === erp.id ? (
+                                    <><RefreshCw size={16} className="mr-2 animate-spin" /> Syncing...</>
+                                ) : (
+                                    <><RefreshCw size={16} className="mr-2" /> Sync</>
+                                )}
                             </button>
                             <div className="w-px h-6 bg-slate-100"></div>
                             <button 

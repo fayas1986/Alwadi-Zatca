@@ -5,6 +5,7 @@ import { NotificationService } from './notificationService.js';
 import { AuditService } from './auditService.js';
 import { SecurityService } from './securityService.js';
 import { LockService } from './lockService.js';
+import { generateInvoiceXML } from './xmlService.js';
 import { invoice_status } from '@prisma/client';
 
 interface QueueItem {
@@ -123,9 +124,20 @@ export class QueueService {
             // ENT 2: Field-Level Decryption
             const decryptedSecret = SecurityService.decrypt(cert.secret!);
             
+            // NEW: Handle JSON payloads from API V1 (Async manual submissions)
+            let xmlToSign = invoice.xml_payload;
+            if (invoice.xml_payload && (invoice.xml_payload.trim().startsWith('{') || invoice.xml_payload.trim().startsWith('['))) {
+                try {
+                    const jsonData = JSON.parse(invoice.xml_payload);
+                    xmlToSign = generateInvoiceXML(jsonData);
+                } catch (e) {
+                    console.error(`[Queue] Failed to parse JSON payload for invoice ${invoice.id}`);
+                }
+            }
+
             // OPT 3: Step-Level Metrics (Time to Sign)
             const signStart = Date.now();
-            const { signedXml, hash, qr } = await signInvoice(invoice.xml_payload, cert.certificate, decryptedSecret);
+            const { signedXml, hash, qr } = await signInvoice(xmlToSign, cert.certificate, decryptedSecret);
             const signDuration = Date.now() - signStart;
             
             const localHash = hash || invoice.hash;

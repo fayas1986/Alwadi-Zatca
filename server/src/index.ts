@@ -12,6 +12,7 @@ import QueueService from './services/queueService.js';
 import SyncService from './services/syncService.js';
 import reportsRouter from './routes/reports.js';
 import prisma from './lib/prisma.js';
+import apiV1Router from './routes/api_v1.js';
 
 import { swaggerSpec } from './utils/swagger.js';
 
@@ -27,13 +28,17 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Initialize Background Queue & Sync
-QueueService.resume().then(() => {
-    console.log('[Queue] Background queue resumed successfully');
-    SyncService.start(); // Start ERP Sync after queue is ready
-}).catch(err => {
-    console.error('[Queue] Failed to resume background queue:', err);
-});
+// Initialize Background Queue & Sync (Disabled on Vercel)
+if (!process.env.VERCEL) {
+    QueueService.resume().then(() => {
+        console.log('[Queue] Background queue resumed successfully');
+        SyncService.start(); // Start ERP Sync after queue is ready
+    }).catch(err => {
+        console.error('[Queue] Failed to resume background queue:', err);
+    });
+} else {
+    console.log('[Server] Running on Vercel: Background Sync Service is inactive.');
+}
 // Disable CSP to allow all resources (fonts, styles, etc.) for development
 app.use(helmet({
     contentSecurityPolicy: false,
@@ -42,6 +47,7 @@ app.use(helmet({
 
 
 app.use('/api/zatca', zatcaRouter);
+app.use('/api/v1', apiV1Router);
 app.use('/api/erp', erpRouter);
 app.use('/api/admin/reports', reportsRouter);
 app.use('/api/admin', adminRoutes);

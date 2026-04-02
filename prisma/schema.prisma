@@ -9,20 +9,21 @@ datasource db {
 }
 
 model certificate {
-  id            Int       @id @default(autoincrement())
+  id            Int                 @id @default(autoincrement())
   company_id    Int
   type          String
   certificate   String
   private_key   String
   public_key    String
   serial_number String?
-  common_name   String?
-  expiry_date   DateTime? @db.Timestamp(6)
-  is_active     Boolean?  @default(true)
-  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  expiry_date   DateTime?           @db.Timestamp(6)
+  is_active     Boolean?            @default(true)
+  created_at    DateTime?           @default(now()) @db.Timestamp(6)
   csid          String?
   secret        String?
-  company       company   @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "certificates_company_id_companies_id_fk")
+  common_name   String?
+  company       company             @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "certificates_company_id_companies_id_fk")
+  erp_configs   erp_configuration[]
 
   @@map("certificates")
 }
@@ -38,47 +39,50 @@ model company_group {
 }
 
 model company {
-  id              Int            @id @default(autoincrement())
-  user_id         String
-  vat_number      String         @unique(map: "companies_vat_number_unique")
-  cr_number       String
-  registered_name String
-  branch_name     String?
-  environment     environment?   @default(SANDBOX)
-  address              String?
-  building_number     String?
-  street_name         String?
-  city_subdivision    String?
-  postal_zone         String?
-  city                String?
-  country             String?        @default("SA")
-  is_active       Boolean        @default(true)
-  created_at      DateTime?      @default(now()) @db.Timestamp(6)
-  group_id            Int?
-  settings            Json?          @default("{}")
-  certificates        certificate[]
-  erp_configs         erp_configuration[]
-  group               company_group? @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "companies_group_id_groups_id_fk")
-  user                user           @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "companies_user_id_users_id_fk")
-  customers           customer[]
-  invoices            invoice[]
-  items               item[]
+  id               Int                 @id @default(autoincrement())
+  user_id          String
+  vat_number       String              @unique(map: "companies_vat_number_unique")
+  cr_number        String
+  registered_name  String
+  branch_name      String?
+  environment      environment?        @default(SANDBOX)
+  address          String?
+  city             String?
+  country          String?             @default("SA")
+  created_at       DateTime?           @default(now()) @db.Timestamp(6)
+  group_id         Int?
+  settings         Json?               @default("{}")
+  building_number  String?
+  city_subdivision String?
+  postal_zone      String?
+  street_name      String?
+  is_active        Boolean             @default(true)
+  certificates     certificate[]
+  group            company_group?      @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "companies_group_id_groups_id_fk")
+  user             user                @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "companies_user_id_users_id_fk")
+  customers        customer[]
+  erp_configs      erp_configuration[]
+  invoices         invoice[]
+  items            item[]
 
   @@map("companies")
 }
 
 model erp_configuration {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  company_id    Int
-  type          String   // e.g., 'Oracle', 'SAP', 'Microsoft Dynamics'
-  base_url      String
-  api_key       String?
-  environment   String?
-  sync_interval Int      @default(30) // in minutes
-  is_active     Boolean  @default(true)
-  created_at    DateTime @default(now()) @db.Timestamp(6)
-  updated_at    DateTime @updatedAt @db.Timestamp(6)
-  company       company  @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  company_id     Int
+  type           String
+  base_url       String
+  api_key        String?
+  sync_interval  Int          @default(30)
+  is_active      Boolean      @default(true)
+  created_at     DateTime     @default(now()) @db.Timestamp(6)
+  updated_at     DateTime     @updatedAt @db.Timestamp(6)
+  environment    String?
+  certificate_id Int?
+  name           String?
+  certificate    certificate? @relation(fields: [certificate_id], references: [id], onUpdate: NoAction)
+  company        company      @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("erp_configurations")
 }
@@ -135,8 +139,8 @@ model invoice {
   submission_id         String?
   submission_response   String?
   created_at            DateTime?       @default(now()) @db.Timestamp(6)
-  retry_count           Int             @default(0)
   error_log             String?
+  retry_count           Int             @default(0)
   next_attempt_at       DateTime?       @db.Timestamp(6)
   metadata              Json?
   company               company         @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoices_company_id_companies_id_fk")

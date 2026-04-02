@@ -364,9 +364,32 @@ Environment: ${cert.type}
                             CSR Settings
                         </h3>
                         {selectedBranch && (
-                            <div className="mt-2 p-2 bg-indigo-50 rounded-lg border border-indigo-100">
-                                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-0.5">Current Context</p>
-                                <p className="text-xs font-semibold text-indigo-900 truncate">{selectedBranch.name}</p>
+                            <div className={`mt-2 p-3 rounded-xl border ${
+                                selectedBranch.environment === 'SIMULATION' 
+                                ? 'bg-amber-50 border-amber-200' 
+                                : selectedBranch.environment === 'SANDBOX'
+                                ? 'bg-blue-50 border-blue-200'
+                                : 'bg-emerald-50 border-emerald-200'
+                            }`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                                    selectedBranch.environment === 'SIMULATION' ? 'text-amber-600' : 
+                                    selectedBranch.environment === 'SANDBOX' ? 'text-blue-600' : 'text-emerald-600'
+                                }`}>
+                                    Active Environment
+                                </p>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs font-bold text-slate-900 truncate">{selectedBranch.environment || 'SANDBOX'}</p>
+                                    <div className={`w-2 h-2 rounded-full animate-pulse ${
+                                        selectedBranch.environment === 'SIMULATION' ? 'bg-amber-500' : 
+                                        selectedBranch.environment === 'SANDBOX' ? 'bg-blue-500' : 'bg-emerald-500'
+                                    }`}></div>
+                                </div>
+                                {selectedBranch.environment === 'SIMULATION' && (
+                                    <p className="text-[10px] text-amber-700 mt-2 leading-relaxed font-medium">
+                                        <AlertTriangle size={10} className="inline mr-1" />
+                                        Mocks active. Real ZATCA certificates are not required.
+                                    </p>
+                                )}
                             </div>
                         )}
                     </div>
@@ -756,11 +779,25 @@ Environment: ${cert.type}
                         <div className="p-8 overflow-y-auto flex-1">
                             {wizardStep === 1 && (
                                 <div className="space-y-6 animate-in slide-in-from-right duration-300">
-                                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-3">
-                                        <Info size={20} className="text-blue-600 shrink-0 mt-0.5" />
-                                        <div className="text-sm text-blue-800">
-                                            <p className="font-bold">CSR Generation</p>
-                                            <p className="mt-1">Enter solution unit details. This will generate a Certificate Signing Request (CSR) locally for <strong>{selectedBranch?.name}</strong>.</p>
+                                    <div className={`border p-4 rounded-xl flex items-start gap-3 ${
+                                        onboardData.environment === 'Simulation' 
+                                        ? 'bg-amber-50 border-amber-200' 
+                                        : 'bg-blue-50 border-blue-200'
+                                    }`}>
+                                        {onboardData.environment === 'Simulation' ? (
+                                            <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                                        ) : (
+                                            <Info size={20} className="text-blue-600 shrink-0 mt-0.5" />
+                                        )}
+                                        <div className="text-sm">
+                                            <p className={`font-bold ${onboardData.environment === 'Simulation' ? 'text-amber-800' : 'text-blue-800'}`}>
+                                                {onboardData.environment === 'Simulation' ? 'Simulation Mode (Mock)' : 'ZATCA Onboarding'}
+                                            </p>
+                                            <p className={`mt-1 ${onboardData.environment === 'Simulation' ? 'text-amber-700' : 'text-blue-700'}`}>
+                                                {onboardData.environment === 'Simulation' 
+                                                  ? 'System will generate a mock certificate. No real connectivity to ZATCA is required.' 
+                                                  : `Enter solution unit details. This will generate a real CSR for the ${onboardData.environment} portal.`}
+                                            </p>
                                         </div>
                                     </div>
 

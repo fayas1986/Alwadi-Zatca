@@ -4,9 +4,9 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'ZATCA Connect API',
-      version: '1.0.0',
-      description: 'API documentation for ZATCA Connect - E-Invoicing and Compliance Platform',
+      title: 'ZATCA Enterprise API V2',
+      version: '2.0.0',
+      description: 'The final Enterprise ZATCA API with HMAC Auth, Async Webhooks, and SaaS Scale Architecture.',
     },
     servers: [
       {

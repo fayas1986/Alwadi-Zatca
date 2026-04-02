@@ -9,7 +9,10 @@ async function deleteMockInvoices() {
         where: {
             OR: [
                 { invoice_number: { startsWith: 'MOCK-ERP' } },
-                { invoice_number: { startsWith: 'ERP-PUSH' } }
+                { invoice_number: { startsWith: 'ERP-PUSH' } },
+                { invoice_number: { startsWith: 'SANDBOX-ERP' } },
+                { invoice_number: { startsWith: 'PROD-ERP' } }
+
             ]
         }
     });

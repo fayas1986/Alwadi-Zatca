@@ -11,32 +11,6 @@ import { AuditService } from '../services/auditService.js';
 
 const router = Router();
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  GET /api/erp/mock-server  — mock ERP endpoint for testing Pull API
-// ─────────────────────────────────────────────────────────────────────────────
-router.get('/mock-server', (req, res) => {
-    const timestamp = new Date().toISOString();
-    res.json([
-        {
-            invoiceNumber: `MOCK-ERP-${Date.now()}-1`,
-            issueDate: timestamp,
-            invoiceSubtype: 'Simplified',
-            totalAmount: 115.00,
-            vatAmount: 15.00,
-            customer: { name: 'Mock Customer 1', city: 'Riyadh' },
-            items: [{ name: 'Test Product', quantity: 1, unitPrice: 100 }]
-        },
-        {
-            invoiceNumber: `MOCK-ERP-${Date.now()}-2`,
-            issueDate: timestamp,
-            invoiceSubtype: 'Standard',
-            totalAmount: 2300.00,
-            vatAmount: 300.00,
-            customer: { name: 'Enterprise Client', vatNumber: '345678901234567', city: 'Jeddah' },
-            items: [{ name: 'Service Fee', quantity: 1, unitPrice: 2000 }]
-        }
-    ]);
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/erp/pull  — pull invoices from an external ERP URL
@@ -50,7 +24,8 @@ router.post('/pull', async (req: Request, res: Response) => {
             return;
         }
 
-        const results = await fetchAndProcessInvoices(sourceUrl, authHeader, vat);
+        const authString = Array.isArray(authHeader) ? authHeader[0] : (authHeader || '');
+        const results = await fetchAndProcessInvoices(sourceUrl, authString, vat);
 
         // Add Audit Log
         await AuditService.log({
@@ -97,8 +72,8 @@ router.get('/configs', async (req: Request, res: Response) => {
 //  POST /api/erp/config  — save a new ERP configuration
 router.post('/config', async (req: Request, res: Response) => {
     try {
-        const { companyId, type, baseUrl, apiKey, syncInterval, environment } = req.body;
-        console.log(`[ERP Config] Creating config for Company: ${companyId}, Type: ${type}, Env: ${environment}, API Key Prefix: ${apiKey?.substring(0, 10)}...`);
+        const { companyId, type, baseUrl, apiKey, syncInterval, environment, name, certificateId } = req.body;
+        console.log(`[ERP Config] Creating config for Company: ${companyId}, Name: ${name}, Type: ${type}, Env: ${environment}`);
 
         if (!companyId || !type || !baseUrl) {
             return res.status(400).json({ success: false, error: 'companyId, type and baseUrl are required' });
@@ -107,11 +82,13 @@ router.post('/config', async (req: Request, res: Response) => {
         const config = await (prisma as any).erp_configuration.create({
             data: {
                 company_id: parseInt(companyId),
+                name: name || `${type} Connection`,
                 type,
                 base_url: baseUrl,
                 api_key: apiKey,
                 environment: environment || 'PRODUCTION',
-                sync_interval: syncInterval || 30
+                sync_interval: syncInterval || 30,
+                certificate_id: certificateId ? parseInt(certificateId) : null
             }
         });
 
@@ -126,33 +103,60 @@ router.post('/config', async (req: Request, res: Response) => {
     }
 });
 
+
 // ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/erp/sync  — trigger a manual sync
+//  POST /api/erp/sync-all  — trigger a sync for all active configs (Cron Job)
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/sync-all', async (req: Request, res: Response) => {
+    try {
+        // Security check: Only allow Vercel Cron or a defined CRON_SECRET
+        const isVercelCron = req.headers['x-vercel-cron'] === '1';
+        const cronSecret = process.env.CRON_SECRET;
+        const hasValidSecret = cronSecret && req.headers['authorization'] === `Bearer ${cronSecret}`;
+
+        if (!isVercelCron && !hasValidSecret && process.env.NODE_ENV === 'production') {
+            console.error('[Sync All] Unauthorized sync-all attempt blocked.');
+            return res.status(401).json({ success: false, error: 'Unauthorized manual cron trigger' });
+        }
+
+        console.log('[Sync All] Automated ERP sync-all triggered...');
+        const syncService = (await import('../services/syncService.js')).default;
+        
+        // This is fire-and-forget to avoid lambda timeout, 
+        // OR we can await it if we increase Vercel's function timeout.
+        // For standard cron, we await it.
+        await syncService.runSync();
+
+        res.json({ 
+            success: true, 
+            message: `Global sync completed successfully.`,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error: any) {
+        console.error('Global Sync Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  POST /api/erp/sync/:id  — trigger a manual sync
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/sync/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         console.log(`Manual ERP sync triggered for config ${id}`);
 
-        const config = await prisma.erp_configuration.findUnique({
-            where: { id: id as string },
-            include: { company: true }
-        });
+        const syncService = (await import('../services/syncService.js')).default;
+        const results = await syncService.runSync(id as string);
 
-        if (!config) {
-            return res.status(404).json({ success: false, error: 'ERP Configuration not found' });
+        if (results && results.status === 'rejected') {
+            return res.status(429).json({ success: false, error: results.message });
         }
-
-        const results = await fetchAndProcessInvoices(
-            config.base_url, 
-            config.api_key || '', 
-            config.company.vat_number,
-            config.environment || undefined // Pass environment to pull logic
-        );
 
         res.json({ 
             success: true, 
-            message: `Sync completed. Processed ${results.length} invoices.`,
+            message: `Sync completed.`,
             results 
         });
 
@@ -228,8 +232,9 @@ router.post('/sync/:id', async (req: Request, res: Response) => {
  */
 router.post('/invoices/submit', async (req: Request, res: Response) => {
     try {
-        const authHeader = req.headers['authorization'] || '';
-        const apiKey = authHeader.replace(/^Bearer\s+/i, '');
+        const authHeader = req.headers['authorization'];
+        const authString = Array.isArray(authHeader) ? authHeader[0] : (authHeader || '');
+        const apiKey = authString.replace(/^Bearer\s+/i, '');
         const idempotencyKey = req.headers['idempotency-key'] as string;
 
         if (!apiKey) {
@@ -342,11 +347,15 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
         try {
             const xml = generateInvoiceXML(zatcaInvoice);
 
-            let certPem = cert?.certificate || 'MockCert';
-            let privateKey = cert ? (cert.private_key.startsWith('MOCK') ? cert.private_key : decrypt(cert.private_key)) : 'MockPrivateKey';
-            let secret = cert?.secret ? (cert.secret.startsWith('MOCK') ? cert.secret : decrypt(cert.secret)) : 'MockSecret';
+            if (!cert) {
+                throw new Error("No active certificate found for this company/environment.");
+            }
 
-            if (cert && certPem.includes('BEGIN CERTIFICATE')) {
+            let certPem = cert.certificate;
+            const privateKey = decrypt(cert.private_key);
+            const secret = cert.secret ? decrypt(cert.secret) : '';
+
+            if (certPem.includes('BEGIN CERTIFICATE')) {
                 certPem = certPem
                     .replace(/-----BEGIN CERTIFICATE-----/g, '')
                     .replace(/-----END CERTIFICATE-----/g, '')
@@ -358,25 +367,14 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
                 signedXml = signed.signedXml;
                 hash = signed.hash;
                 qr = signed.qr;
-            } catch {
-                signedXml = Buffer.from(xml).toString('base64');
-                hash = 'sim-hash-' + crypto.randomBytes(8).toString('hex');
-                qr = 'sim-qr-' + Buffer.from(vatNumber + invoice.invoiceNumber).toString('base64');
+            } catch (signErr: any) {
+                console.error('[ERP Push] Signing Error:', signErr.message);
+                throw new Error(`Invoice signing failed: ${signErr.message}`);
             }
 
             // ── ZATCA Report / Clear ──
             const normalizedEnv = targetEnv.toString().toLowerCase();
-            const isMock = certPem.startsWith('MOCK_') || cert?.csid?.startsWith('MOCK_');
-
-            if (isMock) {
-                console.log(`[ERP Submit] Mock certificate detected for ${vatNumber} in ${normalizedEnv}. Bypassing real ZATCA API.`);
-                zatcaResult = {
-                    reportingStatus: invoice.invoiceSubtype === 'Simplified' ? 'REPORTED' : undefined,
-                    clearanceStatus: invoice.invoiceSubtype === 'Standard' ? 'CLEARED' : undefined,
-                    validationResults: { status: 'PASS', messages: [] },
-                    note: `Simulated response for Mock Certificate in ${normalizedEnv}`
-                };
-            } else if (cert?.csid) {
+            if (cert?.csid) {
                 try {
                     if (invoice.invoiceSubtype === 'Standard') {
                         zatcaResult = await clearInvoice(
@@ -398,9 +396,11 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
                         );
                     }
                 } catch (zErr: any) {
-                    console.warn(`ZATCA call failed for ${normalizedEnv}:`, zErr.message);
-                    zatcaResult = null;
+                    console.error(`ZATCA call failed for ${normalizedEnv}:`, zErr.message);
+                    throw zErr;
                 }
+            } else {
+                throw new Error("No active CSID found for ZATCA submission.");
             }
 
         } catch (xmlErr: any) {
@@ -564,6 +564,78 @@ router.get('/invoices/:uuid/status', async (req: Request, res: Response) => {
         console.error('Invoice Status Error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  DELETE /api/erp/config/:id  — remove an ERP configuration
+// ─────────────────────────────────────────────────────────────────────────────
+router.delete('/config/:id', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        console.log(`[ERP Config] Deleting config ID: ${id}`);
+
+        if (!id) {
+            return res.status(400).json({ success: false, error: 'Config ID is required' });
+        }
+
+        // Use any and explicit include to ensure we get company data
+        const config = await (prisma.erp_configuration as any).findUnique({
+            where: { id: id },
+            include: { company: true }
+        });
+
+        if (!config) {
+            return res.status(404).json({ success: false, error: 'Configuration not found' });
+        }
+
+        await (prisma.erp_configuration as any).delete({
+            where: { id: id }
+        });
+
+        // Audit Log for Disconnection
+        await AuditService.log({
+            action: 'ERP Disconnected',
+            category: 'Operational',
+            user: 'System', 
+            role: 'IT_ADMIN',
+            ipAddress: String(req.ip || '127.0.0.1'),
+            details: `ERP System "${config.name || 'External ERP'}" disconnected for VAT ${config.company?.vat_number || 'Unknown'}`,
+            status: 'Success',
+            resourceId: String(id),
+            metadata: {
+                configName: config.name,
+                configType: config.type,
+                vat: config.company?.vat_number
+            }
+        });
+
+        res.json({ success: true, message: 'ERP Configuration deleted successfully' });
+
+    } catch (error: any) {
+        console.error('ERP Delete Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Mock Server for Real-time Testing
+router.get('/mock-server', (req, res) => {
+    const timestamp = new Date().toISOString();
+    res.json({
+        status: 'success',
+        invoices: [
+            {
+                invoiceNumber: `SIM-${Date.now()}-001`,
+                issueDate: timestamp.split('T')[0],
+                invoiceSubtype: 'Simplified',
+                totalAmount: 115.00,
+                vatAmount: 15.00,
+                customer: { name: 'Realtime Test Client', city: 'Riyadh' },
+                items: [
+                    { name: 'Simulated Goods', quantity: 1, unitPrice: 100.00, taxAmount: 15.00, totalAmount: 115.00 }
+                ]
+            }
+        ]
+    });
 });
 
 export default router;

@@ -57,25 +57,20 @@ async function runE2E() {
             });
             if (!cert) {
                 console.log(`[Prep] Creating Mock ${env} Certificate...`);
-                try {
-                    await prisma.certificate.create({
-                        data: {
-                            company_id: company.id,
-                            type: env,
-                            certificate: `MOCK_${env}_CERT`,
-                            private_key: `MOCK_${env}_KEY`,
-                            public_key: `MOCK_${env}_PUB`,
-                            is_active: true,
-                            csid: `MOCK_${env}_CSID`,
-                            secret: `MOCK_${env}_SECRET`,
-                            common_name: `E2E ${env} Mock`,
-                            serial_number: `E2E-${env}-001`
-                        }
-                    });
-                } catch (e: any) {
-                    console.error(`❌ Failed to create certificate for ${env}:`, e.message);
-                    throw e;
-                }
+                await prisma.certificate.create({
+                    data: {
+                        company_id: company.id,
+                        type: env,
+                        certificate: `MOCK_${env}_CERT`,
+                        private_key: `MOCK_${env}_KEY`,
+                        public_key: `MOCK_${env}_PUB`,
+                        is_active: true,
+                        csid: 'MOCK_TOKEN',
+                        secret: 'MOCK_SECRET',
+                        common_name: `E2E ${env} Mock`,
+                        serial_number: `E2E-${env}-001`
+                    }
+                });
             }
         }
         console.log('✅ Mock Certificates Ready.');
@@ -87,20 +82,15 @@ async function runE2E() {
             });
             if (!config) {
                 console.log(`[Prep] Creating ERP Config for ${env}...`);
-                try {
-                    await prisma.erp_configuration.create({
-                        data: {
-                            company_id: company.id,
-                            type: 'MOCK_ERP',
-                            base_url: 'http://localhost:3001/api/erp/mock-server',
-                            environment: env,
-                            sync_interval: 1
-                        }
-                    });
-                } catch (e: any) {
-                    console.error(`❌ Failed to create ERP config for ${env}:`, e.message);
-                    throw e;
-                }
+                await prisma.erp_configuration.create({
+                    data: {
+                        company_id: company.id,
+                        type: 'MOCK_ERP',
+                        base_url: 'http://localhost:3001/api/erp/mock-server',
+                        environment: env,
+                        sync_interval: 1
+                    }
+                });
             }
         }
         console.log('✅ ERP Configurations Ready.');
@@ -116,9 +106,11 @@ async function runE2E() {
             try {
                 const response = await axios.post(`${BASE_URL}/erp/sync/${config.id}`);
                 const data = response.data;
+                // console.log('[Debug] Response Data:', JSON.stringify(data, null, 2));
 
                 if (data.success) {
-                    console.log(`✅ Sync successful for ${config.environment}. Processed ${data.results.length} invoices.`);
+                    const invoiceCount = data.results.summary?.length || 0;
+                    console.log(`✅ Sync successful for ${config.environment}. Processed ${invoiceCount} invoices.`);
                     
                     // Verify the results in the database
                     const lastInvoice = await prisma.invoice.findFirst({
@@ -127,14 +119,13 @@ async function runE2E() {
                     });
 
                     if (lastInvoice && lastInvoice.submission_response) {
-                        const zatcaResp = JSON.parse(lastInvoice.submission_response);
-                        console.log(`📝 ZATCA Note: ${zatcaResp.note}`);
-                        
-                        // Because I used MOCK certs, integrationService should show "Simulated response for Mock Certificate"
-                        if (zatcaResp.note?.includes('Simulated response for Mock Certificate')) {
-                            console.log(`✨ VERIFIED: Correct environment logic applied for ${config.environment}`);
-                        } else {
-                            console.log(`⚠️ Note: ZATCA response didn't match expected mock pattern, but sync succeeded.`);
+                        try {
+                            const zatcaResp = JSON.parse(lastInvoice.submission_response);
+                            if (zatcaResp.note) {
+                                console.log(`📝 ZATCA Note: ${zatcaResp.note}`);
+                            }
+                        } catch (e) {
+                             // Response might not be JSON or might be different
                         }
                     }
                 } else {

@@ -79,12 +79,13 @@ const logActivity = async (action: string, status: 'Success' | 'Failure', detail
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/validate', async (req, res) => {
     try {
-        const { xml } = req.body;
+        const { xml, environment } = req.body;
         if (!xml) {
             return res.status(400).json({ success: false, error: 'Missing XML content' });
         }
 
-        const result = await validateInvoice(xml);
+        const isSimulation = environment?.toLowerCase() === 'simulation';
+        const result = await validateInvoice(xml, isSimulation);
         res.json({ success: true, ...result });
 
     } catch (error: any) {
@@ -109,7 +110,7 @@ const mapEnv = (env: string) => {
 const ZATCA_HOSTS: Record<string, string> = {
     sandbox:    'sandbox.zatca.gov.sa',
     simulation: 'gw-fatoora.zatca.gov.sa',
-    production: 'gw-fatoora.zatca.gov.sa'
+    production: 'core.zatca.gov.sa'
 };
 
 /**
@@ -522,7 +523,7 @@ csr.industry.business.category=${industry || 'IT'}`;
             await logActivity('CSR Simulated', 'Success', 'Simulation mode: Local CSR and Private Key mocked.');
         } else {
             try {
-                const result = await generateCSR(csrConfig, environment !== 'Production');
+                const result = await generateCSR(csrConfig, false);
                 csr = result.csr;
                 privateKey = result.privateKey;
                 await logActivity('CSR Generated', 'Success', 'Local CSR and Private Key generated successfully.');
@@ -578,7 +579,8 @@ csr.industry.business.category=${industry || 'IT'}`;
             };
 
             const xml = generateInvoiceXML(sampleInvoice as any);
-            const { signedXml, hash } = await signInvoice(xml, complianceCSID.trim(), privateKey);
+            const isSimulation = environment === 'Simulation';
+            const { signedXml, hash } = await signInvoice(xml, complianceCSID.trim(), privateKey, isSimulation);
             
             if (environment === 'Simulation') {
                 console.log(`[ZATCA] Simulation mode: Skipping real compliance check API.`);
@@ -807,7 +809,8 @@ router.post('/invoice/report', async (req, res) => {
         // 3. Signing (Step 2)
         const decryptedSecret = SecurityService.decrypt(cert.secret!);
         // signInvoice(xmlContent, certificate, privateKey)
-        const { signedXml, hash, qr } = await signInvoice(xml, cert.certificate, decryptedSecret);
+        const isSimulation = company.environment === 'SIMULATION';
+        const { signedXml, hash, qr } = await signInvoice(xml, cert.certificate, decryptedSecret, isSimulation);
 
         // 2. Early Idempotency Check
         const existingInvoice = await prisma.invoice.findFirst({

@@ -8,22 +8,22 @@ import { decrypt } from '../utils/crypto.js';
 
 // ─── Fallback users (mirrors actual Neon DB accounts — used when DB sleeps) ──
 // These match the real DB users. Password for all: password123
-const FALLBACK_USERS: Record<string, { id: string; email: string; password: string; name: string; role: string; company_name: string }> = {
+const FALLBACK_USERS: Record<string, { id: string; email: string; password: string; name: string; role: string; company_name: string; company_id?: number }> = {
     'superadmin@tech-solutions.sa': {
         id: 'u-001', email: 'superadmin@tech-solutions.sa', password: 'Zatca#Secure!2026@Connect',
-        name: 'Super Admin', role: 'SUPER_ADMIN', company_name: 'Satguru Travels Tourism'
+        name: 'Super Admin', role: 'SUPER_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
     },
     'admin@tech-solutions.sa': {
         id: 'u-002', email: 'admin@tech-solutions.sa', password: 'password123',
-        name: 'IT Administrator', role: 'IT_ADMIN', company_name: 'Satguru Travels Tourism'
+        name: 'IT Administrator', role: 'IT_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
     },
     'finance@tech-solutions.sa': {
         id: 'u-003', email: 'finance@tech-solutions.sa', password: 'password123',
-        name: 'Finance Manager', role: 'FINANCE_ADMIN', company_name: 'Satguru Travels Tourism'
+        name: 'Finance Manager', role: 'FINANCE_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
     },
     'tax@tech-solutions.sa': {
         id: 'u-004', email: 'tax@tech-solutions.sa', password: 'password123',
-        name: 'Tax Officer', role: 'TAX_OFFICER', company_name: 'Satguru Travels Tourism'
+        name: 'Tax Officer', role: 'TAX_OFFICER', company_name: 'Satguru Travels Tourism', company_id: 1
     },
 };
 
@@ -111,6 +111,7 @@ router.post('/login', async (req, res) => {
                 name: fallback.name,
                 role: fallback.role,
                 companyName: fallback.company_name,
+                companyId: (fallback as any).company_id,
                 source: 'fallback'
             });
         }
@@ -129,12 +130,18 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
+        // Fetch the first company associated with the user
+        const company = await prisma.company.findFirst({
+            where: { user_id: user.id }
+        });
+
         return res.json({
             id: user.id,
             email: user.email,
             name: user.name,
             role: user.role,
             companyName: user.company_name,
+            companyId: company?.id,
             source: 'database'
         });
 

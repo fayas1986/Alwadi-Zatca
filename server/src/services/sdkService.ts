@@ -39,9 +39,16 @@ const getSDKSettings = () => {
     
     // Vercel / Linux path mapping
     if (process.env.VERCEL || (sdkPath && sdkPath.includes('\\')) || !sdkPath) {
+        // Try relative to project root first for Vercel functions
         const bundledPath = path.resolve(process.cwd(), 'server/zatca-sdk/zatca-sdk.jar');
+        const rootBundledPath = path.resolve(process.cwd(), 'zatca-sdk/zatca-sdk.jar');
+        
         if (fs.existsSync(bundledPath)) {
             sdkPath = bundledPath;
+        } else if (fs.existsSync(rootBundledPath)) {
+            sdkPath = rootBundledPath;
+        } else {
+            console.warn('[SDK] ZATCA SDK JAR not found at usual paths. VERCEL detected.');
         }
     }
     
@@ -50,6 +57,10 @@ const getSDKSettings = () => {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const isMockMode = () => {
+    return process.env.USE_MOCK_SDK === 'true' || (process.env.VERCEL === '1' && process.env.JAVA_EXE_PATH === undefined);
+};
 
 const TEMP_DIR = path.join(os.tmpdir(), 'zatca-temp');
 
@@ -80,7 +91,21 @@ export const generateCSR = async (configContent: string, isSimulation: boolean =
     const csrPath = path.join(TEMP_DIR, `csr_${timestamp}.pem`);
 
     try {
+        if (isMockMode()) {
+            console.log(`[SDK] Mocking CSR generation for Vercel/Cloud environment.`);
+            return {
+                csr: `-----BEGIN CERTIFICATE REQUEST-----\nMOCK_CSR_FOR_VERCEL_${timestamp}\n-----END CERTIFICATE REQUEST-----`,
+                privateKey: `-----BEGIN EC PRIVATE KEY-----\nMOCK_KEY_FOR_VERCEL_${timestamp}\n-----END EC PRIVATE KEY-----`
+            };
+        }
+
         const { sdkPath, javaExe } = getSDKSettings();
+
+        // Environment Check for Vercel (No JRE)
+        if (process.env.VERCEL && javaExe === 'java' && !fs.existsSync(javaExe)) {
+             throw new Error('ZATCA SDK (Java) is not supported on Vercel Serverless Functions. Please use a local environment or VPS for real CSR generation.');
+        }
+
         const args = [];
         let baseCmd = '';
 
@@ -113,7 +138,7 @@ export const generateCSR = async (configContent: string, isSimulation: boolean =
     }
 };
 
-export const signInvoice = async (xmlContent: string, certificate: string, privateKey: string) => {
+export const signInvoice = async (xmlContent: string, certificate: string, privateKey: string, isSimulation: boolean = false) => {
     const timestamp = Date.now();
     const xmlPath = writeTempFile(`invoice_${timestamp}.xml`, xmlContent);
     
@@ -143,7 +168,22 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
     }
 
     try {
+        if (isMockMode()) {
+            console.log(`[SDK] Mocking Invoice Signing for Vercel/Cloud environment.`);
+            return {
+                signedXml: xmlContent.replace('</Invoice>', `<!-- Mock Signed (Vercel) -->\n<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:Reference><ds:DigestValue>mock_vercel_hash_${timestamp}</ds:DigestValue></ds:Reference></ds:SignedInfo></ds:Signature>\n</Invoice>`),
+                hash: 'mock_vercel_hash_' + timestamp,
+                qr: 'mock_qr_vercel_demo_' + timestamp
+            };
+        }
+
         const { sdkPath, javaExe } = getSDKSettings();
+
+        // Environment Check for Vercel (No JRE)
+        if (process.env.VERCEL && javaExe === 'java' && !fs.existsSync(javaExe)) {
+             throw new Error('ZATCA SDK (Java) is not supported on Vercel Serverless Functions. Please use a local environment or VPS for real invoice signing.');
+        }
+
         const args = [];
         let baseCmd = '';
 
@@ -155,6 +195,9 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
         }
 
         args.push('-sign', '-invoice', xmlPath, '-signedInvoice', signedXmlPath, '-certificate', certPath, '-privateKey', keyPath);
+        if (isSimulation) {
+            args.push('-sim');
+        }
 
         const { stdout, stderr } = await runCommand(baseCmd, args);
         
@@ -180,23 +223,43 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
     }
 };
 
-export const validateInvoice = async (xmlContent: string) => {
-    const { sdkPath, javaExe } = getSDKSettings();
-    const sdkDir = path.dirname(sdkPath);
-    const sdkTempDir = path.join(sdkDir, 'temp');
-    
-    if (!fs.existsSync(sdkTempDir)) {
-        fs.mkdirSync(sdkTempDir, { recursive: true });
-    }
-
-    const timestamp = Date.now();
-    const xmlFilename = `validate_${timestamp}.xml`;
-    const xmlPathInSdk = path.join(sdkTempDir, xmlFilename);
-    fs.writeFileSync(xmlPathInSdk, xmlContent);
-
+export const validateInvoice = async (xmlContent: string, isSimulation: boolean = false) => {
+    let xmlPathInSdk = '';
     try {
+        if (isMockMode()) {
+            console.log(`[SDK] Mocking Invoice Validation for Vercel/Cloud environment.`);
+            return {
+                isValid: true,
+                errors: [],
+                warnings: ["Vercel Environment: SDK Validation skipped (Mock Mode)."],
+                raw: "Mock Validation Success"
+            };
+        }
+
+        const { sdkPath, javaExe } = getSDKSettings();
+
+        // Environment Check for Vercel (No JRE)
+        if (process.env.VERCEL && javaExe === 'java' && !fs.existsSync(javaExe)) {
+             throw new Error('ZATCA SDK (Java) is not supported on Vercel Serverless Functions.');
+        }
+
+        const sdkDir = path.dirname(sdkPath);
+        const sdkTempDir = path.join(sdkDir, 'temp');
+        
+        if (!fs.existsSync(sdkTempDir)) {
+            fs.mkdirSync(sdkTempDir, { recursive: true });
+        }
+
+        const timestamp = Date.now();
+        const xmlFilename = `validate_${timestamp}.xml`;
+        xmlPathInSdk = path.join(sdkTempDir, xmlFilename);
+        fs.writeFileSync(xmlPathInSdk, xmlContent);
+
         const relativeXmlPath = path.join('temp', xmlFilename);
         const args = ['-jar', sdkPath, '-v', '-invoice', relativeXmlPath];
+        if (isSimulation) {
+            args.push('-sim');
+        }
 
         const { stdout, stderr } = await runCommand(javaExe, args, sdkDir);
 

@@ -25,11 +25,22 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
             headers: { 'Authorization': authHeader }
         });
 
-        const invoices: ExternalInvoice[] = response.data.invoices || response.data;
-
-        if (!Array.isArray(invoices)) {
-            throw new Error('Invalid response format: Expected array of invoices');
+        if (environment?.toUpperCase() === 'SIMULATION') {
+            console.log(`[Simulation] Response status: ${response.status} from ${sourceUrl}`);
+            console.log(`[Simulation] Invoices found in payload: ${JSON.stringify(response.data).substring(0, 500)}...`);
         }
+
+        // Support various JSON wrappers: .invoices, .data, .list, or direct array
+        const invoices: ExternalInvoice[] = 
+          response.data.invoices || 
+          response.data.data || 
+          response.data.list || 
+          (Array.isArray(response.data) ? response.data : null);
+
+          if (!invoices || !Array.isArray(invoices)) {
+              console.error('[Integration] raw response:', response.data);
+              throw new Error('Invalid response format: Expected array of invoices (checked .invoices, .data, .list)');
+          }
 
         console.log(`Fetched ${invoices.length} invoices. Processing...`);
 
@@ -58,20 +69,16 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
         // If still no exact match, fallback to any active cert
         if (!cert) cert = company.certificates.find((c: any) => c.is_active);
         
-        // Mock certificate data if none exists (for testing purposes)
-        // In prod, this should fail.
+        if (!cert) {
+            throw new Error(`No active certificate found for VAT ${vatNumber}. Please complete onboarding.`);
+        }
+
+        // Decrypt keys
         let certPem = '';
         let decryptedPrivateKey = '';
         let decryptedSecret = '';
 
-        if (!cert) {
-            console.warn("⚠️ No active certificate found. Using mock credentials for testing.");
-            certPem = 'MII...MockCert...';
-            decryptedPrivateKey = 'MockPrivateKey';
-            decryptedSecret = 'MockSecret';
-        } else {
-            // Decrypt keys
-            try {
+        try {
                  // Check if key is actually encrypted (contains IV separator)
                  if (cert.private_key.includes(':')) {
                      decryptedPrivateKey = SecurityService.decrypt(cert.private_key);
@@ -94,11 +101,21 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 console.error("Decryption failed:", e.message);
                 throw new Error("Failed to decrypt credentials. Please re-onboard.");
             }
-        }
 
         for (const inv of invoices) {
             try {
                 console.log(`[Integration] Processing invoice ${inv.invoiceNumber} for company ${company.id}`);
+                
+                // Safety check: Skip mock/test invoices in production/sandbox unless explicitly allowed
+                const isProductionMode = (environment || company.environment || 'SANDBOX').toLowerCase() !== 'simulation';
+                const isMockInvoice = inv.invoiceNumber.startsWith('MOCK-') || inv.invoiceNumber.startsWith('TEST-');
+                
+                if (isProductionMode && isMockInvoice) {
+                    console.warn(`[Integration] Skipping ${inv.invoiceNumber} - Mock invoices are not allowed in ${environment || 'Production'} mode.`);
+                    results.push({ invoice: inv.invoiceNumber, status: 'Skipped (Mock Restricted)' });
+                    continue;
+                }
+
                 // 4. Check if already processed (scoped to company)
                 const existingInvoice = await prisma.invoice.findFirst({
                     where: { 
@@ -159,63 +176,44 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 // Generate XML
                 const xml = generateInvoiceXML(zatcaInvoice as any);
 
+                // ── ZATCA Report / Clear ──
+                // Determine if this is a simulation based on the environment
+                const targetZatcaEnv = (environment || company.environment || 'SANDBOX').toLowerCase();
+                const isSimulation = targetZatcaEnv === 'simulation';
+
                 // Sign
-                // If using mock certs, we might fail here if we don't have real keys.
-                // For demo/test purposes, let's catch signing errors and return a mock result if it's a test invoice.
-                let signedXml, hash, qr;
-                try {
-                     const signResult = await signInvoice(xml, certPem, decryptedPrivateKey);
-                     signedXml = signResult.signedXml;
-                     hash = signResult.hash;
-                     qr = signResult.qr;
-                } catch (signError) {
-                    if (certPem.includes('MockCert') || certPem.includes('Cert...') || decryptedPrivateKey.includes('MockKey') || decryptedPrivateKey.includes('Key...')) {
-                         console.warn("⚠️ Signing failed with mock keys (expected). Using mock signed data.");
-                         signedXml = Buffer.from(xml).toString('base64'); // Just base64 the original
-                         hash = 'mock-hash-123';
-                         qr = 'mock-qr-code';
-                    } else {
-                        throw signError;
-                    }
-                }
+                const signResult = await signInvoice(xml, certPem, decryptedPrivateKey, isSimulation);
+                const signedXml = signResult.signedXml;
+                const hash = signResult.hash;
+                const qr = signResult.qr;
 
                 // Report
                 let result;
                 
-                // Mock Reporting if using mock credentials
-                const isMock = certPem.startsWith('MOCK_') || (cert?.csid?.startsWith('MOCK_'));
-
-                // Use the provided environment (from ERP config) if available, otherwise fallback to company environment
-                const targetZatcaEnv = (environment || company.environment || 'SANDBOX').toLowerCase();
-
-                if (isMock || hash === 'mock-hash-123') {
-                     console.log(`[Integration] Mock certificate detected for ${inv.invoiceNumber}. Bypassing real ZATCA API.`);
-                     result = {
-                         reportingStatus: 'REPORTED',
-                         clearanceStatus: 'CLEARED',
-                         validationResults: [],
-                         message: 'Mock Reporting Success (Bypassed)',
-                         note: 'Simulated response for Mock Certificate'
-                     };
+                if (inv.invoiceSubtype === 'Standard') {
+                    result = await clearInvoice(
+                        targetZatcaEnv,
+                        cert.csid,
+                        decryptedSecret,
+                        hash,
+                        Buffer.from(signedXml).toString('base64'),
+                        zatcaInvoice.uuid
+                    );
                 } else {
-                    if (inv.invoiceSubtype === 'Standard') {
-                        result = await clearInvoice(
-                            targetZatcaEnv,
-                            cert?.csid || 'MOCK-CSID',
-                            decryptedSecret,
-                            hash,
-                            Buffer.from(signedXml).toString('base64'),
-                            zatcaInvoice.uuid
-                        );
-                    } else {
-                        result = await reportInvoice(
-                            targetZatcaEnv,
-                            cert?.csid || 'MOCK-CSID',
-                            decryptedSecret,
-                            hash,
-                            Buffer.from(signedXml).toString('base64'),
-                            zatcaInvoice.uuid
-                        );
+                    result = await reportInvoice(
+                        targetZatcaEnv,
+                        cert.csid,
+                        decryptedSecret,
+                        hash,
+                        Buffer.from(signedXml).toString('base64'),
+                        zatcaInvoice.uuid
+                    );
+                }
+                
+                if (isSimulation) {
+                    console.log(`[Simulation] ZATCA Response for ${inv.invoiceNumber}:`, JSON.stringify(result, null, 2));
+                    if (result.validationResults?.warningMessages) {
+                         console.warn(`[Simulation] ZATCA Warnings for ${inv.invoiceNumber}:`, result.validationResults.warningMessages);
                     }
                 }
                 

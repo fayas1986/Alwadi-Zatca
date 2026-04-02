@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [userRole, setUserRole] = useState<UserRole>('IT_ADMIN');
   const [userName, setUserName] = useState<string>('');
   const [userEmail, setUserEmail] = useState<string>('');
+  const [companyId, setCompanyId] = useState<number | null>(null);
 
   // Multi-Tenancy State
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -113,10 +114,24 @@ const App: React.FC = () => {
 
   useEffect(() => {
       // If Organizations loaded but no current branch, set it
-      if (!currentBranch && organizations.length > 0 && organizations[0].branches.length > 0) {
-          setCurrentBranch(organizations[0].branches[0]);
+      if (!currentBranch && organizations.length > 0) {
+          // Priority 1: Match by logged in companyId
+          const cid = companyId || (localStorage.getItem('companyId') ? parseInt(localStorage.getItem('companyId')!) : null);
+          
+          if (cid) {
+              const matchedOrg = organizations.find(org => org.id === cid.toString());
+              if (matchedOrg && matchedOrg.branches.length > 0) {
+                  setCurrentBranch(matchedOrg.branches[0]);
+                  return;
+              }
+          }
+          
+          // Priority 2: Just take the first one
+          if (organizations[0].branches.length > 0) {
+              setCurrentBranch(organizations[0].branches[0]);
+          }
       }
-  }, [organizations, currentBranch]);
+  }, [organizations, currentBranch, companyId]);
 
   const navigate = (route: string, id?: string) => {
     setCurrentRoute(route);
@@ -124,10 +139,11 @@ const App: React.FC = () => {
     window.location.hash = route;
   };
 
-  const handleLogin = (role: UserRole, name: string, email: string) => {
+  const handleLogin = (role: UserRole, name: string, email: string, cid?: number) => {
       setUserRole(role);
       setUserName(name);
       setUserEmail(email);
+      if (cid) setCompanyId(cid);
       setIsAuthenticated(true);
       setCurrentRoute('dashboard');
   };

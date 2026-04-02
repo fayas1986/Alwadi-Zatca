@@ -40,6 +40,45 @@ export class SecurityService {
     }
 
     /**
+     * Verifies an HMAC signature for server-to-server auth
+     */
+    static verifySignature(secret: string, timestamp: string, nonce: string, method: string, path: string, body: any, signature: string): boolean {
+        try {
+            const bodyHash = (body && Object.keys(body).length > 0)
+                ? crypto.createHash('sha256').update(this.stableStringify(body)).digest('hex')
+                : '';
+
+            const dataToSign = `${timestamp}${nonce}${method.toUpperCase()}${path}${bodyHash}`;
+            const expectedSignature = crypto
+                .createHmac('sha256', secret.trim())
+                .update(dataToSign)
+                .digest('hex');
+
+            return crypto.timingSafeEqual(
+                Buffer.from(signature),
+                Buffer.from(expectedSignature)
+            );
+        } catch (error) {
+            return false;
+        }
+    }
+
+    private static stableStringify(obj: any): string {
+        if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+        if (Array.isArray(obj)) return '[' + obj.map(v => this.stableStringify(v)).join(',') + ']';
+        const keys = Object.keys(obj).sort();
+        return '{' + keys.map(k => `"${k}":${this.stableStringify(obj[k])}`).join(',') + '}';
+    }
+
+    /**
+     * Signs a payload for outgoing webhooks
+     */
+    static signPayload(secret: string, payload: any): string {
+        const data = JSON.stringify(payload);
+        return crypto.createHmac('sha256', secret).update(data).digest('hex');
+    }
+
+    /**
      * Protects a payload by encrypting specific fields
      */
     static protect(obj: any, fields: string[]): any {

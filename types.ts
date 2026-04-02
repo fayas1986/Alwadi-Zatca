@@ -24,6 +24,7 @@ export interface Organization {
   crNumber: string;
   logoUrl?: string;
   branches: Branch[];
+  environment?: 'PRODUCTION' | 'SIMULATION' | 'SANDBOX';
 }
 
 export interface Branch {
@@ -32,6 +33,7 @@ export interface Branch {
   name: string;
   type: 'HQ' | 'Branch' | 'Store' | 'Warehouse';
   address: Address;
+  environment?: 'PRODUCTION' | 'SIMULATION' | 'SANDBOX';
 }
 
 export interface Party {

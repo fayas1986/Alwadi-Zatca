@@ -24,7 +24,9 @@ import {
   Trash2,
   Package,
   FileBarChart,
-  Layout as LayoutIcon
+  Layout as LayoutIcon,
+  TestTube,
+  FlaskConical
 } from 'lucide-react';
 import { UserRole, Organization, Branch } from '../types';
 
@@ -104,6 +106,44 @@ export const Layout: React.FC<LayoutProps> = ({
 
   // Find Current Organization for display
   const currentOrg = organizations.find(o => o.id === currentBranch?.organizationId);
+
+  const renderEnvironmentBadge = () => {
+    if (!currentBranch) return null;
+    
+    const env = currentBranch.environment || (currentOrg?.environment) || 'SANDBOX';
+    
+    const configs = {
+      SIMULATION: {
+        label: 'Simulation',
+        icon: TestTube,
+        styles: 'bg-amber-100 text-amber-700 border-amber-200',
+        pulse: 'bg-amber-500'
+      },
+      SANDBOX: {
+        label: 'Sandbox Replica',
+        icon: FlaskConical,
+        styles: 'bg-blue-100 text-blue-700 border-blue-200',
+        pulse: 'bg-blue-500'
+      },
+      PRODUCTION: {
+        label: 'Live Production',
+        icon: ShieldCheck,
+        styles: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        pulse: 'bg-emerald-500'
+      }
+    };
+
+    const config = configs[env as keyof typeof configs] || configs.SANDBOX;
+    const Icon = config.icon;
+
+    return (
+      <div className={`flex items-center px-4 py-1.5 rounded-full border shadow-sm transition-all ${config.styles} font-bold text-[10px] uppercase tracking-wider`}>
+         <span className={`w-2.5 h-2.5 rounded-full mr-2.5 animate-pulse ${config.pulse} shadow-sm`}></span>
+         <Icon size={12} className="mr-2" />
+         {config.label}
+      </div>
+    );
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
@@ -369,10 +409,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <div className="h-6 w-px bg-slate-200 mx-2"></div>
 
             <div className="flex items-center space-x-4">
-               <div className="flex items-center px-3 py-1.5 bg-white text-slate-600 text-xs font-semibold rounded-full border border-slate-200 shadow-sm">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span>
-                  Phase 2 Live
-               </div>
+               {renderEnvironmentBadge()}
                
                <button className="relative p-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-full transition-colors">
                  <Bell size={20} />
