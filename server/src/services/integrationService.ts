@@ -16,6 +16,43 @@ interface ExternalInvoice {
     items: any[];
 }
 
+/**
+ * Redacts sensitive PII from an object for logging/error reporting
+ */
+const sanitizePayload = (data: any, limit: number = 300): string => {
+    if (typeof data === 'string') {
+        const isHtml = data.trim().startsWith('<') || data.includes('<!DOCTYPE') || data.includes('<html>');
+        return isHtml ? data.substring(0, limit) : data.substring(0, limit);
+    }
+    
+    // Keys that likely contain PII or sensitive business data
+    const sensitiveKeys = ['name', 'address', 'vat', 'customer', 'email', 'phone', 'mobile', 'street', 'city', 'post', 'building', 'contact'];
+    
+    const redact = (obj: any): any => {
+        if (Array.isArray(obj)) return obj.slice(0, 3).map(redact); // Limit array samples
+        if (obj !== null && typeof obj === 'object') {
+            const newObj: any = {};
+            for (const key in obj) {
+                const isSensitive = sensitiveKeys.some(sk => key.toLowerCase().includes(sk.toLowerCase()));
+                if (isSensitive && typeof obj[key] !== 'object') {
+                    newObj[key] = '[REDACTED]';
+                } else {
+                    newObj[key] = redact(obj[key]);
+                }
+            }
+            return newObj;
+        }
+        return obj;
+    };
+
+    try {
+        const redacted = redact(data);
+        return JSON.stringify(redacted).substring(0, limit);
+    } catch {
+        return "[Error sanitizing payload]";
+    }
+};
+
 export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: string, vatNumber: string, environment?: string) => {
     console.log(`Fetching invoices from ${sourceUrl} for environment: ${environment || 'Default'}...`);
 
@@ -27,7 +64,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
 
         if (environment?.toUpperCase() === 'SIMULATION') {
             console.log(`[Simulation] Response status: ${response.status} from ${sourceUrl}`);
-            console.log(`[Simulation] Invoices found in payload: ${JSON.stringify(response.data).substring(0, 500)}...`);
+            console.log(`[Simulation] Data snippet (Sanitized): ${sanitizePayload(response.data, 500)}...`);
         }
 
         // Support various JSON wrappers: .invoices, .data, .list, or direct array
@@ -38,10 +75,8 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
           (Array.isArray(response.data) ? response.data : null);
 
           if (!invoices || !Array.isArray(invoices)) {
-              console.error('[Integration] raw response:', response.data);
-              const responseSnippet = typeof response.data === 'string' 
-                ? response.data.substring(0, 200) 
-                : JSON.stringify(response.data).substring(0, 200);
+              console.error('[Integration] raw response (potential format error):', sanitizePayload(response.data, 500));
+              const responseSnippet = sanitizePayload(response.data, 300);
               throw new Error(`Invalid response format: Expected array of invoices (checked .invoices, .data, .list). Received: ${responseSnippet}...`);
           }
 
