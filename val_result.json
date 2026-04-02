@@ -1,7 +1,0 @@
-{
-  "success": true,
-  "isValid": true,
-  "errors": [],
-  "warnings": [],
-  "raw": "2026-03-21 22:17:36,052 [ERROR] MainApp - \r\n********** Welcome to ZATCA E-Invoice Java SDK 3.0.8 *********************\r\nThis SDK uses Java to call the SDK (jar) passing it an invoice XML file.\r\nIt can take a Standard or Simplified XML, Credit Note, or Debit Note.\r\nIt returns if the validation is successful or shows errors where the XML validation fails.\r\nIt checks for syntax and content as well.\r\n\r\n****************************************************************\r\n"
-}

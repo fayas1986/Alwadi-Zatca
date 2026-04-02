@@ -1,5 +1,0 @@
-CONFIG: ID=b1f2e624-9bad-4dbf-b98a-585bd0ac0f4b COMPANY=Headquarters ENV=SIMULATION ACTIVE=false URL=http://localhost:3001/api/erp/mock-server
-CONFIG: ID=6e83b8ff-b2d3-4254-b463-afcd1b3e616b COMPANY=Headquarters ENV=PRODUCTION ACTIVE=false URL=http://localhost:3001/api/erp/mock-server
-CONFIG: ID=f2a0a6df-23e6-452e-84f6-75f7ab40d934 COMPANY=Headquarters ENV=PRODUCTION ACTIVE=true URL=https://satguru.kezatca.in/
-CONFIG: ID=34c4c6d3-042b-43ec-8a74-8ab135837109 COMPANY=Headquarters ENV=SIMULATION ACTIVE=true URL=https://satguru.kezatca.in/
-CONFIG: ID=3795d4e3-5542-4875-9ff7-d005bfe15dad COMPANY=Headquarters ENV=SANDBOX ACTIVE=true URL=http://localhost:3001/api/erp/mock-server
