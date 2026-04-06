@@ -39,16 +39,20 @@ const getSDKSettings = () => {
     
     // Vercel / Linux path mapping
     if (process.env.VERCEL || (sdkPath && sdkPath.includes('\\')) || !sdkPath) {
-        // Try relative to project root first for Vercel functions
-        const bundledPath = path.resolve(process.cwd(), 'server/zatca-sdk/zatca-sdk.jar');
-        const rootBundledPath = path.resolve(process.cwd(), 'zatca-sdk/zatca-sdk.jar');
-        
-        if (fs.existsSync(bundledPath)) {
-            sdkPath = bundledPath;
-        } else if (fs.existsSync(rootBundledPath)) {
-            sdkPath = rootBundledPath;
-        } else {
-            console.warn('[SDK] ZATCA SDK JAR not found at usual paths. VERCEL detected.');
+        const locations = [
+            path.resolve(process.cwd(), 'server/zatca-sdk/zatca-sdk.jar'),
+            path.resolve(process.cwd(), 'zatca-sdk/zatca-sdk.jar'),
+            path.resolve(process.cwd(), '../server/zatca-sdk/zatca-sdk.jar'),
+            path.resolve(process.cwd(), 'server/src/services/zatca-sdk/zatca-sdk.jar')
+        ];
+
+        const found = locations.find(loc => fs.existsSync(loc));
+        if (found) {
+            sdkPath = found;
+        } else if (process.env.VERCEL) {
+            // Fallback for Vercel
+            sdkPath = path.resolve(process.cwd(), 'server/zatca-sdk/zatca-sdk.jar');
+            console.warn('[SDK] ZATCA SDK JAR not found at usual paths. Falling back to default server path.');
         }
     }
     
