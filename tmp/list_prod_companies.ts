@@ -4,13 +4,9 @@ const prisma = new PrismaClient();
 
 async function main() {
     const companies = await prisma.company.findMany({
-        select: {
-            id: true,
-            registered_name: true,
-            environment: true
-        }
+        where: { environment: 'PRODUCTION' }
     });
-    console.log('All Companies:', JSON.stringify(companies, null, 2));
+    console.log('Production Companies:', JSON.stringify(companies, null, 2));
 }
 
 main()

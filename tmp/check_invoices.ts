@@ -1,21 +1,21 @@
-import prisma from '../server/src/lib/prisma';
+import { PrismaClient } from '@prisma/client';
 
-async function checkInvoices() {
-    const invoices = await prisma.invoice.findMany({
-        where: { company_id: 38 },
-        select: {
-            id: true,
-            invoice_number: true,
-            status: true,
-            type: true,
-            metadata: true,
-            created_at: true
-        },
-        orderBy: { created_at: 'desc' }
-    });
+const prisma = new PrismaClient();
 
-    console.log(JSON.stringify(invoices, null, 2));
-    process.exit(0);
+async function main() {
+    const count = await prisma.invoice.count();
+    console.log(`Total invoices: ${count}`);
+    
+    // Check Satguru Travels invoices
+    const satguru = await prisma.company.findFirst({ where: { registered_name: 'Satguru Travels' } });
+    if (satguru) {
+        const satguruInvoices = await prisma.invoice.count({ where: { company_id: satguru.id } });
+        console.log(`Invoices for Satguru Travels (ID: ${satguru.id}): ${satguruInvoices}`);
+    } else {
+        console.log('Satguru Travels not found');
+    }
 }
 
-checkInvoices();
+main()
+    .catch(console.error)
+    .finally(() => prisma.$disconnect());
