@@ -5,7 +5,7 @@ import { fetchAndProcessInvoices } from '../services/integrationService.js';
 import { generateInvoiceXML } from '../services/xmlService.js';
 import { signInvoice } from '../services/sdkService.js';
 import { reportInvoice, clearInvoice } from '../services/zatcaService.js';
-import { decrypt } from '../utils/crypto.js';
+import { SecurityService } from '../services/securityService.js';
 import prisma from '../lib/prisma.js';
 import { AuditService } from '../services/auditService.js';
 
@@ -352,8 +352,8 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             }
 
             let certPem = cert.certificate;
-            const privateKey = decrypt(cert.private_key);
-            const secret = cert.secret ? decrypt(cert.secret) : '';
+            const privateKey = SecurityService.decrypt(cert.private_key);
+            const secret = cert.secret ? SecurityService.decrypt(cert.secret) : '';
 
             if (certPem.includes('BEGIN CERTIFICATE')) {
                 certPem = certPem

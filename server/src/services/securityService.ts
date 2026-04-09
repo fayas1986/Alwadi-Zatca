@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'default_32_char_key_for_zatca_prod_123'; // Must be 32 chars
+const ENCRYPTION_KEY = Buffer.from((process.env.ENCRYPTION_KEY || 'v-7h-Z-9_q-R-4_x-L-1_p-m-9_o-k-2_j').padEnd(32, '0').substring(0, 32), 'utf-8');
 const IV_LENGTH = 16;
 
 export class SecurityService {
@@ -10,7 +10,7 @@ export class SecurityService {
     static encrypt(text: string): string {
         try {
             const iv = crypto.randomBytes(IV_LENGTH);
-            const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+            const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
             let encrypted = cipher.update(text);
             encrypted = Buffer.concat([encrypted, cipher.final()]);
             return iv.toString('hex') + ':' + encrypted.toString('hex');
@@ -29,7 +29,7 @@ export class SecurityService {
             const textParts = text.split(':');
             const iv = Buffer.from(textParts.shift()!, 'hex');
             const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-            const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+            const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
             let decrypted = decipher.update(encryptedText);
             decrypted = Buffer.concat([decrypted, decipher.final()]);
             return decrypted.toString();
