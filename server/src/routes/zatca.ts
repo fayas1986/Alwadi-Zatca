@@ -109,7 +109,7 @@ const mapEnv = (env: string) => {
 //  Returns: { online, latencyMs, host, statusCode, environment, checkedAt }
 // ─────────────────────────────────────────────────────────────────────────────
 const ZATCA_HOSTS: Record<string, string> = {
-    sandbox:    'sandbox.zatca.gov.sa',
+    sandbox: 'sandbox.zatca.gov.sa',
     simulation: 'gw-fatoora.zatca.gov.sa',
     production: 'core.zatca.gov.sa'
 };
@@ -223,7 +223,7 @@ router.get('/certificates', async (req, res) => {
         const userEmail = req.headers['x-user-email'] as string;
 
         const where: any = { company_id: parseInt(companyId as string) };
-        
+
         // If not SUPER_ADMIN, verify ownership OR membership
         if (userRole !== 'SUPER_ADMIN' && userEmail) {
             const user = await prisma.user.findUnique({ where: { email: userEmail } });
@@ -294,8 +294,8 @@ const mapInvoiceToFrontend = (inv: any) => {
         zatcaResponse: (() => {
             if (!inv.submission_response) return null;
             try {
-                return typeof inv.submission_response === 'string' 
-                    ? JSON.parse(inv.submission_response) 
+                return typeof inv.submission_response === 'string'
+                    ? JSON.parse(inv.submission_response)
                     : inv.submission_response;
             } catch (e) {
                 console.warn(`[ZATCA API] Failed to parse submission_response for invoice ${inv.id}:`, e);
@@ -365,11 +365,11 @@ router.get('/invoices', async (req, res) => {
 
         // If not SUPER_ADMIN, verify ownership OR membership
         if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail.trim() !== '' && userEmail !== 'undefined') {
-            console.log(`[ZATCA API] Applying membership-aware filter for email: ${userEmail}`);
+            console.log(`[ZATCA API] Applying membership-aware filter for user`);
             const user = await prisma.user.findUnique({ where: { email: userEmail } });
             if (!user) {
-                console.warn(`[ZATCA API] User not found for email ${userEmail}. Returning empty list.`);
-                return res.json([]);
+                console.warn(`[ZATCA API] User not found. Returning 403.`);
+                return res.status(403).json({ error: 'User not found' });
             }
 
             where.company = {
@@ -426,11 +426,11 @@ router.get('/invoices/:id', async (req, res) => {
     try {
         const { id } = req.params;
         console.log(`[ZATCA API] Fetching invoice with ID/UUID: ${id}`);
-        
+
         // Handle UUID vs Integer ID
         const isUuid = id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
         console.log(`[ZATCA API] Detected as UUID: ${!!isUuid}`);
-        
+
         const userRole = req.headers['x-user-role'];
         const userEmail = req.headers['x-user-email'] as string;
 
@@ -472,12 +472,12 @@ router.get('/invoices/:id', async (req, res) => {
 });
 
 router.post('/onboard', async (req, res) => {
-    const { 
-        vat, otp, companyName, commonName, branchName, 
+    const {
+        vat, otp, companyName, commonName, branchName,
         location, industry, invoiceType, serialNumber, tin,
         buildingNumber, streetName, citySubdivision, postalZone, city
     } = req.body;
-    
+
     // ENT: Normalize environment for case-insensitivity
     const rawEnv = req.body.environment || 'Simulation';
     const environment = rawEnv.charAt(0).toUpperCase() + rawEnv.slice(1).toLowerCase();
@@ -546,7 +546,7 @@ csr.industry.business.category=${industry || 'IT'}`;
             console.log(`[ZATCA] Simulation mode active. Mocking CSR and Private Key.`);
             csr = 'MOCK_CSR_CONTENT';
             // Use a mock prefix that the signInvoice service recognizes for bypass
-            privateKey = 'MOCK_PRIVATE_KEY_SIM'; 
+            privateKey = 'MOCK_PRIVATE_KEY_SIM';
             await logActivity('CSR Simulated', 'Success', 'Simulation mode: Local CSR and Private Key mocked.');
         } else {
             try {
@@ -608,7 +608,7 @@ csr.industry.business.category=${industry || 'IT'}`;
             const xml = generateInvoiceXML(sampleInvoice as any);
             const isSimulation = environment === 'Simulation';
             const { signedXml, hash } = await signInvoice(xml, complianceCSID.trim(), privateKey, isSimulation);
-            
+
             if (environment === 'Simulation') {
                 console.log(`[ZATCA] Simulation mode: Skipping real compliance check API.`);
                 await logActivity('Compliance Checks Simulated', 'Success', 'Sample invoice signed and local validation passed (Simulation).');
@@ -681,18 +681,18 @@ csr.industry.business.category=${industry || 'IT'}`;
             }
         });
 
-        const existingCert = await prisma.certificate.findFirst({ 
-            where: { 
+        const existingCert = await prisma.certificate.findFirst({
+            where: {
                 company_id: company.id,
                 common_name: commonName,
                 type: dbEnv
-            } 
+            }
         });
-        
+
         await (prisma.certificate as any).upsert({
             where: { id: existingCert?.id || 0 },
             update: {
-                type: dbEnv, 
+                type: dbEnv,
                 common_name: commonName,
                 certificate: prodResult.binarySecurityToken,
                 private_key: SecurityService.encrypt(privateKey),
@@ -703,7 +703,7 @@ csr.industry.business.category=${industry || 'IT'}`;
             },
             create: {
                 company: { connect: { id: company.id } },
-                type: dbEnv, 
+                type: dbEnv,
                 common_name: commonName,
                 certificate: prodResult.binarySecurityToken,
                 private_key: SecurityService.encrypt(privateKey),
@@ -809,7 +809,7 @@ router.post('/invoice/report', async (req, res) => {
         }
 
         if (!company) return res.status(404).json({ error: 'Company not found' });
-        
+
         const cert = company.certificates.find(c => c.is_active && c.type === company.environment);
         if (!cert) {
             return res.status(400).json({ error: `EGS is not active for ${company.environment}. Please complete onboarding first.` });
@@ -824,7 +824,7 @@ router.post('/invoice/report', async (req, res) => {
         // ZATCA requires KSA time. We use UTC+3.
         const nowKsa = new Date(new Date().getTime() + (3 * 60 * 60 * 1000));
         const issueDate = new Date(invoiceData.issueDate);
-        
+
         // Prevent future-dated invoices (allow 5 min buffer for slight clock differences)
         if (issueDate.getTime() > nowKsa.getTime() + (5 * 60 * 1000)) {
             return res.status(400).json({ error: 'Invoice date/time cannot be in the future (Time Skew detected)' });
@@ -832,7 +832,7 @@ router.post('/invoice/report', async (req, res) => {
 
         // 2. XML Generation (Step 1)
         const xml = await generateInvoiceXML(invoiceData);
-        
+
         // 3. Signing (Step 2)
         const decryptedSecret = SecurityService.decrypt(cert.secret!);
         // signInvoice(xmlContent, certificate, privateKey)
@@ -855,7 +855,7 @@ router.post('/invoice/report', async (req, res) => {
             try {
                 // Simplified lookup/creation by name and company
                 let customer = await prisma.customer.findFirst({
-                    where: { 
+                    where: {
                         company_id: company.id,
                         name: invoiceData.customer.name
                     }
@@ -967,7 +967,7 @@ router.post('/invoice/report', async (req, res) => {
 
                 await logActivity('Simplified Invoice Queued', 'Success', `B2C Invoice ${invoiceData.invoiceNumber} added to background reporting queue.`);
 
-                return res.json({ 
+                return res.json({
                     reportingStatus: 'REPORTED',
                     clearanceStatus: undefined,
                     validationResults: { status: 'PASS', status_code: 202, messages: ['Invoice enqueued for reporting'] },
@@ -1030,7 +1030,7 @@ router.post('/dlq/reprocess/:invoiceId', async (req, res) => {
         });
 
         if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
-        
+
         // EDGE 1: Reprocess Safety Lock
         const status = (invoice.status as any);
         if (status !== 'DLQ' && status !== 'FAILED') {
@@ -1040,7 +1040,7 @@ router.post('/dlq/reprocess/:invoiceId', async (req, res) => {
         // Reset and Requeue
         await prisma.invoice.update({
             where: { id: parseInt(invoiceId) },
-            data: { 
+            data: {
                 status: 'PENDING' as any,
                 retry_count: 0,
                 next_attempt_at: null
@@ -1058,7 +1058,7 @@ router.post('/dlq/reprocess/:invoiceId', async (req, res) => {
         await reflectStatusToERP(invoice.company_id, invoice.invoice_number, invoice.uuid, 'PENDING');
 
         await logActivity('DLQ Reprocess Initiated', 'Success', `Invoice ${invoice.invoice_number} re-queued from ${invoice.status}`, invoice.invoice_number);
-        
+
         res.json({ message: 'Invoice re-queued successfully', status: 'PENDING' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });

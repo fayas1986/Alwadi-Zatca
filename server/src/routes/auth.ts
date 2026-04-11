@@ -122,8 +122,8 @@ router.post('/login', async (req, res) => {
         }
 
         // Verify password (plaintext or encrypted)
-        const isMatch = user.password.includes(':') 
-            ? decrypt(user.password) === password 
+        const isMatch = user.password.includes(':')
+            ? decrypt(user.password) === password
             : user.password === password;
 
         if (!isMatch) {
@@ -138,10 +138,14 @@ router.post('/login', async (req, res) => {
         // Fallback: Check if the user is "assigned" to a company via company_name (Membership)
         if (!company && user.company_name) {
             company = await prisma.company.findFirst({
-                where: { registered_name: user.company_name }
+                where: {
+                    registered_name: {
+                        equals: user.company_name,
+                        mode: 'insensitive'
+                    }
+                }
             });
         }
-
         return res.json({
             id: user.id,
             email: user.email,

@@ -42,7 +42,7 @@ router.post('/templates', requireSuperAdmin, async (req, res) => {
     try {
         const { id, name, description, category, config } = req.body;
         console.log('[Reports] Body data:', { id, name });
-        
+
         if (!name || !config) {
             return res.status(400).json({ error: 'Name and config are required' });
         }
@@ -93,13 +93,13 @@ router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
 
         const config = template.config as any;
         const sourceModel = config.sourceModel || 'invoice'; // Default to invoice
-        
+
         // Strict Isolation Logic
         const where: any = {};
         if (userRole !== 'SUPER_ADMIN') {
             const user = await prisma.user.findUnique({ where: { email: userEmail } });
             if (!user) return res.status(403).json({ error: 'User not found for isolation' });
-            
+
             // Map source model to its company/user filter
             if (sourceModel === 'invoice') {
                 where.company = {
@@ -111,10 +111,14 @@ router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
             } else if (sourceModel === 'audit_log') {
                 where.user = userEmail; // Audit logs use user email string usually
             } else if (sourceModel === 'company') {
-                where.OR = [
-                    { user_id: user.id },
-                    { registered_name: user.company_name || '___NEVER_MATCH___' }
-                ];
+                if (user.company_name) {
+                    where.OR = [
+                        { user_id: user.id },
+                        { registered_name: user.company_name }
+                    ];
+                } else {
+                    where.user_id = user.id;
+                }
             }
         }
 
@@ -130,17 +134,17 @@ router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
         // Note: In a real app we'd use a more robust dynamic query builder
         let data: any[] = [];
         if (sourceModel === 'invoice') {
-            data = await prisma.invoice.findMany({ 
-                where, 
-                include: { 
+            data = await prisma.invoice.findMany({
+                where,
+                include: {
                     company: true,
                     customer: true
-                } 
+                }
             });
         } else if (sourceModel === 'audit_log') {
             data = await prisma.audit_log.findMany({ where });
         } else if (sourceModel === 'company') {
-            data = await prisma.company.findMany({ 
+            data = await prisma.company.findMany({
                 where,
                 include: {
                     group: true,
