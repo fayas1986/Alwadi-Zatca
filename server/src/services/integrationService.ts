@@ -308,6 +308,15 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
 
                 results.push({ invoice: inv.invoiceNumber, status: 'Success', zatca: result });
 
+                // NEW: Reflect status back to ERP in real-time
+                await reflectStatusToERP(
+                    company.id,
+                    inv.invoiceNumber,
+                    zatcaInvoice.uuid,
+                    result.clearanceStatus === 'CLEARED' ? 'CLEARED' : (result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED'),
+                    result
+                );
+
             } catch (err: any) {
                 console.error(`Error processing invoice ${inv.invoiceNumber}:`, err.message);
                 results.push({ invoice: inv.invoiceNumber, status: 'Failed', error: err.message });
@@ -319,5 +328,57 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
     } catch (error: any) {
         console.error('Integration Error:', error.message);
         throw new Error(`ERP Integration Failed: ${error.message}`);
+    }
+};
+
+/**
+ * Reflects the ZATCA status of an invoice back to the external ERP.
+ */
+export const reflectStatusToERP = async (companyId: number, invoiceNumber: string, uuid: string, status: string, zatcaResponse?: any) => {
+    try {
+        const erpConfigs = await prisma.erp_configuration.findMany({
+            where: { company_id: companyId, is_active: true }
+        });
+
+        if (erpConfigs.length === 0) {
+            console.log(`[ERP Status] No active ERP configurations for company ${companyId}.`);
+            return;
+        }
+
+        // Map status to ERP friendly names (Requirement: rejected, pending, cleared, Reported)
+        let erpStatus = status.toLowerCase();
+        if (status === 'DLQ' || status === 'FAILED') erpStatus = 'rejected';
+        if (status === 'CLEARED') erpStatus = 'cleared';
+        if (status === 'REPORTED') erpStatus = 'reported';
+        if (status === 'PENDING') erpStatus = 'pending';
+
+        for (const config of erpConfigs) {
+            // Use common path pattern /invoices/status
+            const callbackUrl = `${config.base_url.replace(/\/$/, '')}/invoices/status`;
+            
+            console.log(`[ERP Status] Reflecting "${erpStatus}" for ${invoiceNumber} to ${callbackUrl}`);
+
+            try {
+                await axios.post(callbackUrl, {
+                    invoiceNumber,
+                    uuid,
+                    status: erpStatus,
+                    timestamp: new Date().toISOString(),
+                    zatcaResponse: zatcaResponse || {}
+                }, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': config.api_key || ''
+                    },
+                    timeout: 10000 // 10s for slow ERPs
+                });
+                console.log(`[ERP Status] Successfully updated ${invoiceNumber} on ERP.`);
+            } catch (err: any) {
+                console.warn(`[ERP Status] Failed to update ERP at ${callbackUrl}: ${err.message}`);
+                // Optional: Link to a generic system event or audit log
+            }
+        }
+    } catch (error: any) {
+        console.error('[ERP Status] Global reflection failure:', error.message);
     }
 };

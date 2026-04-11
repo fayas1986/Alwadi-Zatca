@@ -1,7 +1,6 @@
-
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { fetchAndProcessInvoices } from '../services/integrationService.js';
+import { fetchAndProcessInvoices, reflectStatusToERP } from '../services/integrationService.js';
 import { generateInvoiceXML } from '../services/xmlService.js';
 import { signInvoice } from '../services/sdkService.js';
 import { reportInvoice, clearInvoice } from '../services/zatcaService.js';
@@ -441,6 +440,11 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
                     })
                 }
             });
+
+            // NEW: Reflect status to ERP
+            const erpStatus = status === 'SIMULATED' ? 'reported' : (isCleared ? 'cleared' : (isReported ? 'reported' : 'rejected'));
+            await reflectStatusToERP(company.id, invoice.invoiceNumber, zatcaInvoice.uuid, erpStatus, zatcaResult);
+
         } catch (dbError: any) {
             console.warn('Could not save to DB:', dbError.message);
             await AuditService.log({
@@ -636,6 +640,14 @@ router.get('/mock-server', (req, res) => {
             }
         ]
     });
+});
+
+// NEW: Status Update Receiver Mock for Real-time Testing
+router.post('/mock-server/invoices/status', (req, res) => {
+    const { invoiceNumber, uuid, status, zatcaResponse } = req.body;
+    console.log(`[ERP MOCK] Received status update for ${invoiceNumber}: ${status}`);
+    console.log(`[ERP MOCK] UUID: ${uuid}`);
+    res.json({ success: true, received: { invoiceNumber, status } });
 });
 
 export default router;

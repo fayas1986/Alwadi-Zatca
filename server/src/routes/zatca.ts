@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { generateCSR, signInvoice, validateInvoice } from '../services/sdkService.js';
 import { onboardCompliance, requestProductionCSID, reportInvoice, clearInvoice, checkCompliance, renewProductionCSID } from '../services/zatcaService.js';
 import { generateInvoiceXML } from '../services/xmlService.js';
+import { reflectStatusToERP } from '../services/integrationService.js';
 import reportsRouter from './reports.js';
 import QueueService from '../services/queueService.js';
 import { NotificationService } from '../services/notificationService.js';
@@ -889,6 +890,9 @@ router.post('/invoice/report', async (req, res) => {
             } as any
         });
 
+        // NEW: Reflect Initial PENDING status to ERP
+        await reflectStatusToERP(company.id, invoiceData.invoiceNumber, invoice.uuid, 'PENDING');
+
         let result;
         const isMock = cert.certificate.startsWith('MOCK_') || cert.csid?.startsWith('MOCK_');
 
@@ -932,6 +936,9 @@ router.post('/invoice/report', async (req, res) => {
                     retryCount: 0
                 });
 
+                // NEW: Reflect REPORTED status to ERP for simplified invoices
+                await reflectStatusToERP(company.id, invoiceData.invoiceNumber, invoice.uuid, 'REPORTED', result);
+
                 await logActivity('Simplified Invoice Queued', 'Success', `B2C Invoice ${invoiceData.invoiceNumber} added to background reporting queue.`);
 
                 return res.json({ 
@@ -960,6 +967,9 @@ router.post('/invoice/report', async (req, res) => {
                 retry_count: 0
             } as any
         });
+
+        // NEW: Reflect FINAL status to ERP
+        await reflectStatusToERP(company.id, invoiceData.invoiceNumber, savedInvoice.uuid, submissionStatus, result);
 
         await AuditService.log({
             action: invoiceData.invoiceSubtype === 'Standard' ? 'Standard Invoice Cleared' : 'Simplified Invoice Reported',
@@ -1017,6 +1027,9 @@ router.post('/dlq/reprocess/:invoiceId', async (req, res) => {
             environment: 'PRODUCTION', // Re-fetch environment in queue
             retryCount: 0
         });
+
+        // NEW: Reflect PENDING status to ERP when re-processed from DLQ
+        await reflectStatusToERP(invoice.company_id, invoice.invoice_number, invoice.uuid, 'PENDING');
 
         await logActivity('DLQ Reprocess Initiated', 'Success', `Invoice ${invoice.invoice_number} re-queued from ${invoice.status}`, invoice.invoice_number);
         

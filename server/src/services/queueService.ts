@@ -6,6 +6,7 @@ import { AuditService } from './auditService.js';
 import { SecurityService } from './securityService.js';
 import { LockService } from './lockService.js';
 import { generateInvoiceXML } from './xmlService.js';
+import { reflectStatusToERP } from './integrationService.js';
 import { invoice_status } from '@prisma/client';
 
 interface QueueItem {
@@ -202,6 +203,10 @@ export class QueueService {
                     } as any
                 });
 
+                // NEW: Reflect successful background processed status to ERP
+                const finalStatus = company.environment === 'PRODUCTION' ? (invoice.type === 'B2B' ? 'CLEARED' : 'REPORTED') : 'REPORTED';
+                await reflectStatusToERP(invoice.company_id, invoice.invoice_number, invoice.uuid, finalStatus, result);
+
                 await this.logActivity(invoice, 'Success', `Successfully reported to ZATCA.`);
             } else {
                 throw new Error(`ZATCA Submission Failed: ${JSON.stringify(result.validationResults || result)}`);
@@ -244,6 +249,10 @@ export class QueueService {
                     error_log: reason
                 } as any
             });
+
+            // NEW: Reflect retry/pending status to ERP
+            await reflectStatusToERP(invoice.company_id, invoice.invoice_number, invoice.uuid, 'PENDING', { reason });
+
             await this.logActivity(invoice, 'Retry Scheduled', `Retry ${nextRetryCount}/${maxRetries} scheduled for ${nextAttemptAt.toISOString()}. Reason: ${reason}`);
         } else {
             await this.moveToDLQ(invoice, reason);
@@ -259,6 +268,10 @@ export class QueueService {
                 retry_count: (invoice.retry_count || 0) + 1
             } as any
         });
+
+        // NEW: Reflect REJECTED (DLQ) status to ERP
+        await reflectStatusToERP(invoice.company_id, invoice.invoice_number, invoice.uuid, 'FAILED', { reason: errorMsg });
+
         await this.logActivity(invoice, 'Failure', `Invoice moved to DLQ. Reason: ${errorMsg}`);
         
         await NotificationService.alert({
