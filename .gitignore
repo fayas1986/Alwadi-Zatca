@@ -25,3 +25,8 @@ dist-ssr
 .env
 server/.env
 .env.*
+
+# Debugging & Scratch
+scratch/
+ZATKSA/
+prisma/seed_mock_data.ts
