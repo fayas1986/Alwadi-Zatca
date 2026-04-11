@@ -23,6 +23,83 @@ const requireAnyAdmin = (req: any, res: any, next: any) => {
     next();
 };
 
+
+// POST /api/admin/reports/datapreview - Preview report data without saving
+router.post('/datapreview', requireAnyAdmin, async (req, res) => {
+    try {
+        const { config } = req.body;
+        const userRole = req.headers['x-user-role'] as string;
+        const userEmail = req.headers['x-user-email'] as string;
+
+        if (!config || !config.columns) {
+            return res.status(400).json({ error: 'Config with columns is required' });
+        }
+
+        const sourceModel = config.sourceModel || 'invoice';
+
+        // Strict Isolation Logic (same as generate)
+        const where: any = {};
+        if (userRole !== 'SUPER_ADMIN') {
+            const user = await prisma.user.findUnique({ where: { email: userEmail } });
+            if (!user) return res.status(403).json({ error: 'User not found for isolation' });
+
+            if (sourceModel === 'invoice') {
+                where.company = {
+                    OR: [
+                        { user_id: user.id },
+                        { registered_name: user.company_name || '___NEVER_MATCH___' }
+                    ]
+                };
+            } else if (sourceModel === 'audit_log') {
+                where.user = userEmail;
+            } else if (sourceModel === 'company') {
+                if (user.company_name) {
+                    where.OR = [
+                        { user_id: user.id },
+                        { registered_name: user.company_name }
+                    ];
+                } else {
+                    where.user_id = user.id;
+                }
+            }
+        }
+
+        // Fetch small sample (limit 5)
+        let data: any[] = [];
+        if (sourceModel === 'invoice') {
+            data = await prisma.invoice.findMany({
+                where,
+                take: 5,
+                include: { company: true, customer: true }
+            });
+        } else if (sourceModel === 'audit_log') {
+            data = await prisma.audit_log.findMany({ where, take: 5 });
+        } else if (sourceModel === 'company') {
+            data = await prisma.company.findMany({
+                where,
+                take: 5,
+                include: { group: true, user: true }
+            });
+        }
+
+        // Transform data based on mapping
+        const mappedData = data.map(item => {
+            const row: any = {};
+            config.columns.forEach((col: any) => {
+                const value = col.key.split('.').reduce((obj: any, key: string) => obj?.[key], item);
+                row[col.label || col.key] = value || '';
+            });
+            return row;
+        });
+
+        res.json(mappedData);
+
+    } catch (error: any) {
+        console.error('[Reports] Preview Error:', error);
+        res.status(500).json({ error: 'Failed to preview report', details: error.message });
+    }
+});
+
 // GET /api/admin/reports/templates - List all templates
 router.get('/templates', requireAnyAdmin, async (req, res) => {
     try {
@@ -76,6 +153,7 @@ router.delete('/templates/:id', requireSuperAdmin, async (req, res) => {
         res.status(500).json({ error: 'Failed to delete template' });
     }
 });
+
 
 // POST /api/admin/reports/generate/:id - Generate report data
 router.post('/generate/:id', requireAnyAdmin, async (req, res) => {

@@ -91,6 +91,10 @@ export const ReportDesigner: React.FC<ReportDesignerProps> = ({ userRole }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ReportTemplate | null>(null);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
 
   const [formData, setFormData] = useState<ReportTemplate>({
     name: '',
@@ -105,6 +109,52 @@ export const ReportDesigner: React.FC<ReportDesignerProps> = ({ userRole }) => {
   useEffect(() => {
     fetchTemplates();
   }, []);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      const timer = setTimeout(() => {
+        fetchPreview();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [formData.config, isModalOpen]);
+
+  const fetchPreview = async () => {
+    if (!formData.config.columns.length) return;
+    setIsPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const res = await fetch('/api/admin/reports/datapreview', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-role': userRole 
+        },
+        body: JSON.stringify({ config: formData.config })
+      });
+      if (res.ok) {
+        setPreviewData(await res.json());
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        setPreviewError(errorData.error || `Server error: ${res.status}`);
+      }
+    } catch (e: any) {
+      console.error('[ReportDesigner] Preview Fetch Error:', e);
+      setPreviewError(`Network error: ${e.message}`);
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
+  const handleDuplicate = (template: ReportTemplate) => {
+    const { id, ...templateData } = template;
+    const duplicated = {
+      ...templateData,
+      name: `${template.name} (Copy)`
+    };
+    setFormData(duplicated);
+    setIsModalOpen(true);
+  };
 
   const fetchTemplates = async () => {
     try {
@@ -239,15 +289,24 @@ export const ReportDesigner: React.FC<ReportDesignerProps> = ({ userRole }) => {
                 <td className="px-6 py-4 text-xs text-slate-500">
                   {(t.config as any).columns?.length || 0} columns mapped
                 </td>
-                <td className="px-6 py-4 text-right space-x-2">
+                <td className="px-6 py-4 text-right space-x-2 shrink-0">
+                   <button 
+                    onClick={() => handleDuplicate(t)}
+                    title="Duplicate Template"
+                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                   >
+                     <Layout size={18} />
+                   </button>
                    <button 
                     onClick={() => { setFormData(t); setIsModalOpen(true); }}
+                    title="Edit Template"
                     className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                    >
                      <Settings size={18} />
                    </button>
                    <button 
                     onClick={() => t.id && handleDelete(t.id)}
+                    title="Delete Template"
                     className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                    >
                      <Trash2 size={18} />
@@ -261,144 +320,210 @@ export const ReportDesigner: React.FC<ReportDesignerProps> = ({ userRole }) => {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200 flex flex-col">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden border border-slate-200 flex flex-col">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
                <div>
                  <h2 className="text-xl font-bold text-slate-900">Configure Report Template</h2>
-                 <p className="text-xs text-slate-500">Map database fields to report columns.</p>
+                 <p className="text-xs text-slate-500">Map database fields and preview results in real-time.</p>
                </div>
                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full">
                  <X size={20} className="text-slate-400" />
                </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 space-y-8">
-               <div className="grid grid-cols-2 gap-6">
+            <div className="flex-1 overflow-hidden flex">
+              {/* Configuration Section */}
+              <div className="w-1/2 overflow-y-auto p-8 space-y-8 border-r border-slate-100">
+                 <div className="grid grid-cols-1 gap-6">
+                   <div className="space-y-4">
+                     <div>
+                       <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Report Name</label>
+                       <input 
+                        type="text" 
+                        value={formData.name}
+                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="e.g., Monthly VAT Audit"
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none" 
+                       />
+                     </div>
+                     <div>
+                       <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Description</label>
+                       <textarea 
+                        value={formData.description}
+                        onChange={e => setFormData({ ...formData, description: e.target.value })}
+                        rows={2}
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none resize-none" 
+                       />
+                     </div>
+                   </div>
+                   
+                   <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-3">Data Source</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        {AVAILABLE_MODELS.map(m => (
+                          <button 
+                            key={m.id}
+                            type="button"
+                            onClick={() => handleAddModelColumn(m.id)}
+                            className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
+                              formData.config.sourceModel === m.id ? 'bg-indigo-50 border-indigo-600 text-indigo-700' : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
+                            }`}
+                          >
+                            {m.icon}
+                            <span className="text-[10px] font-bold mt-2 uppercase">{m.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                   </div>
+                 </div>
+
                  <div className="space-y-4">
-                   <div>
-                     <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Report Name</label>
-                     <input 
-                      type="text" 
-                      value={formData.name}
-                      onChange={e => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="e.g., Monthly VAT Audit"
-                      className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none" 
-                     />
-                   </div>
-                   <div>
-                     <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Description</label>
-                     <textarea 
-                      value={formData.description}
-                      onChange={e => setFormData({ ...formData, description: e.target.value })}
-                      rows={2}
-                      className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none resize-none" 
-                     />
-                   </div>
-                 </div>
-                 
-                 <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-3">Data Source</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {AVAILABLE_MODELS.map(m => (
-                        <button 
-                          key={m.id}
-                          type="button"
-                          onClick={() => handleAddModelColumn(m.id)}
-                          className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
-                            formData.config.sourceModel === m.id ? 'bg-indigo-50 border-indigo-600 text-indigo-700' : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
-                          }`}
-                        >
-                          {m.icon}
-                          <span className="text-[10px] font-bold mt-2 uppercase">{m.label}</span>
-                        </button>
-                      ))}
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-bold text-slate-800 flex items-center">
+                        <Plus size={18} className="mr-2 text-indigo-500" /> Column Mappings
+                      </h3>
+                      <button 
+                        type="button"
+                        onClick={addColumn}
+                        className="text-indigo-600 hover:text-indigo-700 text-sm font-bold flex items-center"
+                      >
+                        <Plus size={16} className="mr-1" /> Add Custom Field
+                      </button>
                     </div>
-                 </div>
-               </div>
 
-               <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-slate-800 flex items-center">
-                      <Layout size={18} className="mr-2 text-indigo-500" /> Column Mappings
-                    </h3>
-                    <button 
-                      type="button"
-                      onClick={addColumn}
-                      className="text-indigo-600 hover:text-indigo-700 text-sm font-bold flex items-center"
-                    >
-                      <Plus size={16} className="mr-1" /> Add Custom Field
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {formData.config.columns.map((col, idx) => (
-                      <div key={idx} className="flex gap-4 items-center bg-slate-50 p-3 rounded-2xl border border-slate-100 group">
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <button type="button" onClick={() => moveColumn(idx, 'up')} className="text-slate-300 hover:text-slate-900 transition-colors"><MoveUp size={14}/></button>
-                          <button type="button" onClick={() => moveColumn(idx, 'down')} className="text-slate-300 hover:text-slate-900 transition-colors"><MoveDown size={14}/></button>
-                        </div>
-                        
-                        <div className="flex-1 grid grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Column Label (UI)</span>
-                            <input 
-                              type="text"
-                              value={col.label}
-                              onChange={e => {
-                                const columns = [...formData.config.columns];
-                                columns[idx].label = e.target.value;
-                                setFormData({ ...formData, config: { ...formData.config, columns } });
-                              }}
-                              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none text-sm"
-                            />
+                    <div className="space-y-3">
+                      {formData.config.columns.map((col, idx) => (
+                        <div key={idx} className="flex gap-4 items-center bg-slate-50 p-3 rounded-2xl border border-slate-100 group">
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <button type="button" onClick={() => moveColumn(idx, 'up')} className="text-slate-300 hover:text-slate-900 transition-colors"><MoveUp size={14}/></button>
+                            <button type="button" onClick={() => moveColumn(idx, 'down')} className="text-slate-300 hover:text-slate-900 transition-colors"><MoveDown size={14}/></button>
                           </div>
-                          <div className="space-y-1">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Database Key (Path)</span>
-                            <div className="relative">
-                              <select 
-                                value={col.key}
-                                onChange={e => {
-                                  const columns = [...formData.config.columns];
-                                  const selectedField = SCHEMA_FIELDS[formData.config.sourceModel].find(f => f.key === e.target.value);
-                                  columns[idx].key = e.target.value;
-                                  if (selectedField && (!columns[idx].label || columns[idx].label === 'New Column')) {
-                                    columns[idx].label = selectedField.label;
-                                  }
-                                  setFormData({ ...formData, config: { ...formData.config, columns } });
-                                }}
-                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none text-sm appearance-none pr-8"
-                              >
-                                <option value="">Select a field...</option>
-                                {SCHEMA_FIELDS[formData.config.sourceModel]?.map(f => (
-                                  <option key={f.key} value={f.key}>{f.label} ({f.key})</option>
-                                ))}
-                                <optgroup label="Custom">
-                                  {!SCHEMA_FIELDS[formData.config.sourceModel]?.some(f => f.key === col.key) && col.key && (
-                                    <option value={col.key}>{col.key}</option>
-                                  )}
-                                </optgroup>
-                              </select>
-                              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                <ChevronDown size={14} />
+                          
+                          <div className="flex-1 space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Column Label (UI Name)</span>
+                                <input 
+                                  type="text"
+                                  value={col.label}
+                                  onChange={e => {
+                                    const columns = [...formData.config.columns];
+                                    columns[idx].label = e.target.value;
+                                    setFormData({ ...formData, config: { ...formData.config, columns } });
+                                  }}
+                                  className="w-full px-3 py-1 bg-white border border-slate-200 rounded-lg outline-none text-xs"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Data Field Key</span>
+                                <div className="relative">
+                                  <select 
+                                    value={col.key}
+                                    onChange={e => {
+                                      const columns = [...formData.config.columns];
+                                      const selectedField = SCHEMA_FIELDS[formData.config.sourceModel].find(f => f.key === e.target.value);
+                                      columns[idx].key = e.target.value;
+                                      if (selectedField && (!columns[idx].label || columns[idx].label === 'New Column')) {
+                                        columns[idx].label = selectedField.label;
+                                      }
+                                      setFormData({ ...formData, config: { ...formData.config, columns } });
+                                    }}
+                                    className="w-full px-3 py-1 bg-white border border-slate-200 rounded-lg outline-none text-xs appearance-none pr-8"
+                                  >
+                                    <option value="">Select Field...</option>
+                                    {SCHEMA_FIELDS[formData.config.sourceModel]?.map(f => (
+                                      <option key={f.key} value={f.key}>{f.label} ({f.key})</option>
+                                    ))}
+                                  </select>
+                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                    <ChevronDown size={12} />
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
 
-                        <button 
-                          type="button" 
-                          onClick={() => removeColumn(idx)}
-                          className="p-2 text-slate-300 hover:text-rose-600 transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
+                          <button 
+                            type="button" 
+                            onClick={() => removeColumn(idx)}
+                            className="p-1.5 text-slate-300 hover:text-rose-600 transition-colors group-hover:opacity-100"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                 </div>
+              </div>
+
+              {/* Preview Section */}
+              <div className="w-1/2 bg-slate-50 overflow-hidden flex flex-col">
+                <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
+                  <h3 className="text-sm font-bold text-slate-800 flex items-center">
+                    <CheckCircle2 size={16} className="mr-2 text-emerald-500" /> 
+                    Live Data Preview
+                  </h3>
+                  <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    Showing top 5 samples
                   </div>
-               </div>
+                </div>
+                
+                <div className="flex-1 overflow-auto p-4">
+                  {isPreviewLoading ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-white/50 rounded-2xl border border-dashed border-slate-200">
+                      <Loader2 size={32} className="animate-spin mb-4 text-indigo-400" />
+                      <p className="text-sm font-medium">Fetching sample data...</p>
+                    </div>
+                  ) : previewError ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-white/50 rounded-2xl border border-dashed border-slate-200">
+                      <AlertCircle size={32} className="mb-4 text-rose-400" />
+                      <p className="text-sm font-medium">{previewError}</p>
+                      <button onClick={fetchPreview} className="mt-4 text-indigo-600 hover:underline">Try again</button>
+                    </div>
+                  ) : previewData.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-white/50 rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+                      <Database size={32} className="mb-4 text-slate-300" />
+                      <p className="text-sm font-medium">No records found for this model.</p>
+                      <p className="text-xs mt-1">Try changing the data source or ensuring data exists in your company.</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                      <table className="w-full text-left text-[10px] border-collapse">
+                        <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-500">
+                          <tr>
+                            {formData.config.columns.map((c, i) => (
+                              <th key={i} className="px-2 py-2 border-r border-slate-200 last:border-0">{c.label}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {previewData.map((row, i) => (
+                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                              {formData.config.columns.map((col, j) => (
+                                <td key={j} className="px-2 py-2 border-r border-slate-100 last:border-0 truncate max-w-[120px]">
+                                  {String(row[col.label] || '')}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-4 bg-indigo-50/50 border-t border-indigo-100 flex items-start gap-4 shrink-0">
+                  <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                    <AlertCircle size={16} />
+                  </div>
+                  <p className="text-[11px] text-indigo-600 leading-relaxed">
+                    <strong>Design Tip:</strong> Use the preview to verify that your data paths are correct before saving. If a column shows empty values, ensure the corresponding field exists in the source data.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="p-6 border-t border-slate-100 flex justify-end gap-3 shrink-0 bg-slate-50/50">
+            <div className="p-6 border-t border-slate-100 flex justify-end gap-3 shrink-0 bg-white">
                <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 font-bold text-slate-600 hover:text-slate-800">
                  Cancel
                </button>
