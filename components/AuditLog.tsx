@@ -5,7 +5,12 @@ import { AuditLogEntry } from '../types';
 import { useToast } from './Toast';
 import { Terminal, Search, Filter, FileCheck, Download, AlertTriangle, Shield, CheckCircle, Clock, X, Hash, Server, Activity, Lock, Eye, Code, Calendar, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
-export const AuditLog: React.FC = () => {
+interface AuditLogProps {
+  userRole?: string;
+  userEmail?: string;
+}
+
+export const AuditLog: React.FC<AuditLogProps> = ({ userRole, userEmail }) => {
   const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
@@ -30,6 +35,9 @@ export const AuditLog: React.FC = () => {
         status: statusFilter,
         user: searchTerm,
         action: searchTerm
+      }, {
+        role: userRole,
+        email: userEmail
       });
       
       // Map backend ip_address to frontend ipAddress and other camelCase mappings

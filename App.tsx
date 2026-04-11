@@ -290,7 +290,7 @@ const App: React.FC = () => {
       case 'erp-connectors':
         return <ERPConnectors selectedBranch={currentBranch} />;
       case 'audit':
-        return <AuditLog />;
+        return <AuditLog userRole={userRole} userEmail={userEmail} />;
       case 'validator':
         return <XMLValidator />;
       case 'settings':

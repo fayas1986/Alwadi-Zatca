@@ -4,6 +4,18 @@ import { AuditService } from '../services/auditService.js';
 
 const router = Router();
 
+// Middleware to check for administrative access
+const requireAnyAdmin = (req: any, res: any, next: any) => {
+    const userRole = req.headers['x-user-role'];
+    if (!userRole || (userRole !== 'SUPER_ADMIN' && userRole !== 'IT_ADMIN' && userRole !== 'ADMIN')) {
+        return res.status(403).json({
+            success: false,
+            message: 'Forbidden: Administrative access required'
+        });
+    }
+    next();
+};
+
 /**
  * @swagger
  * /api/audit-logs:
@@ -38,7 +50,7 @@ const router = Router();
  *         schema:
  *           type: string
  */
-router.get('/', async (req, res) => {
+router.get('/', requireAnyAdmin, async (req, res) => {
     try {
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 10;

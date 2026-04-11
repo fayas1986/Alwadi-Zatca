@@ -61,9 +61,15 @@ export const getInvoiceById = async (id: string) => {
     return response.json();
 };
 
-export const getAuditLogs = async (params: any = {}) => {
+export const getAuditLogs = async (params: any = {}, headers: any = {}) => {
     const query = new URLSearchParams(params).toString();
-    const response = await fetch(`/api/audit-logs?${query}`);
+    const response = await fetch(`/api/audit-logs?${query}`, {
+        headers: {
+            'x-user-role': headers.role || '',
+            'x-user-email': headers.email || '',
+            ...headers
+        }
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch audit logs');
     }
