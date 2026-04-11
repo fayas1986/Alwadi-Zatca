@@ -102,11 +102,19 @@ router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
             
             // Map source model to its company/user filter
             if (sourceModel === 'invoice') {
-                where.company = { user_id: user.id };
+                where.company = {
+                    OR: [
+                        { user_id: user.id },
+                        { registered_name: user.company_name || '___NEVER_MATCH___' }
+                    ]
+                };
             } else if (sourceModel === 'audit_log') {
                 where.user = userEmail; // Audit logs use user email string usually
             } else if (sourceModel === 'company') {
-                where.user_id = user.id;
+                where.OR = [
+                    { user_id: user.id },
+                    { registered_name: user.company_name || '___NEVER_MATCH___' }
+                ];
             }
         }
 

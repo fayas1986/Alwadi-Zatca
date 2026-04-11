@@ -10,7 +10,7 @@ import { encrypt } from '../utils/crypto.js';
 import fs from 'fs';
 import path from 'path';
 
-const LOG_FILE = 'c:/Users/Fayas/Downloads/Dev/KSA-TaxFilling/admin_access.log';
+const LOG_FILE = path.join(process.cwd(), 'admin_access.log');
 function logAdmin(msg: string) {
     try {
         const time = new Date().toISOString();
@@ -148,11 +148,20 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
                 return res.json([]);
             }
 
-            // Find the user by email to get their canonical ID
+            // Find the user by email to get their canonical ID and organization name
             const user = await prisma.user.findUnique({ where: { email: userEmail } });
             if (user) {
-                where.user_id = user.id;
-                logAdmin(`++ [ISOLATION] Isolated to user_id: ${user.id} (${userEmail})`);
+                // Return companies where either the user is the owner OR the user is assigned via company_name
+                where.OR = [
+                    { user_id: user.id },
+                    { registered_name: user.company_name }
+                ].filter(condition => {
+                    // Filter out empty conditions (e.g. if company_name is null)
+                    const val = Object.values(condition)[0];
+                    return val !== null && val !== undefined && val !== '';
+                });
+
+                logAdmin(`++ [ISOLATION] Access via Ownership (${user.id}) OR Membership (${user.company_name || 'NONE'})`);
             } else {
                 logAdmin(`!! [ISOLATION] Blocked: No user found for ${userEmail}`);
                 res.setHeader('x-isolation-status', 'blocked-user-not-found');

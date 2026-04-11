@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const pg = require('pg');
 
-const connectionString = "postgresql://neondb_owner:npg_NdXaf4t7kDOK@ep-nameless-bar-a15lniim-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+const connectionString = "postgresql://neondb_owner:npg_0JQZESV9myAC@ep-spring-hat-a18pmkyp-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
 const pool = new pg.Pool({ 
   connectionString,
   ssl: { rejectUnauthorized: false }

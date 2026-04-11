@@ -32,9 +32,11 @@ import { getInvoices } from '../services/api';
 interface DashboardProps {
   onNavigate: (route: string) => void;
   selectedBranch: Branch | null;
+  userRole: string;
+  userEmail: string;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch, userRole, userEmail }) => {
   const [timeRange, setTimeRange] = useState<string>('Monthly');
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
@@ -47,7 +49,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
       if (!selectedBranch) return;
       setLoading(true);
       try {
-        const data = await getInvoices(selectedBranch.organizationId || selectedBranch.id.toString());
+        const data = await getInvoices(selectedBranch.organizationId || selectedBranch.id.toString(), {
+          role: userRole,
+          email: userEmail
+        });
         setInvoices(data);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
@@ -61,7 +66,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
     // Polling for real-time updates (every 30 seconds)
     const interval = setInterval(() => {
         // Silent refresh (don't set loading to true)
-        getInvoices(selectedBranch.organizationId || selectedBranch.id.toString())
+        getInvoices(selectedBranch.organizationId || selectedBranch.id.toString(), {
+          role: userRole,
+          email: userEmail
+        })
             .then(setInvoices)
             .catch(err => console.error('Dashboard poll failed:', err));
     }, 30 * 1000);

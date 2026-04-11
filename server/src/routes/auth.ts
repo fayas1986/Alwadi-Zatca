@@ -130,10 +130,17 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Fetch the first company associated with the user
-        const company = await prisma.company.findFirst({
+        // Fetch the first company associated with the user (Direct Ownership)
+        let company = await prisma.company.findFirst({
             where: { user_id: user.id }
         });
+
+        // Fallback: Check if the user is "assigned" to a company via company_name (Membership)
+        if (!company && user.company_name) {
+            company = await prisma.company.findFirst({
+                where: { registered_name: user.company_name }
+            });
+        }
 
         return res.json({
             id: user.id,

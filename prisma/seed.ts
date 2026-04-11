@@ -14,21 +14,21 @@ async function main() {
       email: 'admin@tech-solutions.sa',
       name: 'IT Administrator',
       role: UserRole.IT_ADMIN,
-      company_name: 'Tech Solutions Ltd'
+      company_name: 'EasyLease'
     },
     {
       id: crypto.randomUUID(),
       email: 'finance@tech-solutions.sa',
       name: 'Finance Manager',
       role: UserRole.FINANCE_ADMIN,
-      company_name: 'Tech Solutions Ltd'
+      company_name: 'EasyLease'
     },
     {
       id: crypto.randomUUID(),
       email: 'tax@tech-solutions.sa',
       name: 'Tax Officer',
       role: UserRole.TAX_OFFICER,
-      company_name: 'Tech Solutions Ltd'
+      company_name: 'EasyLease'
     },
     {
       id: crypto.randomUUID(),
@@ -75,7 +75,7 @@ async function main() {
     update: {},
     create: {
       user_id: 'system_admin',
-      registered_name: 'Tech Solutions Ltd',
+      registered_name: 'EasyLease',
       vat_number: defaultCompanyVat,
       cr_number: '1010101010',
       branch_name: 'HQ',

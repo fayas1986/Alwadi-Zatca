@@ -119,7 +119,7 @@ const App: React.FC = () => {
           const cid = companyId || (localStorage.getItem('companyId') ? parseInt(localStorage.getItem('companyId')!) : null);
           
           if (cid) {
-              const matchedOrg = organizations.find(org => org.id === cid.toString());
+              const matchedOrg = organizations.find(org => org.id.toString() === cid.toString());
               if (matchedOrg && matchedOrg.branches.length > 0) {
                   setCurrentBranch(matchedOrg.branches[0]);
                   return;
@@ -273,7 +273,7 @@ const App: React.FC = () => {
 
     switch (currentRoute) {
       case 'dashboard':
-        return <Dashboard onNavigate={navigate} selectedBranch={currentBranch} />;
+        return <Dashboard onNavigate={navigate} selectedBranch={currentBranch} userRole={userRole} userEmail={userEmail} />;
       case 'users':
         return <UserManagement userRole={userRole} userName={userName} />;
       case 'invoices':
@@ -286,7 +286,7 @@ const App: React.FC = () => {
       case 'items':
         return <ItemMaster selectedBranch={currentBranch} userRole={userRole} userEmail={userEmail} />;
       case 'certificates':
-        return <CertificateManager selectedBranch={currentBranch} organizations={organizations} />;
+        return <CertificateManager selectedBranch={currentBranch} organizations={organizations} userRole={userRole} userEmail={userEmail} />;
       case 'erp-connectors':
         return <ERPConnectors selectedBranch={currentBranch} />;
       case 'audit':

@@ -223,10 +223,18 @@ router.get('/certificates', async (req, res) => {
         const userEmail = req.headers['x-user-email'] as string;
 
         const where: any = { company_id: parseInt(companyId as string) };
-
-        // If not SUPER_ADMIN, verify ownership
+        
+        // If not SUPER_ADMIN, verify ownership OR membership
         if (userRole !== 'SUPER_ADMIN' && userEmail) {
-            where.company = { user: { email: userEmail } };
+            const user = await prisma.user.findUnique({ where: { email: userEmail } });
+            if (!user) return res.status(403).json({ error: 'User not found' });
+
+            where.company = {
+                OR: [
+                    { user: { email: userEmail } },
+                    { registered_name: user.company_name || '___NEVER_MATCH___' }
+                ]
+            };
         }
 
         const certificates = await prisma.certificate.findMany({
@@ -355,11 +363,21 @@ router.get('/invoices', async (req, res) => {
 
         const where: any = { company_id: parseInt(companyId as string) };
 
-        // If not SUPER_ADMIN, verify ownership
-        // Only apply if userEmail is provided and not an empty string
+        // If not SUPER_ADMIN, verify ownership OR membership
         if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail.trim() !== '' && userEmail !== 'undefined') {
-            console.log(`[ZATCA API] Applying ownership filter for email: ${userEmail}`);
-            where.company = { user: { email: userEmail } };
+            console.log(`[ZATCA API] Applying membership-aware filter for email: ${userEmail}`);
+            const user = await prisma.user.findUnique({ where: { email: userEmail } });
+            if (!user) {
+                console.warn(`[ZATCA API] User not found for email ${userEmail}. Returning empty list.`);
+                return res.json([]);
+            }
+
+            where.company = {
+                OR: [
+                    { user: { email: userEmail } },
+                    { registered_name: user.company_name || '___NEVER_MATCH___' }
+                ]
+            };
         } else {
             console.log(`[ZATCA API] NO ownership filter applied (Role: ${userRole}, Email: ${userEmail})`);
         }
@@ -418,9 +436,17 @@ router.get('/invoices/:id', async (req, res) => {
 
         const where: any = isUuid ? { uuid: id } : { id: parseInt(id) };
 
-        // If not SUPER_ADMIN, verify ownership
+        // If not SUPER_ADMIN, verify ownership OR membership
         if (userRole !== 'SUPER_ADMIN' && userEmail) {
-            where.company = { user: { email: userEmail } };
+            const user = await prisma.user.findUnique({ where: { email: userEmail } });
+            if (!user) return res.status(403).json({ error: 'User not found' });
+
+            where.company = {
+                OR: [
+                    { user: { email: userEmail } },
+                    { registered_name: user.company_name || '___NEVER_MATCH___' }
+                ]
+            };
         }
 
         const invoice = await prisma.invoice.findFirst({
