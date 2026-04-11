@@ -7,6 +7,7 @@ import { reportInvoice, clearInvoice } from '../services/zatcaService.js';
 import { SecurityService } from '../services/securityService.js';
 import prisma from '../lib/prisma.js';
 import { AuditService } from '../services/auditService.js';
+import { parseInvoiceDate } from '../utils/dateUtils.js';
 
 const router = Router();
 
@@ -76,6 +77,23 @@ router.post('/config', async (req: Request, res: Response) => {
 
         if (!companyId || !type || !baseUrl) {
             return res.status(400).json({ success: false, error: 'companyId, type and baseUrl are required' });
+        }
+
+        // Check for existing active configuration with same URL and Environment for this company
+        const existingConfig = await prisma.erp_configuration.findFirst({
+            where: {
+                company_id: parseInt(companyId),
+                base_url: baseUrl,
+                environment: environment || 'PRODUCTION',
+                is_active: true
+            }
+        });
+
+        if (existingConfig) {
+            return res.status(400).json({ 
+                success: false, 
+                error: `An active configuration already exists for this URL in the ${environment || 'PRODUCTION'} environment.` 
+            });
         }
 
         const config = await (prisma as any).erp_configuration.create({
@@ -241,6 +259,7 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
         }
 
         const invoice = req.body;
+        const parsedDate = parseInvoiceDate(invoice.issueDate);
         
         // ── Idempotency Check ──
         if (idempotencyKey) {
@@ -325,6 +344,7 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
         const pih = 'NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMjRiZmQ3NTI0MjkzZjBlYTRiM2IzZTk4MTU1MWNiMA==';
         const zatcaInvoice: any = {
             ...invoice,
+            issueDate: parsedDate.toISOString(),
             uuid: crypto.randomUUID(),
             documentType: invoice.documentType || 'Invoice',
             billingReference: invoice.billingReference,
@@ -421,7 +441,7 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
                     company_id: company.id,
                     invoice_number: invoice.invoiceNumber,
                     uuid: zatcaInvoice.uuid,
-                    date: new Date(invoice.issueDate),
+                    date: parsedDate,
                     total_amount: invoice.totalAmount,
                     tax_amount: invoice.vatAmount,
                     status: (status === 'SIMULATED' ? 'REPORTED' : status) as any,
@@ -623,12 +643,16 @@ router.delete('/config/:id', async (req: Request, res: Response) => {
 
 // Mock Server for Real-time Testing
 router.get('/mock-server', (req, res) => {
-    const timestamp = new Date().toISOString();
+    const now = new Date();
+    const timestamp = now.toISOString();
+    // Use minute-based timestamp for stable testing IDs
+    const day = timestamp.split('T')[0].replace(/-/g, '');
+    const hourMin = `${now.getHours()}${now.getMinutes()}`;
     res.json({
         status: 'success',
         invoices: [
             {
-                invoiceNumber: `SIM-${Date.now()}-001`,
+                invoiceNumber: `SIM-${day}-${hourMin}-001`,
                 issueDate: timestamp.split('T')[0],
                 invoiceSubtype: 'Simplified',
                 totalAmount: 115.00,

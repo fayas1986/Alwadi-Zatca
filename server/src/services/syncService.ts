@@ -49,12 +49,23 @@ export class SyncService {
             const whereClause: any = { is_active: true };
             if (configId) whereClause.id = configId;
 
-            const activeConfigs = await prisma.erp_configuration.findMany({
+            const allConfigs = await prisma.erp_configuration.findMany({
                 where: whereClause,
                 include: { company: true }
             });
 
-            console.log(`[Sync] Found ${activeConfigs.length} active ERP configurations.`);
+            // De-duplicate: If multiple config records point to the same physical system, only sync once.
+            // Key = CompanyID + BaseURL + Environment
+            const activeConfigs = Array.from(
+                new Map(
+                    allConfigs.map(c => [
+                        `${c.company_id}-${(c.base_url || '').toLowerCase().trim()}-${(c.environment || 'PRODUCTION').toUpperCase()}`, 
+                        c
+                    ])
+                ).values()
+            );
+
+            console.log(`[Sync] Found ${allConfigs.length} config records, processing ${activeConfigs.length} unique endpoints.`);
 
             for (const config of activeConfigs) {
                 try {

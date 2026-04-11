@@ -5,6 +5,7 @@ import { signInvoice } from './sdkService.js';
 import { reportInvoice, clearInvoice } from './zatcaService.js';
 import { SecurityService } from './securityService.js';
 import prisma from '../lib/prisma.js';
+import { parseInvoiceDate } from '../utils/dateUtils.js';
 
 interface ExternalInvoice {
     invoiceNumber: string;
@@ -168,9 +169,25 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
         };
 
         for (const rawInv of invoices) {
-            const inv = normalizeInvoice(rawInv);
             try {
-                console.log(`[Integration] Processing invoice ${inv.invoiceNumber} for company ${company.id}`);
+                const inv = normalizeInvoice(rawInv);
+
+                // IDEMPOTENCY: Skip if invoice already exists in DB
+                const existing = await prisma.invoice.findFirst({
+                    where: {
+                        company_id: company.id,
+                        invoice_number: inv.invoiceNumber
+                    }
+                });
+
+                if (existing) {
+                    console.log(`[Integration] Invoice ${inv.invoiceNumber} already exists in database. Skipping.`);
+                    results.push({ invoiceNumber: inv.invoiceNumber, status: 'skipped', reason: 'Already exists' });
+                    continue;
+                }
+                const parsedDate = parseInvoiceDate(inv.issueDate);
+
+                console.log(`[Integration] Processing invoice ${inv.invoiceNumber} for company ${company.id} (Date: ${parsedDate.toISOString()})`);
                 
                 // Safety check: Skip mock/test invoices in production/sandbox unless explicitly allowed
                 const isProductionMode = (environment || company.environment || 'SANDBOX').toLowerCase() !== 'simulation';
@@ -205,6 +222,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 // Map External Invoice to ZATCA Schema
                 const zatcaInvoice = {
                     ...inv,
+                    issueDate: parsedDate.toISOString(),
                     uuid: crypto.randomUUID(),
                     documentType: 'Invoice',
                     currencyCode: 'SAR',
@@ -289,7 +307,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                         company_id: company.id,
                         invoice_number: inv.invoiceNumber,
                         uuid: zatcaInvoice.uuid,
-                        date: new Date(inv.issueDate),
+                        date: parsedDate,
                         total_amount: inv.totalAmount,
                         tax_amount: inv.vatAmount,
                         status: result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 
@@ -336,9 +354,14 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
  */
 export const reflectStatusToERP = async (companyId: number, invoiceNumber: string, uuid: string, status: string, zatcaResponse?: any) => {
     try {
-        const erpConfigs = await prisma.erp_configuration.findMany({
+        const allConfigs = await prisma.erp_configuration.findMany({
             where: { company_id: companyId, is_active: true }
         });
+
+        // De-duplicate configs by base_url to prevent multiple calls to the same system
+        const erpConfigs = Array.from(
+            new Map(allConfigs.map(c => [c.base_url.toLowerCase().trim(), c])).values()
+        );
 
         if (erpConfigs.length === 0) {
             console.log(`[ERP Status] No active ERP configurations for company ${companyId}.`);

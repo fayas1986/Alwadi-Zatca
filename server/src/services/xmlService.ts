@@ -14,8 +14,10 @@ export const generateInvoiceXML = (invoice: Invoice) => {
 
     const rawIssueDate = (invoice as any).issueDate || new Date().toISOString();
     const issueDate = String(rawIssueDate);
-    const datePart = issueDate.split('T')[0];
-    const timePart = issueDate.includes('T') ? issueDate.split('T')[1].split('.')[0] : '00:00:00';
+    const datePart = issueDate.includes('T') ? issueDate.split('T')[0] : issueDate.split(' ')[0];
+    const timePart = issueDate.includes('T') 
+        ? issueDate.split('T')[1].split('.')[0].split('+')[0].split('Z')[0] 
+        : (issueDate.includes(' ') ? issueDate.split(' ')[1].split('.')[0] : '00:00:00');
 
     try {
         const xml = create({ version: '1.0', encoding: 'UTF-8' })
