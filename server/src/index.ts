@@ -32,7 +32,7 @@ app.use(express.json());
 if (!process.env.VERCEL) {
     QueueService.resume().then(() => {
         console.log('[Queue] Background queue resumed successfully');
-        SyncService.start(); // Start ERP Sync after queue is ready
+        SyncService.start(); // RE-ENABLED: Pulling pending invoices from ERP
     }).catch(err => {
         console.error('[Queue] Failed to resume background queue:', err);
     });

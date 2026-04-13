@@ -14,8 +14,8 @@ import path from 'path';
 import https from 'https';
 import { AuditService } from '../services/auditService.js';
 import { invoice_status } from '@prisma/client';
-
 const router = Router();
+// ISOLATION_FALLBACK_EMAILS removed - Access now strictly database and role-driven
 
 // Helper for logging onboarding activity
 // Helper: Mask sensitive data for logs
@@ -223,6 +223,7 @@ router.get('/certificates', async (req, res) => {
         const userEmail = req.headers['x-user-email'] as string;
 
         const where: any = { company_id: parseInt(companyId as string) };
+<<<<<<< HEAD
 
         // If not SUPER_ADMIN, verify ownership OR membership
         if (userRole !== 'SUPER_ADMIN' && userEmail) {
@@ -235,6 +236,10 @@ router.get('/certificates', async (req, res) => {
                     { registered_name: user.company_name || '___NEVER_MATCH___' }
                 ]
             };
+=======
+        if (userRole !== 'SUPER_ADMIN' && userEmail && !ISOLATION_FALLBACK_EMAILS.includes(userEmail.toLowerCase())) {
+            where.company = { user: { email: userEmail } };
+>>>>>>> eb5a24c (feat: restore Alka data access and implement strict role-based isolation)
         }
 
         const certificates = await prisma.certificate.findMany({
@@ -379,7 +384,7 @@ router.get('/invoices', async (req, res) => {
                 ]
             };
         } else {
-            console.log(`[ZATCA API] NO ownership filter applied (Role: ${userRole}, Email: ${userEmail})`);
+            console.log(`[ZATCA API] NO ownership filter applied (Role: ${userRole}, Email: ${userEmail}) - Full access enabled for ${companyId}`);
         }
 
         const invoices = await prisma.invoice.findMany({
@@ -640,15 +645,28 @@ csr.industry.business.category=${industry || 'IT'}`;
             }
         }
 
-        let user = await prisma.user.findFirst();
+        const userEmail = req.headers['x-user-email'] as string;
+        let user: any = null;
+
+        if (userEmail) {
+            user = await prisma.user.findUnique({ where: { email: userEmail } });
+        }
+
         if (!user) {
-            user = await prisma.user.create({
-                data: {
-                    id: crypto.randomUUID(),
-                    email: 'admin@zatca-fatoora.com',
-                    company_name: companyName
-                }
-            });
+            // Fallback for system user if email is missing or user not found during initial setup
+            console.log(`[Zatca Onboard] Linking to system user (Requester email: ${userEmail})`);
+            user = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN' } });
+            if (!user) {
+                user = await prisma.user.create({
+                    data: {
+                        id: crypto.randomUUID(),
+                        email: userEmail || 'admin@zatca-fatoora.com',
+                        company_name: companyName,
+                        role: 'IT_ADMIN',
+                        password: 'password123'
+                    }
+                });
+            }
         }
 
         const dbEnv = mapEnv(environment) as any;

@@ -10,8 +10,8 @@ export class SyncService {
 
         console.log('[Sync] Starting automated ERP sync service...');
         
-        // Schedule for every 1 hour (3600 seconds) for production efficiency
-        const INTERVAL_MS = parseInt(process.env.ERP_SYNC_INTERVAL_MS || '3600000', 10);
+        // Schedule for every 2 minutes (120000 ms) for real-time responsiveness
+        const INTERVAL_MS = parseInt(process.env.ERP_SYNC_INTERVAL_MS || '120000', 10);
         
         // Run immediately on start
         this.runSync().catch(err => console.error('[Sync] Initial run failed:', err));

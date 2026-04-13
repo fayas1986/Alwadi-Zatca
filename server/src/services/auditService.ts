@@ -18,6 +18,11 @@ export interface AuditLogParams {
 
 export class AuditService {
     static async log(params: AuditLogParams) {
+        // Exclude Super Admin activity as requested
+        if (params.role === 'SUPER_ADMIN' || params.user?.toLowerCase().includes('superadmin')) {
+            return { success: true, status: 'EXCLUDED' };
+        }
+
         // Fire and forget to avoid blocking real-time operations
         this._privateLog(params).catch(err => {
             console.error('Audit Log (Background) Failed:', err);

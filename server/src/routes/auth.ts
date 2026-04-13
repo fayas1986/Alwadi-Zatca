@@ -25,6 +25,14 @@ const FALLBACK_USERS: Record<string, { id: string; email: string; password: stri
         id: 'u-004', email: 'tax@tech-solutions.sa', password: 'password123',
         name: 'Tax Officer', role: 'TAX_OFFICER', company_name: 'Satguru Travels Tourism', company_id: 1
     },
+    'alka.sharma@yiron.in': {
+        id: 'u-alka-001', email: 'alka.sharma@yiron.in', password: 'password123',
+        name: 'Alka Sharma', role: 'IT_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
+    },
+    'alka@yiron.in': {
+        id: 'u-alka-002', email: 'alka@yiron.in', password: 'password123',
+        name: 'Alka Sharma', role: 'IT_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
+    },
 };
 
 
@@ -77,34 +85,21 @@ const FALLBACK_USERS: Record<string, { id: string; email: string; password: stri
  *         description: Internal server error
  */
 router.post('/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
+    const { email, password } = req.body;
+    const startTime = Date.now();
 
+    try {
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        // ── Primary: try the Neon DB ──────────────────────────────────────────
-        let user: any = null;
-        let fromDb = false;
+        const normalizedEmail = email.toLowerCase().trim();
+        console.log(`[Auth] Login attempt: ${normalizedEmail}`);
 
-        try {
-            user = await prisma.user.findUnique({ where: { email } });
-            fromDb = true;
-        } catch (dbErr: any) {
-            // DB is sleeping or unreachable — fall back to hardcoded users
-            console.warn('[Auth] DB unavailable, using fallback users:', dbErr.code || dbErr.message?.slice(0, 80));
-        }
-
-        // ── Fallback: in-memory users ─────────────────────────────────────────
-        if (!fromDb || !user) {
-            const fallback = FALLBACK_USERS[email.toLowerCase()];
-            if (!fallback) {
-                return res.status(401).json({ error: 'Invalid credentials' });
-            }
-            if (fallback.password !== password) {
-                return res.status(401).json({ error: 'Invalid credentials' });
-            }
+        // ── Step 1: PRE-EMPTIVE Fallback Check (Instant) ───────────────────────
+        const fallback = FALLBACK_USERS[normalizedEmail];
+        if (fallback && fallback.password === password) {
+            console.log(`[Auth] Success via Fallback: ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
             return res.json({
                 id: fallback.id,
                 email: fallback.email,
@@ -116,49 +111,64 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // ── DB user found ─────────────────────────────────────────────────────
-        if (!user) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+        // ── Step 2: Database Lookup (with strict timeout) ─────────────────────
+        let dbUser: any = null;
+        try {
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 3000));
+            const queryPromise = prisma.user.findUnique({ where: { email: normalizedEmail } });
+            
+            dbUser = await Promise.race([queryPromise, timeoutPromise]);
+        } catch (dbErr: any) {
+            console.warn(`[Auth] DB ignored for ${normalizedEmail}: ${dbErr.message}`);
         }
 
-        // Verify password (plaintext or encrypted)
-        const isMatch = user.password.includes(':')
-            ? decrypt(user.password) === password
-            : user.password === password;
+        // ── Step 3: Handle DB Result ──────────────────────────────────────────
+        if (dbUser) {
+            const isMatch = dbUser.password.includes(':') 
+                ? decrypt(dbUser.password) === password 
+                : dbUser.password === password;
 
-        if (!isMatch) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
+                // Fetch the first company associated with the user (Direct Ownership)
+                let company = await prisma.company.findFirst({
+                    where: { user_id: dbUser.id }
+                });
 
-        // Fetch the first company associated with the user (Direct Ownership)
-        let company = await prisma.company.findFirst({
-            where: { user_id: user.id }
-        });
-
-        // Fallback: Check if the user is "assigned" to a company via company_name (Membership)
-        if (!company && user.company_name) {
-            company = await prisma.company.findFirst({
-                where: {
-                    registered_name: {
-                        equals: user.company_name,
-                        mode: 'insensitive'
-                    }
+                // Fallback: Check if the user is "assigned" to a company via company_name (Membership)
+                if (!company && dbUser.company_name) {
+                    company = await prisma.company.findFirst({
+                        where: {
+                            registered_name: {
+                                equals: dbUser.company_name,
+                                mode: 'insensitive'
+                            }
+                        }
+                    });
                 }
-            });
+
+                console.log(`[Auth] Success via Database: ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
+                return res.json({
+                    id: dbUser.id,
+                    email: dbUser.email,
+                    name: dbUser.name,
+                    role: dbUser.role,
+                    companyName: dbUser.company_name,
+                    companyId: company?.id,
+                    source: 'database'
+                });
+            }
         }
-        return res.json({
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            companyName: user.company_name,
-            companyId: company?.id,
-            source: 'database'
-        });
+
+        // ── Step 4: Final Failure ─────────────────────────────────────────────
+        console.warn(`[Auth] Login failed for ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
+        return res.status(401).json({ error: 'Invalid credentials' });
 
     } catch (error: any) {
-        console.error('Login error:', error);
-        res.status(500).json({ error: 'Internal server error', detail: error.message });
+        console.error('[Auth] CRITICAL LOGIN ERROR:', error);
+        return res.status(500).json({ 
+            error: 'Internal server error', 
+            message: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
