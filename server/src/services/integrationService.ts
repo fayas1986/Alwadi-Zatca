@@ -6,6 +6,7 @@ import { reportInvoice, clearInvoice } from './zatcaService.js';
 import { SecurityService } from './securityService.js';
 import prisma from '../lib/prisma.js';
 import { parseInvoiceDate } from '../utils/dateUtils.js';
+import { calculateInvoiceTotals } from '../utils/api-helpers.js';
 
 interface ExternalInvoice {
     invoiceNumber: string;
@@ -170,7 +171,10 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
 
         for (const rawInv of invoices) {
             try {
-                const inv = normalizeInvoice(rawInv);
+                let inv = normalizeInvoice(rawInv);
+                
+                // Recalculate totals if missing (tax-first approach)
+                inv = calculateInvoiceTotals(inv) as any;
 
                 // IDEMPOTENCY: Skip if invoice already exists in DB
                 const existing = await prisma.invoice.findFirst({

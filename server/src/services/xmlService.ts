@@ -8,9 +8,25 @@ import { signInvoice as signInvoiceSDK } from './sdkService.js';
 const safeNum = (v: any) => Number(v) || 0;
 
 export const generateInvoiceXML = (invoice: Invoice) => {
-    const totalAmount = safeNum(invoice.totalAmount).toFixed(2);
-    const taxAmount = safeNum((invoice as any).taxAmount || invoice.vatAmount).toFixed(2);
-    const taxExclusiveAmount = safeNum(invoice.taxExclusiveAmount || (invoice.totalAmount - (invoice.vatAmount || 0))).toFixed(2);
+    // Robust calculation for Totals
+    let calcTax = 0;
+    let calcTotal = 0;
+    let calcExclusive = 0;
+
+    if (Array.isArray(invoice.items)) {
+        invoice.items.forEach(it => {
+            const sub = safeNum(it.subtotal || (safeNum(it.quantity) * safeNum(it.unitPrice)));
+            const rate = safeNum(it.vatRate || 0.15);
+            const lineTax = safeNum(it.taxAmount || (sub * rate));
+            calcTax += lineTax;
+            calcExclusive += sub;
+            calcTotal += (sub + lineTax);
+        });
+    }
+
+    const totalAmount = (safeNum(invoice.totalAmount) || calcTotal).toFixed(2);
+    const taxAmount = (safeNum((invoice as any).taxAmount || invoice.vatAmount) || calcTax).toFixed(2);
+    const taxExclusiveAmount = (safeNum(invoice.taxExclusiveAmount || (invoice.totalAmount - (invoice.vatAmount || 0))) || calcExclusive).toFixed(2);
 
     const rawIssueDate = (invoice as any).issueDate || new Date().toISOString();
     const issueDate = String(rawIssueDate);

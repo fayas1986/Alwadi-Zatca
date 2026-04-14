@@ -143,6 +143,7 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
         let companies: any[] = [];
         let isolationStatus = 'active-v2';
 
+        if (userRole !== 'SUPER_ADMIN') {
             // Find the user by email to get their canonical ID and organization name
             const user = await prisma.user.findUnique({ where: { email: userEmail } });
             if (user) {
@@ -158,34 +159,30 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
 
                 logAdmin(`++ [ISOLATION] Access via Ownership (${user.id}) OR Membership (${user.company_name || 'NONE'})`);
             }
-            } else {
-                logAdmin(`** [ISOLATION] Bypass: Super Admin active`);
-            }
+        } else {
+            logAdmin(`** [ISOLATION] Bypass: Super Admin active`);
+        }
 
-            if (companies.length === 0) {
-                companies = await prisma.company.findMany({
-                    where,
-                    include: {
-                        user: true,
-                        certificates: true,
-                        group: true
-                    }
-                });
-                            logAdmin(`?? [ISOLATION] DB query returned ${companies.length} companies for where: ${JSON.stringify(where)}`);
-        }
-    } catch (dbErr: any) {
-        logAdmin(`!! [ISOLATION] DB Error: ${dbErr.message?.slice(0, 100)}`);
-    }
-                    environment: 'SIMULATION',
-                    settings: {},
-                    address: 'Test',
-                    city: 'Riyadh',
-                    country: 'SA'
-                }];
-            } else {
-                return res.status(503).json({ error: 'Database service unavailable', detail: dbErr.message });
+            try {
+                if (companies.length === 0) {
+                    companies = await prisma.company.findMany({
+                        where,
+                        include: {
+                            user: true,
+                            certificates: true,
+                            group: true
+                        }
+                    });
+                    logAdmin(`?? [ISOLATION] DB query returned ${companies.length} companies for where: ${JSON.stringify(where)}`);
+                }
+            } catch (dbErr: any) {
+                logAdmin(`!! [ISOLATION] DB Error: ${dbErr.message?.slice(0, 100)}`);
+                if (dbErr.code === 'P2021') {
+                    // Table doesn't exist, return empty or fallback
+                    return res.json([]);
+                }
+                throw dbErr; // Let outer catch handle other DB errors
             }
-        }
         
         const organizations = companies.map(c => ({
             id: c.id.toString(),

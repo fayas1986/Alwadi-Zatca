@@ -156,8 +156,7 @@ router.post('/login', async (req, res) => {
                     source: 'database'
                 });
             }
-        }
-
+        
         // ── Step 4: Final Failure ─────────────────────────────────────────────
         console.warn(`[Auth] Login failed for ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
         return res.status(401).json({ error: 'Invalid credentials' });

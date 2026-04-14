@@ -122,6 +122,39 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
     };
   }, [isScanning, invoice]); // Added invoice to dependency array for handleScanSuccess
 
+  // COMP: Calculate Display Totals (Handle Zero-Tax Fallback)
+  const displayTotals = useMemo(() => {
+    if (!invoice) return { taxExclusive: 0, vat: 0, total: 0 };
+    
+    const rootVat = Number(invoice.vatAmount) || 0;
+    const rootTotal = Number(invoice.totalAmount) || 0;
+    
+    let calcVat = 0;
+    let calcExclusive = 0;
+    
+    if (Array.isArray(invoice.items)) {
+        invoice.items.forEach(item => {
+            const sub = Number(invoice.type === 'Simplified' ? (item as any).total / 1.15 : (item.subtotal || (Number(item.quantity || 1) * Number(item.unitPrice || 0))));
+            const rate = 0.15; // Standard VAT
+            const tax = invoice.type === 'Simplified' ? ((item as any).total - sub) : Number(item.taxAmount || (sub * rate));
+            
+            calcVat += tax;
+            calcExclusive += sub;
+        });
+    }
+    
+    const calcTotal = calcExclusive + calcVat;
+    
+    // Favor calculated fields if root is 0 but items have tax
+    const shouldFallback = rootVat === 0 && calcVat > 0;
+    
+    return {
+      taxExclusive: shouldFallback ? calcExclusive : (invoice.taxExclusiveAmount || (rootTotal - rootVat)),
+      vat: shouldFallback ? calcVat : rootVat,
+      total: shouldFallback ? calcTotal : rootTotal
+    };
+  }, [invoice]);
+
   const handleScanSuccess = (decodedText: string) => {
      const tlvData = parseZatcaTLV(decodedText);
      
@@ -550,11 +583,11 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
 
                 {/* Totals */}
                 <div className="space-y-2">
-                    <ReceiptRow label="Total Taxable / الخاضع للضريبة" value={invoice.taxExclusiveAmount.toFixed(2)} />
-                    <ReceiptRow label="Total VAT (15%) / ضريبة القيمة المضافة" value={invoice.vatAmount.toFixed(2)} />
+                    <ReceiptRow label="Total Taxable / الخاضع للضريبة" value={displayTotals.taxExclusive.toFixed(2)} />
+                    <ReceiptRow label="Total VAT (15%) / ضريبة القيمة المضافة" value={displayTotals.vat.toFixed(2)} />
                     <div className="flex justify-between text-lg font-bold mt-2 pt-2 border-t border-slate-900">
                         <span>Total / المجموع</span>
-                        <span>{invoice.totalAmount.toFixed(2)}</span>
+                        <span>{displayTotals.total.toFixed(2)}</span>
                     </div>
                 </div>
 
@@ -796,14 +829,14 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                                 <span className="font-bold text-xs">Total (Excluding VAT)</span>
                                 <span className="text-xs">المجموع (غير شامل الضريبة)</span>
                             </div>
-                            <span className="font-mono font-bold">{currency} {invoice.taxExclusiveAmount.toFixed(2)}</span>
+                            <span className="font-mono font-bold">{currency} {displayTotals.taxExclusive.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
                             <div className="flex flex-col text-slate-600">
                                 <span className="font-bold text-xs">Total VAT (15%)</span>
                                 <span className="text-xs">مجموع الضريبة</span>
                             </div>
-                            <span className="font-mono font-bold">{currency} {invoice.vatAmount.toFixed(2)}</span>
+                            <span className="font-mono font-bold">{currency} {displayTotals.vat.toFixed(2)}</span>
                         </div>
                         <div className="h-px bg-slate-200 my-2"></div>
                         <div className="flex justify-between items-center text-lg">
@@ -811,7 +844,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                                 <span className="font-bold text-sm">Total Amount Due</span>
                                 <span className="text-xs">المجموع المستحق</span>
                             </div>
-                            <span className="font-mono font-bold text-emerald-600">{currency} {invoice.totalAmount.toFixed(2)}</span>
+                            <span className="font-mono font-bold text-emerald-600">{currency} {displayTotals.total.toFixed(2)}</span>
                         </div>
                     </div>
                 </div>

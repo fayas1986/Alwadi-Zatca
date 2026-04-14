@@ -223,7 +223,6 @@ router.get('/certificates', async (req, res) => {
         const userEmail = req.headers['x-user-email'] as string;
 
         const where: any = { company_id: parseInt(companyId as string) };
-<<<<<<< HEAD
 
         // If not SUPER_ADMIN, verify ownership OR membership
         if (userRole !== 'SUPER_ADMIN' && userEmail) {
@@ -236,10 +235,6 @@ router.get('/certificates', async (req, res) => {
                     { registered_name: user.company_name || '___NEVER_MATCH___' }
                 ]
             };
-=======
-        if (userRole !== 'SUPER_ADMIN' && userEmail && !ISOLATION_FALLBACK_EMAILS.includes(userEmail.toLowerCase())) {
-            where.company = { user: { email: userEmail } };
->>>>>>> eb5a24c (feat: restore Alka data access and implement strict role-based isolation)
         }
 
         const certificates = await prisma.certificate.findMany({
