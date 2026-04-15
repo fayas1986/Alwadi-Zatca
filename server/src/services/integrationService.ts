@@ -156,16 +156,58 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                     address: raw.customer?.address || raw.customer_address || raw.address || null,
                     city: raw.customer?.city || raw.customer_city || raw.city || 'Riyadh'
                 },
-                items: (raw.items || []).map((it: any) => ({
-                    ...it,
-                    name: it.name || it.description || it.item_name || it.item_description || 'Item',
-                    quantity: Number(it.quantity || it.qty || it.count || 1),
-                    unitPrice: Number(it.unitPrice || it.unit_price || it.price || it.rate || 0),
-                    taxAmount: Number(it.taxAmount || it.tax_amount || it.vat_amount || it.tax || 0),
-                    totalAmount: Number(it.totalAmount || it.total_amount || it.total || it.amount || 0),
-                    nameAr: it.nameAr || it.arabicName || it.itemDescriptionArabic || it.item_name_ar || null,
-                    description: it.description || it.itemDescription || it.name || 'Goods/Services'
-                }))
+                items: (raw.items || []).map((it: any) => {
+                    // --- Normalize taxCategory to a valid ZATCA code string ---
+                    // ERPs sometimes send the VAT amount (e.g. 65.22) in this field by mistake.
+                    // Valid ZATCA codes: "S" (Standard), "Z" (Zero-rated), "E" (Exempt), "O" (Out of scope)
+                    const rawTaxCat = it.taxCategory;
+                    let taxCategoryCode: string;
+                    if (typeof rawTaxCat === 'string' && ['S', 'Z', 'E', 'O'].includes(rawTaxCat.toUpperCase())) {
+                        taxCategoryCode = rawTaxCat.toUpperCase();
+                    } else {
+                        // Fallback: derive from vatRate or default to Standard
+                        const rate = Number(it.vatRate || 0);
+                        if (rate === 0) taxCategoryCode = 'Z';
+                        else taxCategoryCode = 'S'; // 15% = Standard
+                    }
+
+                    // --- Normalize vatRate to a clean percentage (not a fraction) ---
+                    // e.g. 15.000690004140026 → 15.00, 0.15 → 15.00
+                    let rawRate = Number(it.vatRate || 0);
+                    if (rawRate > 0 && rawRate < 1) rawRate = rawRate * 100; // convert fraction to %
+                    const vatRate = Math.round(rawRate * 100) / 100; // round to 2dp
+
+                    // --- Resolve taxAmount correctly ---
+                    // Some ERPs incorrectly place the VAT *amount* in the taxCategory field.
+                    // If taxAmount/tax fields are missing but taxCategory is numeric, use it as the amount.
+                    const numericTaxCatAsAmount = typeof rawTaxCat === 'number' ? rawTaxCat : 0;
+                    const taxAmount = Number(
+                        it.taxAmount || it.tax_amount || it.vat_amount || it.tax || numericTaxCatAsAmount || 0
+                    );
+
+                    const qty = Number(it.quantity || it.qty || it.count || 1);
+                    const price = Number(it.unitPrice || it.unit_price || it.price || it.rate || 0);
+                    const subtotal = qty * price;
+                    // Gross line total (including VAT) — used directly by the receipt renderer
+                    const lineTotalGross = Number(
+                        it.total ?? it.totalAmount ?? it.total_amount ?? it.amount ?? (subtotal + taxAmount)
+                    );
+
+                    return {
+                        ...it,
+                        name: it.name || it.description || it.item_name || it.item_description || 'Item',
+                        quantity: qty,
+                        unitPrice: price,
+                        subtotal,
+                        taxCategory: taxCategoryCode,   // ✅ Always a valid ZATCA string code
+                        vatRate,                         // ✅ Clean percentage, no float drift
+                        taxAmount,                       // ✅ Correctly resolved, even from misnamed field
+                        total: lineTotalGross,           // ✅ Gross line total for receipt renderer (item.total)
+                        totalAmount: lineTotalGross,     // ✅ Alias for other consumers
+                        nameAr: it.nameAr || it.arabicName || it.itemDescriptionArabic || it.item_name_ar || null,
+                        description: it.description || it.itemDescription || it.name || 'Goods/Services'
+                    };
+                })
             };
         };
 

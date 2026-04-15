@@ -327,7 +327,18 @@ const mapInvoiceToFrontend = (inv: any) => {
             vatNumber: 'N/A',
             address: { streetName: '', cityName: '', countryCode: 'SA' }
         },
-        items: inv.metadata?.items || [],
+        items: ((inv.metadata as any)?.items || []).map((it: any) => ({
+            ...it,
+            // Normalize display fields: receipt renderer uses item.name and item.total directly
+            name: it.name || it.description || it.item_name || 'Item',
+            total: Number(it.total ?? it.totalAmount ?? it.total_amount ?? it.amount ?? ((Number(it.unitPrice || 0) * Number(it.quantity || 1)) + Number(it.taxAmount || 0))).toFixed(2),
+            quantity: Number(it.quantity || 1),
+            unitPrice: Number(it.unitPrice || it.unit_price || 0),
+            taxAmount: Number(it.taxAmount || it.tax_amount || 0),
+            taxCategory: it.taxCategory || 'S',
+            vatRate: Number(it.vatRate || 15),
+            subtotal: Number(it.subtotal ?? (Number(it.unitPrice || 0) * Number(it.quantity || 1)))
+        })),
         history: [], // Expand later if stored in separate table
         currencyCode: 'SAR'
     };

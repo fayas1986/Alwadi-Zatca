@@ -48,8 +48,15 @@ export const calculateInvoiceTotals = (payload: any) => {
         const qty = Number(item.quantity || 1);
         const price = Number(item.unitPrice || 0);
         const subtotal = Number(item.subtotal || (qty * price));
-        const vatRate = Number(item.vatRate || 0.15);
-        const tax = Number(item.taxAmount || (subtotal * vatRate));
+
+        // Use vatRate as a percentage (e.g. 15) or fraction (e.g. 0.15) — normalize first
+        let vatRate = Number(item.vatRate || 15);
+        if (vatRate > 1) vatRate = vatRate / 100; // convert % to fraction for calculation
+
+        // Trust item.taxAmount if already resolved by normalizer; only recalculate as fallback
+        const tax = item.taxAmount > 0
+            ? Number(item.taxAmount)
+            : Number((subtotal * vatRate).toFixed(2));
         
         totalTax += tax;
         totalTaxExclusive += subtotal;
@@ -57,11 +64,11 @@ export const calculateInvoiceTotals = (payload: any) => {
 
     const totalCalculated = totalTaxExclusive + totalTax;
 
-    // Only override if provided totals are 0 or missing (trust ERP if they sent non-zero values)
+    // Only override header totals if missing/zero — trust ERP-provided values when non-zero
     const updated = { ...payload };
-    if (!updated.vatAmount) updated.vatAmount = Number(totalTax.toFixed(2));
-    if (!updated.totalAmount) updated.totalAmount = Number(totalCalculated.toFixed(2));
-    if (!updated.taxExclusiveAmount) updated.taxExclusiveAmount = Number(totalTaxExclusive.toFixed(2));
+    if (!updated.vatAmount || updated.vatAmount === 0) updated.vatAmount = Number(totalTax.toFixed(2));
+    if (!updated.totalAmount || updated.totalAmount === 0) updated.totalAmount = Number(totalCalculated.toFixed(2));
+    if (!updated.taxExclusiveAmount || updated.taxExclusiveAmount === 0) updated.taxExclusiveAmount = Number(totalTaxExclusive.toFixed(2));
     
     return updated;
 };
