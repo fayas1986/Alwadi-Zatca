@@ -159,10 +159,11 @@ export const generateInvoiceXML = (invoice: Invoice) => {
         // Map items...
         if (Array.isArray(invoice.items)) {
             invoice.items.forEach((item, index) => {
-                const vatRate = safeNum(item.vatRate) || 0.15;
+                const vatRateRaw = safeNum(item.vatRate) || 0.15;
+                const vatRatePercent = (vatRateRaw < 1) ? (vatRateRaw * 100) : vatRateRaw;
                 const subtotal = safeNum(item.subtotal) || (safeNum(item.quantity) * safeNum(item.unitPrice));
                 const lineExtensionAmount = subtotal.toFixed(2);
-                const itemTaxAmount = (subtotal * vatRate).toFixed(2);
+                const itemTaxAmount = (subtotal * (vatRatePercent / 100)).toFixed(2);
 
                 xml.ele('cac:InvoiceLine')
                     .ele('cbc:ID').txt((index + 1).toString()).up()
@@ -170,37 +171,36 @@ export const generateInvoiceXML = (invoice: Invoice) => {
                     .ele('cbc:LineExtensionAmount', { currencyID: 'SAR' }).txt(lineExtensionAmount).up()
                     
                     .ele('cac:TaxTotal')
-                    .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(itemTaxAmount).up()
-                    .ele('cac:TaxSubtotal')
-                    .ele('cbc:TaxableAmount', { currencyID: 'SAR' }).txt(lineExtensionAmount).up()
-                    .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(itemTaxAmount).up()
-                    .ele('cac:TaxCategory')
-                    .ele('cbc:ID').txt(item.taxCategory || 'S').up()
-                    .ele('cbc:Percent').txt((vatRate * 100).toFixed(2)).up()
-                    .ele('cac:TaxScheme')
-                    .ele('cbc:ID').txt('VAT').up()
-                    .up()
-                    .up()
-                    .up()
-                    .up()
+                        .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(itemTaxAmount).up()
+                        .ele('cac:TaxSubtotal')
+                            .ele('cbc:TaxableAmount', { currencyID: 'SAR' }).txt(lineExtensionAmount).up()
+                            .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(itemTaxAmount).up()
+                            .ele('cac:TaxCategory')
+                                .ele('cbc:ID').txt(item.taxCategory || 'S').up()
+                                .ele('cbc:Percent').txt(vatRatePercent.toFixed(2)).up()
+                                .ele('cac:TaxScheme')
+                                    .ele('cbc:ID').txt('VAT').up()
+                                .up() // Close TaxScheme
+                            .up() // Close TaxCategory
+                        .up() // Close TaxSubtotal
+                    .up() // Close TaxTotal
 
                     .ele('cac:Item')
-                    .ele('cbc:Name').txt(item.name || 'Item').up()
-                    .ele('cbc:Description').txt(item.nameAr || item.description || '').up()
-                    .ele('cac:ClassifiedTaxCategory')
-                    .ele('cbc:ID').txt(item.taxCategory || 'S').up()
-                    .ele('cbc:Percent').txt((vatRate * 100).toFixed(2)).up()
-                    .ele('cac:TaxScheme')
-                    .ele('cbc:ID').txt('VAT').up()
-                    .up()
-                    .up()
-                    .up()
-                    .up()
+                        .ele('cbc:Name').txt(item.name || 'Item').up()
+                        .ele('cbc:Description').txt(item.nameAr || item.description || '').up()
+                        .ele('cac:ClassifiedTaxCategory')
+                            .ele('cbc:ID').txt(item.taxCategory || 'S').up()
+                            .ele('cbc:Percent').txt(vatRatePercent.toFixed(2)).up()
+                            .ele('cac:TaxScheme')
+                                .ele('cbc:ID').txt('VAT').up()
+                            .up() // Close TaxScheme
+                        .up() // Close ClassifiedTaxCategory
+                    .up() // Close Item
                     
                     .ele('cac:Price')
-                    .ele('cbc:PriceAmount', { currencyID: 'SAR' }).txt(safeNum(item.unitPrice).toFixed(2)).up()
-                    .up()
-                    .up();
+                        .ele('cbc:PriceAmount', { currencyID: 'SAR' }).txt(safeNum(item.unitPrice).toFixed(2)).up()
+                    .up() // Close Price
+                .up(); // Close InvoiceLine
             });
         }
 

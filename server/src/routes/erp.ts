@@ -8,6 +8,7 @@ import { SecurityService } from '../services/securityService.js';
 import prisma from '../lib/prisma.js';
 import { AuditService } from '../services/auditService.js';
 import { parseInvoiceDate } from '../utils/dateUtils.js';
+import { InvoiceService } from '../services/invoiceService.js';
 
 const router = Router();
 
@@ -436,30 +437,34 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
         // ── Save to DB ──
         let savedInvoice;
         try {
-            savedInvoice = await prisma.invoice.create({
-                data: {
-                    company_id: company.id,
-                    invoice_number: invoice.invoiceNumber,
+            savedInvoice = await InvoiceService.createInvoice({
+                company_id: company.id,
+                invoice_number: invoice.invoiceNumber,
+                uuid: zatcaInvoice.uuid,
+                date: parsedDate,
+                total_amount: invoice.totalAmount,
+                tax_amount: invoice.vatAmount,
+                status: (status === 'SIMULATED' ? 'REPORTED' : status) as any,
+                type: invoice.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
+                hash,
+                qr_code: qr,
+                xml_payload: signedXml,
+                submission_id: idempotencyKey, 
+                submission_response: JSON.stringify({
+                    success: true,
+                    status,
                     uuid: zatcaInvoice.uuid,
-                    date: parsedDate,
-                    total_amount: invoice.totalAmount,
-                    tax_amount: invoice.vatAmount,
-                    status: (status === 'SIMULATED' ? 'REPORTED' : status) as any,
-                    type: invoice.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
                     hash,
-                    qr_code: qr,
-                    xml_payload: signedXml,
-                    submission_id: idempotencyKey, 
-                    submission_response: JSON.stringify({
-                        success: true,
-                        status,
-                        uuid: zatcaInvoice.uuid,
-                        hash,
-                        qrCode: qr,
-                        zatcaResponse: zatcaResult || { status, note: 'Simulated' }
-                    })
+                    qrCode: qr,
+                    zatcaResponse: zatcaResult || { status, note: 'Simulated' }
+                }),
+                items: zatcaInvoice.items,
+                customer: invoice.customer,
+                metadata: {
+                    erp_raw: invoice
                 }
             });
+
 
             // NEW: Reflect status to ERP
             const erpStatus = status === 'SIMULATED' ? 'reported' : (isCleared ? 'cleared' : (isReported ? 'reported' : 'rejected'));

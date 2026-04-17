@@ -7,6 +7,7 @@ import { SecurityService } from './securityService.js';
 import prisma from '../lib/prisma.js';
 import { parseInvoiceDate } from '../utils/dateUtils.js';
 import { calculateInvoiceTotals } from '../utils/api-helpers.js';
+import { InvoiceService } from './invoiceService.js';
 
 interface ExternalInvoice {
     invoiceNumber: string;
@@ -348,27 +349,27 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 
                 // Save to Database
                 console.log(`[Integration] Attempting to create invoice ${inv.invoiceNumber} in DB...`);
-                await prisma.invoice.create({
-                    data: {
-                        company_id: company.id,
-                        invoice_number: inv.invoiceNumber,
-                        uuid: zatcaInvoice.uuid,
-                        date: parsedDate,
-                        total_amount: inv.totalAmount,
-                        tax_amount: inv.vatAmount,
-                        status: result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 
-                                result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED',
-                        type: inv.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
-                        hash: hash,
-                        xml_payload: Buffer.from(signedXml).toString('base64'),
-                        qr_code: qr,
-                        submission_response: JSON.stringify(result),
-                        metadata: {
-                            items: zatcaInvoice.items,
-                            erp_raw: rawInv as any
-                        }
+                await InvoiceService.createInvoice({
+                    company_id: company.id,
+                    invoice_number: inv.invoiceNumber,
+                    uuid: zatcaInvoice.uuid,
+                    date: parsedDate,
+                    total_amount: inv.totalAmount,
+                    tax_amount: inv.vatAmount,
+                    status: result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 
+                            result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED',
+                    type: inv.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
+                    hash: hash,
+                    xml_payload: Buffer.from(signedXml).toString('base64'),
+                    qr_code: qr,
+                    submission_response: JSON.stringify(result),
+                    items: zatcaInvoice.items,
+                    customer: zatcaInvoice.customer,
+                    metadata: {
+                        erp_raw: rawInv as any
                     }
                 });
+
 
                 results.push({ invoice: inv.invoiceNumber, status: 'Success', zatca: result });
 

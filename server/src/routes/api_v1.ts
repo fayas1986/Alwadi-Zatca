@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import prisma from '../lib/prisma.js';
 import { SecurityService } from '../services/securityService.js';
 import { sendError, sendAccepted, sendSuccess, injectComplianceFields } from '../utils/api-helpers.js';
+import { InvoiceService } from '../services/invoiceService.js';
 import { WebhookService } from '../services/webhookService.js';
 import { MonitoringService } from '../services/monitoringService.js';
 
@@ -155,20 +156,27 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
         invoiceData.previousInvoiceHash = lastInvoice?.hash || 'NWZlY2ViOTZmOTk1YTRiMGNjM2YwOTUwZGYzMmM2MGFlNzVhYzZlZDAyODEzNTdhYTAzNzhkZTE2MzYxNzM5Yg==';
 
         // 3. Persistence (Requirement 5: Multi-Tenant)
-        const saved = await prisma.invoice.create({
-            data: {
-                company_id: company.id,
-                invoice_number: invoiceData.invoiceNumber,
-                uuid: invoiceData.uuid,
-                date: new Date(invoiceData.issueDate || new Date()),
-                total_amount: invoiceData.totalAmount || 0,
-                tax_amount: invoiceData.vatAmount || 0,
-                status: 'PENDING',
-                xml_payload: JSON.stringify(invoiceData),
-                submission_id: idempotencyKey,
-                metadata: { source: 'API_V2_FINAL', originalPayload: payload }
+        const saved = await InvoiceService.createInvoice({
+            company_id: company.id,
+            invoice_number: invoiceData.invoiceNumber,
+            uuid: invoiceData.uuid,
+            date: new Date(invoiceData.issueDate || new Date()),
+            total_amount: invoiceData.totalAmount || 0,
+            tax_amount: invoiceData.vatAmount || 0,
+            status: 'PENDING',
+            type: invoiceData.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
+            hash: '',
+            qr_code: '',
+            xml_payload: JSON.stringify(invoiceData),
+            submission_id: idempotencyKey,
+            items: payload.items || [],
+            customer: payload.customer,
+            metadata: { 
+                source: 'API_V2_FINAL', 
+                originalPayload: payload 
             }
         });
+
 
         // 4. Trigger Async Webhook (Accepted Event)
         WebhookService.sendWebhook(company.id, 'INVOICE_ACCEPTED', {

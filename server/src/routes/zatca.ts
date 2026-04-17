@@ -14,6 +14,7 @@ import path from 'path';
 import https from 'https';
 import { AuditService } from '../services/auditService.js';
 import { invoice_status } from '@prisma/client';
+import { InvoiceService } from '../services/invoiceService.js';
 const router = Router();
 // ISOLATION_FALLBACK_EMAILS removed - Access now strictly database and role-driven
 
@@ -327,7 +328,7 @@ const mapInvoiceToFrontend = (inv: any) => {
             vatNumber: 'N/A',
             address: { streetName: '', cityName: '', countryCode: 'SA' }
         },
-        items: ((inv.metadata as any)?.items || []).map((it: any) => ({
+        items: ((inv.metadata as any)?.items || (inv.metadata as any)?.originalPayload?.items || (inv.metadata as any)?.erp_raw?.items || []).map((it: any) => ({
             ...it,
             // Normalize display fields: receipt renderer uses item.name and item.total directly
             name: it.name || it.description || it.item_name || 'Item',
@@ -916,28 +917,27 @@ router.post('/invoice/report', async (req, res) => {
         }
 
         // 5. Ingest/Storage (Initial PENDING state)
-        const invoice = await prisma.invoice.create({
-            data: {
-                company_id: company.id,
-                customer_id: finalCustomerId,
-                invoice_number: invoiceData.invoiceNumber,
-                uuid: invoiceData.uuid,
-                date: new Date(invoiceData.issueDate),
-                total_amount: invoiceData.totalAmount,
-                tax_amount: invoiceData.vatAmount,
-                hash: hash,
-                previous_invoice_hash: invoiceData.previousHash || null,
-                xml_payload: signedXml,
-                qr_code: qr,
-                status: 'PENDING' as any,
-                type: invoiceData.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
-                submission_response: JSON.stringify({ status: 'PENDING', message: 'Invoice received and awaiting processing' }),
-                metadata: {
-                    steps: [{ step: 'XML_SIGNED', timestamp: new Date().toISOString() }],
-                    clientTime: invoiceData.issueDate,
-                    serverTimeKsa: nowKsa.toISOString()
-                } as any
-            } as any
+        const invoice = await InvoiceService.createInvoice({
+            company_id: company.id,
+            customer_id: finalCustomerId,
+            invoice_number: invoiceData.invoiceNumber,
+            uuid: invoiceData.uuid,
+            date: new Date(invoiceData.issueDate),
+            total_amount: invoiceData.totalAmount,
+            tax_amount: invoiceData.vatAmount,
+            hash: hash,
+            type: invoiceData.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
+            hash_previous: invoiceData.previousHash || null,
+            xml_payload: signedXml,
+            qr_code: qr,
+            status: 'PENDING' as any,
+            submission_response: JSON.stringify({ status: 'PENDING', message: 'Invoice received and awaiting processing' }),
+            items: invoiceData.items || [],
+            metadata: {
+                steps: [{ step: 'XML_SIGNED', timestamp: new Date().toISOString() }],
+                clientTime: invoiceData.issueDate,
+                serverTimeKsa: nowKsa.toISOString()
+            }
         });
 
         // NEW: Reflect Initial PENDING status to ERP
