@@ -44,28 +44,38 @@ export const calculateInvoiceTotals = (payload: any) => {
     let totalTax = 0;
     let totalTaxExclusive = 0;
     
-    payload.items.forEach((item: any) => {
+    const items = payload.items.map((item: any) => {
         const qty = Number(item.quantity || 1);
         const price = Number(item.unitPrice || 0);
         const subtotal = Number(item.subtotal || (qty * price));
 
         // Use vatRate as a percentage (e.g. 15) or fraction (e.g. 0.15) — normalize first
-        let vatRate = Number(item.vatRate || 15);
-        if (vatRate > 1) vatRate = vatRate / 100; // convert % to fraction for calculation
+        let vatRate = Number(item.vatRate ?? 0.15);
+        // If vatRate is small (e.g. 0.15), it's a fraction. If it's e.g. 15, it's a percentage.
+        const fraction = vatRate < 1 ? vatRate : vatRate / 100;
 
         // Trust item.taxAmount if already resolved by normalizer; only recalculate as fallback
-        const tax = item.taxAmount > 0
+        const tax = (item.taxAmount !== undefined && item.taxAmount !== null)
             ? Number(item.taxAmount)
-            : Number((subtotal * vatRate).toFixed(2));
+            : Number((subtotal * fraction).toFixed(2));
         
         totalTax += tax;
         totalTaxExclusive += subtotal;
+
+        return {
+            ...item,
+            quantity: qty,
+            unitPrice: price,
+            subtotal,
+            taxAmount: tax,
+            total: Number((subtotal + tax).toFixed(2))
+        };
     });
 
     const totalCalculated = totalTaxExclusive + totalTax;
 
     // Only override header totals if missing/zero — trust ERP-provided values when non-zero
-    const updated = { ...payload };
+    const updated = { ...payload, items };
     if (!updated.vatAmount || updated.vatAmount === 0) updated.vatAmount = Number(totalTax.toFixed(2));
     if (!updated.totalAmount || updated.totalAmount === 0) updated.totalAmount = Number(totalCalculated.toFixed(2));
     if (!updated.taxExclusiveAmount || updated.taxExclusiveAmount === 0) updated.taxExclusiveAmount = Number(totalTaxExclusive.toFixed(2));

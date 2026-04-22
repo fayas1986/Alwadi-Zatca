@@ -9,6 +9,7 @@ import prisma from '../lib/prisma.js';
 import { AuditService } from '../services/auditService.js';
 import { parseInvoiceDate } from '../utils/dateUtils.js';
 import { InvoiceService } from '../services/invoiceService.js';
+import { calculateInvoiceTotals } from '../utils/api-helpers.js';
 
 const router = Router();
 
@@ -259,7 +260,8 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             return res.status(401).json({ success: false, error: 'Missing Authorization header' });
         }
 
-        const invoice = req.body;
+        const invoice = calculateInvoiceTotals(req.body);
+        console.log('[DEBUG] Invoice after calculateInvoiceTotals:', JSON.stringify(invoice, null, 2));
         const parsedDate = parseInvoiceDate(invoice.issueDate);
         
         // ── Idempotency Check ──

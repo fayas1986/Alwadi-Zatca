@@ -92,7 +92,7 @@ export default app;
 
 // Only listen if not running as a serverless function
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-    app.listen(port, () => {
+    app.listen(port as number, '0.0.0.0', () => {
         console.log(`ZATCA Backend listening at http://localhost:${port}`);
     });
 }

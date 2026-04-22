@@ -328,18 +328,23 @@ const mapInvoiceToFrontend = (inv: any) => {
             vatNumber: 'N/A',
             address: { streetName: '', cityName: '', countryCode: 'SA' }
         },
-        items: ((inv.metadata as any)?.items || (inv.metadata as any)?.originalPayload?.items || (inv.metadata as any)?.erp_raw?.items || []).map((it: any) => ({
-            ...it,
-            // Normalize display fields: receipt renderer uses item.name and item.total directly
-            name: it.name || it.description || it.item_name || 'Item',
-            total: Number(it.total ?? it.totalAmount ?? it.total_amount ?? it.amount ?? ((Number(it.unitPrice || 0) * Number(it.quantity || 1)) + Number(it.taxAmount || 0))).toFixed(2),
-            quantity: Number(it.quantity || 1),
-            unitPrice: Number(it.unitPrice || it.unit_price || 0),
-            taxAmount: Number(it.taxAmount || it.tax_amount || 0),
-            taxCategory: it.taxCategory || 'S',
-            vatRate: Number(it.vatRate || 15),
-            subtotal: Number(it.subtotal ?? (Number(it.unitPrice || 0) * Number(it.quantity || 1)))
-        })),
+        items: ((inv.metadata as any)?.items || (inv.metadata as any)?.originalPayload?.items || (inv.metadata as any)?.erp_raw?.items || []).map((it: any) => {
+            const qty = Number(it.quantity || 1);
+            const price = Number(it.unitPrice || it.unit_price || 0);
+            const tax = Number(it.taxAmount || it.tax_amount || 0);
+            const sub = Number(it.subtotal ?? (qty * price));
+            return {
+                ...it,
+                name: it.name || it.description || it.item_name || 'Item',
+                total: Number(it.total ?? it.totalAmount ?? it.total_amount ?? it.amount ?? (sub + tax)).toFixed(2),
+                quantity: qty,
+                unitPrice: price,
+                taxAmount: tax,
+                taxCategory: it.taxCategory || 'S',
+                vatRate: Number(it.vatRate || 15),
+                subtotal: sub
+            };
+        }),
         history: [], // Expand later if stored in separate table
         currencyCode: 'SAR'
     };
@@ -927,12 +932,12 @@ router.post('/invoice/report', async (req, res) => {
             tax_amount: invoiceData.vatAmount,
             hash: hash,
             type: invoiceData.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
-            hash_previous: invoiceData.previousHash || null,
             xml_payload: signedXml,
             qr_code: qr,
             status: 'PENDING' as any,
             submission_response: JSON.stringify({ status: 'PENDING', message: 'Invoice received and awaiting processing' }),
             items: invoiceData.items || [],
+            customer: invoiceData.customer,
             metadata: {
                 steps: [{ step: 'XML_SIGNED', timestamp: new Date().toISOString() }],
                 clientTime: invoiceData.issueDate,
@@ -958,7 +963,7 @@ router.post('/invoice/report', async (req, res) => {
             };
         } else {
             // Sign, then submit
-            const result = await (invoiceData.invoiceSubtype === 'Standard' ? clearInvoice : reportInvoice)(
+            result = await (invoiceData.invoiceSubtype === 'Standard' ? clearInvoice : reportInvoice)(
                 company.environment as any,
                 cert.csid!,
                 decryptedSecret,
@@ -987,9 +992,9 @@ router.post('/invoice/report', async (req, res) => {
                 });
 
                 // NEW: Reflect REPORTED status to ERP for simplified invoices
-                await reflectStatusToERP(company.id, invoiceData.invoiceNumber, invoice.uuid, 'REPORTED', result);
+                await reflectStatusToERP(company.id, invoiceData.invoiceNumber, invoice.uuid, 'REPORTED', result).catch(e => console.error('[ZATCA API] Failed to reflect to ERP:', e));
 
-                await logActivity('Simplified Invoice Queued', 'Success', `B2C Invoice ${invoiceData.invoiceNumber} added to background reporting queue.`);
+                await logActivity('Simplified Invoice Queued', 'Success', `B2C Invoice ${invoiceData.invoiceNumber} added to background reporting queue.`).catch(e => console.error('[ZATCA API] Failed to log activity:', e));
 
                 return res.json({
                     reportingStatus: 'REPORTED',
@@ -999,12 +1004,13 @@ router.post('/invoice/report', async (req, res) => {
                     qr,
                     id: invoice.id,
                     uuid: invoice.uuid,
-                    isQueued: true
+                    isQueued: true,
+                    zatcaResponse: result
                 });
             }
         }
 
-        const submissionStatus = (result.reportingStatus === 'REPORTED' || result.clearanceStatus === 'CLEARED')
+        const submissionStatus = (result?.reportingStatus === 'REPORTED' || result?.clearanceStatus === 'CLEARED')
             ? (result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 'REPORTED')
             : 'FAILED';
 
@@ -1039,8 +1045,18 @@ router.post('/invoice/report', async (req, res) => {
         console.log(`[ZATCA API] Invoice saved to DB with ID: ${savedInvoice.id} and UUID: ${savedInvoice.uuid}`);
         res.json({ ...result, signedXml, qr, id: savedInvoice.id, uuid: savedInvoice.uuid });
     } catch (error: any) {
-        console.error('Invoice Reporting Error:', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Invoice Reporting Error details:', error.response?.data || error);
+        
+        let errorMessage = error.message;
+        if (error.response?.data) {
+             errorMessage = typeof error.response.data === 'string' 
+                 ? error.response.data 
+                 : JSON.stringify(error.response.data);
+        }
+
+        if (!res.headersSent) {
+             res.status(500).json({ success: false, error: errorMessage });
+        }
     }
 });
 
