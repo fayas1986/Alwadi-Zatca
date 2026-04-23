@@ -13,6 +13,7 @@ export interface AuditLogParams {
     status: 'Success' | 'Failure' | 'Warning';
     resourceId?: string;
     metadata?: any;
+    payload?: string;
     timestamp?: string;
 }
 
@@ -48,6 +49,7 @@ export class AuditService {
                     status: params.status,
                     resource_id: params.resourceId,
                     metadata: params.metadata || {},
+                    payload: params.payload || null,
                     hash: hash
                 }
             });

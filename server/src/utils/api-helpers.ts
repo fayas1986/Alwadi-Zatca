@@ -56,19 +56,20 @@ export const calculateInvoiceTotals = (payload: any) => {
 
         // Trust item.taxAmount if already resolved by normalizer; only recalculate as fallback
         const tax = (item.taxAmount !== undefined && item.taxAmount !== null)
-            ? Number(item.taxAmount)
+            ? Number(Number(item.taxAmount).toFixed(2))
             : Number((subtotal * fraction).toFixed(2));
         
+        const roundedSubtotal = Number(subtotal.toFixed(2));
         totalTax += tax;
-        totalTaxExclusive += subtotal;
+        totalTaxExclusive += roundedSubtotal;
 
         return {
             ...item,
             quantity: qty,
-            unitPrice: price,
-            subtotal,
+            unitPrice: Number(price.toFixed(2)),
+            subtotal: roundedSubtotal,
             taxAmount: tax,
-            total: Number((subtotal + tax).toFixed(2))
+            total: Number((roundedSubtotal + tax).toFixed(2))
         };
     });
 

@@ -138,7 +138,7 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
 
         logAdmin(`>> [ISOLATION] Fetch Request - Role: ${userRole}, Email: ${userEmail}`);
 
-        const where: any = {};
+        const where: any = { is_deleted: false };
         let user: any = null;
         let companies: any[] = [];
         let isolationStatus = 'active-v2';
@@ -379,21 +379,43 @@ router.delete('/companies/:id', requireSuperAdmin, async (req, res) => {
         const { id } = req.params;
         const companyId = parseInt(id);
 
-        // Delete related records first (cascade manually if not set in DB)
-        await prisma.invoice.deleteMany({ where: { company_id: companyId } });
-        await prisma.certificate.deleteMany({ where: { company_id: companyId } });
-        await prisma.customer.deleteMany({ where: { company_id: companyId } });
-        await prisma.erp_configuration.deleteMany({ where: { company_id: companyId } });
-        await prisma.item.deleteMany({ where: { company_id: companyId } });
+        const now = new Date();
         
-        await prisma.company.delete({
-            where: { id: companyId }
+        // Soft delete related records
+        await (prisma.invoice as any).updateMany({ 
+            where: { company_id: companyId }, 
+            data: { is_deleted: true, deleted_at: now } 
+        });
+        await (prisma.certificate as any).updateMany({ 
+            where: { company_id: companyId }, 
+            data: { is_active: false, is_deleted: true, deleted_at: now } 
+        });
+        await (prisma.customer as any).updateMany({ 
+            where: { company_id: companyId }, 
+            data: { is_deleted: true, deleted_at: now } 
+        });
+        await (prisma.erp_configuration as any).updateMany({ 
+            where: { company_id: companyId }, 
+            data: { is_active: false, is_deleted: true, deleted_at: now } 
+        });
+        await (prisma.item as any).updateMany({ 
+            where: { company_id: companyId }, 
+            data: { is_deleted: true, deleted_at: now } 
+        });
+        
+        await (prisma.company as any).update({
+            where: { id: companyId },
+            data: { 
+                is_active: false, 
+                is_deleted: true, 
+                deleted_at: now 
+            }
         });
 
-        res.json({ message: 'Company deleted successfully' });
-    } catch (error) {
-        console.error('Error deleting company:', error);
-        res.status(500).json({ error: 'Failed to delete company' });
+        res.json({ message: 'Company and related records soft-deleted successfully' });
+    } catch (error: any) {
+        console.error('Error soft-deleting company:', error);
+        res.status(500).json({ error: `Failed to soft-delete company: ${error.message}` });
     }
 });
 

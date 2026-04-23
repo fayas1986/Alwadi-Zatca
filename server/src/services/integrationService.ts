@@ -13,8 +13,13 @@ interface ExternalInvoice {
     invoiceNumber: string;
     issueDate: string;
     invoiceSubtype: 'Standard' | 'Simplified';
+    documentType?: 'Invoice' | 'Credit Note' | 'Debit Note';
+    billingReference?: string;
+    instructionNote?: string;
     totalAmount: number;
     vatAmount: number;
+    currencyCode?: string;
+    supplyDate?: string;
     customer: any;
     items: any[];
 }
@@ -149,12 +154,34 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 invoiceNumber: String(raw.invoiceNumber || raw.invoice_number || raw.id || raw.number || `ERP-${Date.now()}`),
                 issueDate: raw.issueDate || raw.issue_date || raw.date || new Date().toISOString(),
                 invoiceSubtype: raw.invoiceSubtype || raw.invoice_subtype || (raw.customer?.vatNumber || raw.customer_vat ? 'Standard' : 'Simplified'),
-                totalAmount: Number(raw.totalAmount || raw.total_amount || raw.total || 0),
-                vatAmount: Number(raw.vatAmount || raw.vat_amount || raw.tax_amount || raw.tax || 0),
+                documentType: raw.documentType || raw.document_type || raw.type || 'Invoice',
+                billingReference: raw.billingReference || raw.billing_reference || raw.original_invoice_number || raw.original_id || null,
+                instructionNote: raw.instructionNote || raw.instruction_note || raw.reason || raw.refund_reason || null,
+                totalAmount: Number(Number(raw.totalAmount || raw.total_amount || raw.total || 0).toFixed(2)),
+                vatAmount: Number(Number(raw.vatAmount || raw.vat_amount || raw.tax_amount || raw.tax || 0).toFixed(2)),
+                currencyCode: raw.currencyCode || raw.currency_code || raw.currency || 'SAR',
+                supplyDate: raw.supplyDate || raw.supply_date || raw.delivery_date || raw.issueDate || raw.date || new Date().toISOString(),
                 customer: {
                     name: raw.customer?.name || raw.customer_name || raw.client_name || 'Cash Client',
                     vatNumber: raw.customer?.vatNumber || raw.customer_vat || raw.vat_number || null,
-                    address: raw.customer?.address || raw.customer_address || raw.address || null,
+                    address: (() => {
+                        const addr = raw.customer?.address || raw.customer_address || raw.address;
+                        if (!addr) return null;
+                        if (typeof addr === 'string') {
+                            return {
+                                streetName: addr.substring(0, 50),
+                                cityName: raw.customer?.city || 'Riyadh',
+                                countryCode: 'SA'
+                            };
+                        }
+                        return {
+                            streetName: addr.streetName || addr.street_name || addr.street || 'Test Street',
+                            buildingNumber: addr.buildingNumber || addr.building_number || addr.building || '1',
+                            cityName: addr.cityName || addr.city_name || addr.city || raw.customer?.city || 'Riyadh',
+                            postalZone: addr.postalZone || addr.postal_zone || addr.zip || addr.postcode || '12345',
+                            countryCode: addr.countryCode || addr.country_code || addr.country || 'SA'
+                        };
+                    })(),
                     city: raw.customer?.city || raw.customer_city || raw.city || 'Riyadh'
                 },
                 items: (raw.items || []).map((it: any) => {
@@ -198,17 +225,18 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                         ...it,
                         name: it.name || it.description || it.item_name || it.item_description || 'Item',
                         quantity: qty,
-                        unitPrice: price,
-                        subtotal,
-                        taxCategory: taxCategoryCode,   // ✅ Always a valid ZATCA string code
-                        vatRate,                         // ✅ Clean percentage, no float drift
-                        taxAmount,                       // ✅ Correctly resolved, even from misnamed field
-                        total: lineTotalGross,           // ✅ Gross line total for receipt renderer (item.total)
-                        totalAmount: lineTotalGross,     // ✅ Alias for other consumers
+                        unitPrice: Number(price.toFixed(2)),
+                        subtotal: Number(subtotal.toFixed(2)),
+                        taxCategory: taxCategoryCode,
+                        vatRate,
+                        taxAmount: Number(taxAmount.toFixed(2)),
+                        total: Number(lineTotalGross.toFixed(2)),
+                        totalAmount: Number(lineTotalGross.toFixed(2)),
                         nameAr: it.nameAr || it.arabicName || it.itemDescriptionArabic || it.item_name_ar || null,
                         description: it.description || it.itemDescription || it.name || 'Goods/Services'
                     };
-                })
+                }),
+                taxCategory: raw.taxCategory || raw.tax_category || (raw.items?.[0]?.taxCategory || 'S')
             };
         };
 
@@ -219,7 +247,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 // Recalculate totals if missing (tax-first approach)
                 inv = calculateInvoiceTotals(inv) as any;
 
-                // IDEMPOTENCY: Skip if invoice already exists in DB
+                // IDEMPOTENCY/UPDATE LOGIC: 
                 const existing = await prisma.invoice.findFirst({
                     where: {
                         company_id: company.id,
@@ -227,7 +255,9 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                     }
                 });
 
-                if (existing) {
+                const isSimulation = (environment || company.environment || 'SANDBOX').toLowerCase() === 'simulation';
+                
+                if (existing && !isSimulation) {
                     console.log(`[Integration] Invoice ${inv.invoiceNumber} already exists in database. Skipping.`);
                     results.push({ invoiceNumber: inv.invoiceNumber, status: 'skipped', reason: 'Already exists' });
                     continue;
@@ -246,18 +276,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                     continue;
                 }
 
-                // 4. Check if already processed (scoped to company)
-                const existingInvoice = await prisma.invoice.findFirst({
-                    where: { 
-                        invoice_number: inv.invoiceNumber,
-                        company_id: company.id
-                    }
-                });
-
-                if (existingInvoice) {
-                    results.push({ invoice: inv.invoiceNumber, status: 'Skipped (Already Exists)' });
-                    continue;
-                }
+                // Redundant check removed.
 
                 // Get Previous Invoice Hash
                 const lastInvoice = await prisma.invoice.findFirst({
@@ -270,28 +289,31 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 const zatcaInvoice = {
                     ...inv,
                     issueDate: parsedDate.toISOString(),
+                    supplyDate: inv.supplyDate || parsedDate.toISOString(),
                     uuid: crypto.randomUUID(),
-                    documentType: 'Invoice',
-                    currencyCode: 'SAR',
+                    documentType: inv.documentType || 'Invoice',
+                    billingReference: inv.billingReference,
+                    instructionNote: inv.instructionNote,
+                    currencyCode: inv.currencyCode || 'SAR',
                     previousInvoiceHash: pih,
                     supplier: {
                         name: company.registered_name,
                         vatNumber: company.vat_number,
                         address: {
-                            streetName: company.address || 'Unknown Street',
-                            buildingNumber: '0000', // Default if unknown
+                            streetName: company.street_name || company.address || 'Unknown Street',
+                            buildingNumber: company.building_number || '0000',
                             cityName: company.city || 'Riyadh',
-                            postalZone: '00000', // Default
+                            postalZone: company.postal_zone || '00000',
                             countryCode: company.country || 'SA'
                         }
                     },
                     customer: {
                         name: inv.customer?.name || 'Cash Client',
                         vatNumber: inv.customer?.vatNumber || null,
-                        address: {
-                            streetName: inv.customer?.address || 'Unknown Street',
+                        address: inv.customer?.address || {
+                            streetName: 'Unknown Street',
                             buildingNumber: '0000',
-                            cityName: inv.customer?.city || 'Riyadh',
+                            cityName: 'Riyadh',
                             postalZone: '00000',
                             countryCode: 'SA'
                         }
@@ -348,8 +370,10 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 }
                 
                 // Save to Database
-                console.log(`[Integration] Attempting to create invoice ${inv.invoiceNumber} in DB...`);
-                await InvoiceService.createInvoice({
+                // Save to Database
+                console.log(`[Integration] Saving invoice ${inv.invoiceNumber} to DB (Update: ${!!existing})`);
+                
+                const invoiceData = {
                     company_id: company.id,
                     invoice_number: inv.invoiceNumber,
                     uuid: zatcaInvoice.uuid,
@@ -366,9 +390,16 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                     items: zatcaInvoice.items,
                     customer: zatcaInvoice.customer,
                     metadata: {
-                        erp_raw: rawInv as any
+                        erp_raw: rawInv as any,
+                        updated_at: new Date().toISOString()
                     }
-                });
+                };
+
+                if (existing && isSimulation) {
+                    await InvoiceService.updateInvoice(existing.id, invoiceData);
+                } else {
+                    await InvoiceService.createInvoice(invoiceData);
+                }
 
 
                 results.push({ invoice: inv.invoiceNumber, status: 'Success', zatca: result });
@@ -422,6 +453,15 @@ export const reflectStatusToERP = async (companyId: number, invoiceNumber: strin
         if (status === 'REPORTED') erpStatus = 'reported';
         if (status === 'PENDING') erpStatus = 'pending';
 
+        // Enhanced Error Summary for Rejections
+        let rejectionReason = null;
+        if (erpStatus === 'rejected' && zatcaResponse?.validationResults) {
+            const errors = zatcaResponse.validationResults.filter((r: any) => r.type === 'ERROR');
+            if (errors.length > 0) {
+                rejectionReason = errors.map((e: any) => `[${e.code}] ${e.message}`).join('; ');
+            }
+        }
+
         for (const config of erpConfigs) {
             // Use common path pattern /invoices/status
             const callbackUrl = `${config.base_url.replace(/\/$/, '')}/invoices/status`;
@@ -433,6 +473,7 @@ export const reflectStatusToERP = async (companyId: number, invoiceNumber: strin
                     invoiceNumber,
                     uuid,
                     status: erpStatus,
+                    rejectionReason, // Added detailed error for ERP to display
                     timestamp: new Date().toISOString(),
                     zatcaResponse: zatcaResponse || {}
                 }, {

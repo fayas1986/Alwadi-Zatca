@@ -352,6 +352,7 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             documentType: invoice.documentType || 'Invoice',
             billingReference: invoice.billingReference,
             instructionNote: invoice.instructionNote,
+            taxCategory: invoice.taxCategory || (invoice.items?.[0]?.taxCategory || 'S'),
             currencyCode: invoice.currencyCode || 'SAR',
             previousInvoiceHash: pih,
         };
@@ -471,6 +472,24 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             // NEW: Reflect status to ERP
             const erpStatus = status === 'SIMULATED' ? 'reported' : (isCleared ? 'cleared' : (isReported ? 'reported' : 'rejected'));
             await reflectStatusToERP(company.id, invoice.invoiceNumber, zatcaInvoice.uuid, erpStatus, zatcaResult);
+
+            // Compliance Audit Log with full XML payload
+            AuditService.log({
+                action: 'ZATCA Compliance Submission',
+                category: 'Compliance',
+                user: 'External ERP API',
+                role: 'IT_ADMIN',
+                ipAddress: req.ip || '127.0.0.1',
+                details: `Invoice ${invoice.invoiceNumber} submitted and ${status}`,
+                status: 'Success',
+                resourceId: String(savedInvoice.id),
+                payload: signedXml || undefined,
+                metadata: {
+                    invoice_number: invoice.invoiceNumber,
+                    uuid: zatcaInvoice.uuid,
+                    zatca_status: status
+                }
+            });
 
         } catch (dbError: any) {
             console.warn('Could not save to DB:', dbError.message);

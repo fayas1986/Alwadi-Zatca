@@ -283,7 +283,8 @@ const mapInvoiceToFrontend = (inv: any) => {
         uuid: inv.uuid,
         invoiceNumber: inv.invoice_number,
         issueDate: inv.date.toISOString(),
-        supplyDate: inv.date.toISOString(),
+        supplyDate: metadata.supplyDate || metadata.delivery_date || inv.date.toISOString(),
+        currencyCode: metadata.currencyCode || 'SAR',
         invoiceSubtype: inv.type === 'B2B' ? 'Standard' : 'Simplified',
         documentType: 'Invoice',
         totalAmount: Number(inv.total_amount),
@@ -292,20 +293,9 @@ const mapInvoiceToFrontend = (inv: any) => {
         status: mapStatus(inv.status || 'REPORTED'),
         qrCode: inv.qr_code,
         xmlContent: inv.xml_payload,
-        zatcaResponse: (() => {
-            if (!inv.submission_response) return null;
-            try {
-                return typeof inv.submission_response === 'string'
-                    ? JSON.parse(inv.submission_response)
-                    : inv.submission_response;
-            } catch (e) {
-                console.warn(`[ZATCA API] Failed to parse submission_response for invoice ${inv.id}:`, e);
-                return { status: 'ERROR', message: 'Malformed ZATCA response stored in DB' };
-            }
-        })(),
         supplier: {
-            name: inv.company.registered_name,
-            vatNumber: inv.company.vat_number,
+            name: inv.company.registered_name || company?.name || 'Seller',
+            vatNumber: inv.company.vat_number || company?.vat_number || '',
             address: {
                 streetName: inv.company.street_name || inv.company.address || '',
                 buildingNumber: inv.company.building_number || '',
@@ -315,20 +305,16 @@ const mapInvoiceToFrontend = (inv: any) => {
                 countryCode: inv.company.country || 'SA'
             }
         },
-        customer: inv.customer ? {
-            name: inv.customer.name,
-            vatNumber: inv.customer.vat_number || 'N/A',
-            address: {
-                streetName: inv.company.address || '',
-                cityName: inv.company.city || '',
-                countryCode: inv.company.country || 'SA'
+        customer: {
+            name: metadata.customer?.name || inv.customer?.name || 'Customer',
+            vatNumber: metadata.customer?.vatNumber || inv.customer?.vat_number || 'N/A',
+            address: metadata.customer?.address || {
+                streetName: inv.customer?.address || '',
+                cityName: inv.customer?.city || '',
+                countryCode: 'SA'
             }
-        } : {
-            name: 'Unknown Customer',
-            vatNumber: 'N/A',
-            address: { streetName: '', cityName: '', countryCode: 'SA' }
         },
-        items: ((inv.metadata as any)?.items || (inv.metadata as any)?.originalPayload?.items || (inv.metadata as any)?.erp_raw?.items || []).map((it: any) => {
+        items: ((metadata as any)?.items || []).map((it: any) => {
             const qty = Number(it.quantity || 1);
             const price = Number(it.unitPrice || it.unit_price || 0);
             const tax = Number(it.taxAmount || it.tax_amount || 0);
@@ -345,8 +331,19 @@ const mapInvoiceToFrontend = (inv: any) => {
                 subtotal: sub
             };
         }),
-        history: [], // Expand later if stored in separate table
-        currencyCode: 'SAR'
+        zatcaResponse: (() => {
+            if (!inv.submission_response) return null;
+            try {
+                return typeof inv.submission_response === 'string'
+                    ? JSON.parse(inv.submission_response)
+                    : inv.submission_response;
+            } catch (e) {
+                console.warn(`[ZATCA API] Failed to parse submission_response for invoice ${inv.id}:`, e);
+                return { status: 'ERROR', message: 'Malformed ZATCA response stored in DB' };
+            }
+        })(),
+        history: [], 
+        raw_metadata: inv.metadata
     };
 };
 
@@ -378,7 +375,10 @@ router.get('/invoices', async (req, res) => {
             return res.status(400).json({ error: 'companyId is required' });
         }
 
-        const where: any = { company_id: parseInt(companyId as string) };
+        const where: any = { 
+            company_id: parseInt(companyId as string),
+            is_deleted: false
+        };
 
         // If not SUPER_ADMIN, verify ownership OR membership
         if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail.trim() !== '' && userEmail !== 'undefined') {
@@ -452,6 +452,7 @@ router.get('/invoices/:id', async (req, res) => {
         const userEmail = req.headers['x-user-email'] as string;
 
         const where: any = isUuid ? { uuid: id } : { id: parseInt(id) };
+        where.is_deleted = false;
 
         // If not SUPER_ADMIN, verify ownership OR membership
         if (userRole !== 'SUPER_ADMIN' && userEmail) {
@@ -1036,6 +1037,7 @@ router.post('/invoice/report', async (req, res) => {
             details: `${invoice.type} ${invoice.invoice_number} reported successfully`,
             status: 'Success',
             resourceId: invoice.invoice_number,
+            payload: signedXml,
             metadata: {
                 invoiceUuid: invoice.uuid,
                 zatcaResponse: result

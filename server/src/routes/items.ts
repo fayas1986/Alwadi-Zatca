@@ -61,7 +61,7 @@ router.use((req: Request, res: Response, next) => {
 router.get('/', async (req: Request, res: Response) => {
     try {
         const { companyId, q } = req.query;
-        let where: any = {};
+        let where: any = { is_deleted: false };
 
         // Filter by companyId (if provided and not empty)
         if (companyId && companyId !== '' && companyId !== 'undefined') {
@@ -95,8 +95,11 @@ router.get('/', async (req: Request, res: Response) => {
 // ─── GET /api/items/:id ───────────────────────────────────────────────────────
 router.get('/:id', async (req: Request, res: Response) => {
     try {
-        const item = await prisma.item.findUnique({
-            where: { id: req.params.id as string }
+        const item = await prisma.item.findFirst({
+            where: { 
+                id: req.params.id as string,
+                is_deleted: false
+            }
         });
         if (!item) return res.status(404).json({ error: 'Item not found' });
         res.json(mapToFrontend(item));
@@ -163,8 +166,12 @@ router.put('/:id', async (req: Request, res: Response) => {
 // ─── DELETE /api/items/:id ────────────────────────────────────────────────────
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
-        await prisma.item.delete({
-            where: { id: req.params.id as string }
+        await prisma.item.update({
+            where: { id: req.params.id as string },
+            data: {
+                is_deleted: true,
+                deleted_at: new Date()
+            }
         });
         res.json({ success: true, message: 'Item deleted' });
     } catch (error: any) {

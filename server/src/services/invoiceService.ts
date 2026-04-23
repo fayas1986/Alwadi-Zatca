@@ -129,6 +129,19 @@ export const InvoiceService = {
             where: { id },
             data
         });
+    },
+
+    /**
+     * Soft deletes an invoice by setting is_deleted = true.
+     */
+    async softDelete(id: number) {
+        return await prisma.invoice.update({
+            where: { id },
+            data: {
+                is_deleted: true,
+                deleted_at: new Date()
+            }
+        });
     }
 };
 
