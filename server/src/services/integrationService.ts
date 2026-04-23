@@ -20,6 +20,7 @@ interface ExternalInvoice {
     vatAmount: number;
     currencyCode?: string;
     supplyDate?: string;
+    taxCategory?: string;
     customer: any;
     items: any[];
 }
@@ -76,7 +77,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
         }
 
         // Support various JSON wrappers: .invoices, .data, .list, or direct array
-        const invoices: ExternalInvoice[] = 
+        const invoices: any[] = 
           response.data.invoices || 
           (Array.isArray(response.data.data) ? response.data.data : response.data.data?.rows || response.data.data?.list) || 
           response.data.list || 
@@ -241,8 +242,10 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
         };
 
         for (const rawInv of invoices) {
+            let invNumberFallback = rawInv.invoiceNumber || rawInv.invoice_number || rawInv.id || 'UNKNOWN';
             try {
                 let inv = normalizeInvoice(rawInv);
+                invNumberFallback = inv.invoiceNumber;
                 
                 // Recalculate totals if missing (tax-first approach)
                 inv = calculateInvoiceTotals(inv) as any;
@@ -331,7 +334,6 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
 
                 // ── ZATCA Report / Clear ──
                 const targetZatcaEnv = (environment || company.environment || 'SANDBOX').toLowerCase();
-                const isSimulation = targetZatcaEnv === 'simulation';
 
                 // Sign
                 const signResult = await signInvoice(xml, certPem, decryptedPrivateKey, isSimulation);
@@ -382,7 +384,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                     tax_amount: inv.vatAmount,
                     status: result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 
                             result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED',
-                    type: inv.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
+                    type: (inv.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C') as 'B2B' | 'B2C',
                     hash: hash,
                     xml_payload: Buffer.from(signedXml).toString('base64'),
                     qr_code: qr,
@@ -414,8 +416,8 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 );
 
             } catch (err: any) {
-                console.error(`Error processing invoice ${inv.invoiceNumber}:`, err.message);
-                results.push({ invoice: inv.invoiceNumber, status: 'Failed', error: err.message });
+                console.error(`Error processing invoice ${invNumberFallback}:`, err.message);
+                results.push({ invoice: invNumberFallback, status: 'Failed', error: err.message });
             }
         }
 

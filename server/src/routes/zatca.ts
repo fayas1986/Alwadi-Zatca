@@ -277,6 +277,8 @@ const mapInvoiceToFrontend = (inv: any) => {
         }
     };
 
+    const metadata: any = typeof inv.metadata === 'object' && inv.metadata !== null ? inv.metadata : {};
+
     return {
         id: inv.id.toString(),
         branchId: `br-${inv.company_id}`,
@@ -294,12 +296,12 @@ const mapInvoiceToFrontend = (inv: any) => {
         qrCode: inv.qr_code,
         xmlContent: inv.xml_payload,
         supplier: {
-            name: inv.company.registered_name || company?.name || 'Seller',
-            vatNumber: inv.company.vat_number || company?.vat_number || '',
+            name: inv.company?.registered_name || 'Seller',
+            vatNumber: inv.company?.vat_number || '',
             address: {
-                streetName: inv.company.street_name || inv.company.address || '',
-                buildingNumber: inv.company.building_number || '',
-                citySubdivisionName: inv.company.city_subdivision || '',
+                streetName: inv.company?.street_name || inv.company?.address || '',
+                buildingNumber: inv.company?.building_number || '',
+                citySubdivisionName: inv.company?.city_subdivision || '',
                 cityName: inv.company.city || '',
                 postalZone: inv.company.postal_zone || '',
                 countryCode: inv.company.country || 'SA'

@@ -17,7 +17,7 @@ export const generateInvoiceXML = (invoice: Invoice) => {
         invoice.items.forEach(it => {
             const sub = safeNum(it.subtotal || (safeNum(it.quantity) * safeNum(it.unitPrice)));
             const rate = safeNum(it.vatRate || 0.15);
-            const lineTax = safeNum(it.taxAmount || (sub * rate));
+            const lineTax = safeNum((it as any).taxAmount || it.vatAmount || (sub * rate));
             calcTax += lineTax;
             calcExclusive += sub;
             calcTotal += (sub + lineTax);
