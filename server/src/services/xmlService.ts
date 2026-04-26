@@ -51,8 +51,8 @@ export const generateInvoiceXML = (invoice: Invoice) => {
         // Map Document Type to ZATCA InvoiceTypeCode
         // 388 = Invoice, 381 = Credit Note, 383 = Debit Note
         let typeCode = '388';
-        if (invoice.documentType === 'Credit Note') typeCode = '381';
-        else if (invoice.documentType === 'Debit Note') typeCode = '383';
+        if (invoice.documentType === 'Credit Note' || invoice.documentType === 'CREDIT_NOTE') typeCode = '381';
+        else if (invoice.documentType === 'Debit Note' || invoice.documentType === 'DEBIT_NOTE') typeCode = '383';
 
         // Subtype (Simplified vs Standard)
         const subtypeCode = invoice.invoiceSubtype === 'Standard' ? '0100000' : '0200000';

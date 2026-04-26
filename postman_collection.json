@@ -38,7 +38,7 @@
 			"name": "2. Submission (Async)",
 			"item": [
 				{
-					"name": "Submit Invoice (ZATCA Compliant)",
+					"name": "Submit Standard Invoice (B2B)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -49,15 +49,38 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"invoiceNumber\": \"INV-B-{{$randomInt}}\",\n    \"idempotencyKey\": \"req-b-{{$guid}}\",\n    \"invoiceSubtype\": \"Simplified\",\n    \"issueDate\": \"{{$isoTimestamp}}\",\n    \"totalAmount\": 115.00,\n    \"vatAmount\": 15.00,\n    \"customer\": {\n        \"name\": \"Testing Enterprise\",\n        \"vatNumber\": \"300000000000003\",\n        \"city\": \"Riyadh\"\n    },\n    \"items\": [\n        {\n            \"name\": \"Consulting Services\",\n            \"quantity\": 1,\n            \"unitPrice\": 100.00,\n            \"vatRate\": 0.15\n        }\n    ]\n}",
+							"raw": "{\n  \"invoiceNumber\": \"INV-B-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-b-{{$guid}}\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:44:09+03:00\",\n  \"totalAmount\": 1150.00,\n  \"taxExclusiveAmount\": 1000.00,\n  \"vatAmount\": 150.00,\n  \"paymentMeansCode\": \"30\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"311111111111113\",\n    \"city\": \"Jeddah\",\n    \"streetName\": \"Prince Sultan Road\",\n    \"buildingNumber\": \"4321\",\n    \"postalZone\": \"54321\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 10,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 1000.00,\n      \"vatAmount\": 150.00,\n      \"totalWithVat\": 1150.00\n    }\n  ]\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/invoices",
+							"raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "invoices"]
+							"path": ["api", "v1", "erp", "invoices", "submit"]
 						},
-						"description": "Submit a full ZATCA-compliant invoice payload. \nReturns a 202 Accepted status with a `jobId` for tracking."
+						"description": "Submit a full ZATCA-compliant B2B invoice payload. \nReturns a 202 Accepted status with a `jobId` for tracking."
+					}
+				},
+				{
+					"name": "Submit Simplified Invoice (B2C)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
+							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
+							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
+							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"invoiceNumber\": \"INV-C-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-c-{{$guid}}\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T14:30:00+03:00\",\n  \"totalAmount\": 115.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"vatAmount\": 15.00,\n  \"paymentMeansCode\": \"48\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"عميل نقدي\",\n    \"city\": \"Riyadh\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Retail Item\",\n      \"quantity\": 1,\n      \"unitPrice\": 110.00,\n      \"discount\": 10.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "erp", "invoices", "submit"]
+						},
+						"description": "Submit a full ZATCA-compliant B2C simplified invoice payload."
 					}
 				},
 				{
@@ -72,13 +95,35 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"invoiceNumber\": \"CN-{{$randomInt}}\",\n    \"billingReference\": \"INV-ORIGINAL-ID\",\n    \"instructionNote\": \"Return of goods\",\n    \"totalAmount\": -115.00,\n    \"vatAmount\": -15.00\n}",
+							"raw": "{\n  \"invoiceNumber\": \"CN-2026-001\",\n  \"idempotencyKey\": \"req-cn-{{$guid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Credit Note\",\n  \"instructionNote\": \"Return of damaged goods\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"totalAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/credit-notes",
+							"raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "credit-notes"]
+							"path": ["api", "v1", "erp", "invoices", "submit"]
+						}
+					}
+				},
+				{
+					"name": "Submit Debit Note",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
+							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
+							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
+							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"invoiceNumber\": \"DN-2026-001\",\n  \"idempotencyKey\": \"req-dn-{{$guid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Debit Note\",\n  \"instructionNote\": \"Additional service charge\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"totalAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Expedited Shipping Fee\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "erp", "invoices", "submit"]
 						}
 					}
 				}
@@ -144,6 +189,45 @@
 							"path": ["api", "v1", "erp", "status", "{{lastJobId}}", "logs"]
 						},
 						"description": "View the chronological audit trail for the entire job lifecycle."
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Simple API (Low Complexity)",
+			"description": "Simplified endpoints that use only a standard `x-api-key`. Recommended for ERPs that cannot easily implement HMAC signatures.",
+			"item": [
+				{
+					"name": "Simple Submit",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "x-api-key", "value": "{{clientSecret}}", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"invoiceNumber\": \"SIMP-{{$randomInt}}\",\n  \"documentType\": \"Invoice\",\n  \"totalAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"items\": [\n    { \"name\": \"Standard Item\", \"quantity\": 1, \"unitPrice\": 100, \"vatRate\": 0.15 }\n  ]\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/erp/v1/submit",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "erp", "v1", "submit"]
+						}
+					}
+				},
+				{
+					"name": "Simple Status",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "x-api-key", "value": "{{clientSecret}}", "type": "text" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/erp/v1/status/{{lastJobId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "erp", "v1", "status", "{{lastJobId}}"]
+						}
 					}
 				}
 			]

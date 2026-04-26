@@ -8,6 +8,7 @@ import prisma from '../lib/prisma.js';
 import { parseInvoiceDate } from '../utils/dateUtils.js';
 import { calculateInvoiceTotals } from '../utils/api-helpers.js';
 import { InvoiceService } from './invoiceService.js';
+import { WebhookService } from './webhookService.js';
 
 interface ExternalInvoice {
     invoiceNumber: string;
@@ -406,12 +407,31 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
 
                 results.push({ invoice: inv.invoiceNumber, status: 'Success', zatca: result });
 
+                const finalStatus = result.clearanceStatus === 'CLEARED' ? 'CLEARED' : (result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED');
+
+                // ── Compliance Audit Forensics ──
+                await AuditService.log({
+                    action: 'ZATCA_SYNC_SUCCESS',
+                    category: 'Compliance',
+                    user: 'System-Sync',
+                    role: 'SYSTEM',
+                    ipAddress: '127.0.0.1',
+                    status: 'Success',
+                    details: `Successfully synced invoice ${inv.invoiceNumber} to ZATCA.`,
+                    resourceId: inv.invoiceNumber,
+                    payload: result.clearedInvoice || Buffer.from(signedXml).toString('base64'),
+                    metadata: { 
+                        uuid: zatcaInvoice.uuid,
+                        zatcaResponse: result 
+                    }
+                });
+
                 // NEW: Reflect status back to ERP in real-time
                 await reflectStatusToERP(
                     company.id,
                     inv.invoiceNumber,
                     zatcaInvoice.uuid,
-                    result.clearanceStatus === 'CLEARED' ? 'CLEARED' : (result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED'),
+                    finalStatus,
                     result
                 );
 
@@ -464,6 +484,27 @@ export const reflectStatusToERP = async (companyId: number, invoiceNumber: strin
             }
         }
 
+        // 2. Relay via Modern HMAC Webhook Service (Centralized)
+        const eventMap: Record<string, string> = {
+            'cleared': 'INVOICE_CLEARED',
+            'reported': 'INVOICE_REPORTED',
+            'rejected': 'INVOICE_REJECTED',
+            'pending': 'INVOICE_PROCESSING'
+        };
+
+        const webhookEvent = eventMap[erpStatus];
+        if (webhookEvent) {
+            console.log(`[Webhook] Relaying ${webhookEvent} via WebhookService...`);
+            // Fire and forget (WebhookService handles retries internally)
+            WebhookService.sendWebhook(companyId, webhookEvent, {
+                uuid,
+                invoiceNumber,
+                status: erpStatus.toUpperCase(),
+                zatcaResponse
+            }).catch(err => console.error('[Webhook] Service call failed:', err.message));
+        }
+
+        // 3. Relay via Legacy Callback (Per-ERP Config)
         for (const config of erpConfigs) {
             // Use common path pattern /invoices/status
             const callbackUrl = `${config.base_url.replace(/\/$/, '')}/invoices/status`;

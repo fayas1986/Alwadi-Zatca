@@ -207,7 +207,22 @@ export class QueueService {
                 const finalStatus = company.environment === 'PRODUCTION' ? (invoice.type === 'B2B' ? 'CLEARED' : 'REPORTED') : 'REPORTED';
                 await reflectStatusToERP(invoice.company_id, invoice.invoice_number, invoice.uuid, finalStatus, result);
 
-                await this.logActivity(invoice, 'Success', `Successfully reported to ZATCA.`);
+                await AuditService.log({
+                    action: 'ZATCA_SUBMISSION_SUCCESS',
+                    category: 'Compliance',
+                    user: 'System',
+                    role: 'SYSTEM',
+                    ipAddress: '127.0.0.1',
+                    status: 'Success',
+                    details: `Successfully ${finalStatus.toLowerCase()} invoice ${invoice.invoice_number} to ZATCA.`,
+                    resourceId: invoice.id.toString(),
+                    payload: result.clearedInvoice || signedXml,
+                    metadata: { 
+                        invoiceNumber: invoice.invoice_number, 
+                        uuid: invoice.uuid,
+                        zatcaResponse: result 
+                    }
+                });
             } else {
                 throw new Error(`ZATCA Submission Failed: ${JSON.stringify(result.validationResults || result)}`);
             }

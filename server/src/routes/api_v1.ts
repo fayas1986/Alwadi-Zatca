@@ -124,6 +124,33 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
     }
 };
 
+// ── Simple Auth Middleware (Requirement: Low-Complexity ERPs) ───────────────────
+const authenticateSimple = async (req: Request, res: Response, next: any) => {
+    const apiKey = req.headers['x-api-key'] as string;
+    
+    if (!apiKey) {
+        return sendError(res, 401, 'UNAUTHORIZED', 'Missing API Key (x-api-key)');
+    }
+
+    try {
+        const erpConfig = await (prisma.erp_configuration as any).findFirst({
+            where: { api_key: apiKey, is_active: true },
+            include: { company: true }
+        });
+
+        if (!erpConfig) return sendError(res, 401, 'UNAUTHORIZED', 'Invalid or inactive API Key');
+
+        // Simple Tier Rate Limit (Slower than Enterprise)
+        res.setHeader('X-RateLimit-Tier', 'Simple');
+        
+        (req as any).erpConfig = erpConfig;
+        (req as any).company = erpConfig.company;
+        next();
+    } catch (error: any) {
+        sendError(res, 500, 'SERVER_ERROR', error.message);
+    }
+};
+
 // ── Async Submission Handler ──────────────────────────────────────────────
 const handleAsyncSubmission = async (req: Request, res: Response, documentType: 'Invoice' | 'Credit Note' | 'Debit Note') => {
     try {
@@ -178,7 +205,21 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
         });
 
 
-        // 4. Trigger Async Webhook (Accepted Event)
+        // 4. Compliance Forensics: Log Original Payload
+        await AuditService.log({
+            action: 'ERP_INVOICE_RECEIVED',
+            category: 'Operational',
+            user: 'API-V1',
+            role: 'SYSTEM',
+            ipAddress: req.ip || '127.0.0.1',
+            status: 'Success',
+            details: `Received async ${documentType.toLowerCase()} ${saved.invoice_number} from ERP.`,
+            resourceId: saved.id.toString(),
+            payload: JSON.stringify(payload),
+            metadata: { jobId: saved.uuid, idempotencyKey: saved.submission_id }
+        });
+
+        // 5. Trigger Async Webhook (Accepted Event)
         WebhookService.sendWebhook(company.id, 'INVOICE_ACCEPTED', {
             jobId: saved.uuid,
             invoiceNumber: saved.invoice_number,
@@ -392,6 +433,34 @@ router.get('/erp/status/:uuid', async (req, res) => {
         const invoice = await prisma.invoice.findFirst({ where: { uuid, company_id: company.id } });
         if (!invoice) return sendError(res, 404, 'NOT_FOUND', 'Invoice not found');
         return res.status(200).json(formatStatusContract(invoice));
+    } catch (error: any) {
+        sendError(res, 500, 'SERVER_ERROR', error.message);
+    }
+});
+
+// ── Simple API Routes (V1 Proxy Mode) ──────────────────────────────────────────
+// These routes do NOT require HMAC/Nonce. Only x-api-key.
+// Endpoint: POST /api/v1/erp/v1/submit
+router.post('/erp/v1/submit', authenticateSimple, (req, res) => {
+    const docType = req.body.documentType || 'Invoice';
+    handleAsyncSubmission(req, res, docType as any);
+});
+
+// Endpoint: GET /api/v1/erp/v1/status/:jobId
+router.get('/erp/v1/status/:jobId', authenticateSimple, async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        const invoice = await prisma.invoice.findFirst({ 
+            where: { 
+                OR: [
+                    { uuid: jobId },
+                    { submission_id: jobId }
+                ], 
+                company_id: (req as any).company.id 
+            } 
+        });
+        if (!invoice) return sendError(res, 404, 'NOT_FOUND', 'Job ID not found');
+        res.status(200).json(formatStatusContract(invoice));
     } catch (error: any) {
         sendError(res, 500, 'SERVER_ERROR', error.message);
     }

@@ -39,15 +39,30 @@ export const sendAccepted = (res: Response, jobId: string, message?: string, ext
  * Calculates correct totals from items if not provided or zero
  */
 export const calculateInvoiceTotals = (payload: any) => {
+    // 1. Standardize case sensitivity
+    if (payload.invoiceSubtype) {
+        payload.invoiceSubtype = payload.invoiceSubtype.toUpperCase();
+    }
+
+    // 2. Normalize Credit Note negative values internally
+    // ZATCA requires positive values; document type denotes the subtraction
+    const isNote = payload.documentType === 'Credit Note' || payload.documentType === 'Debit Note' || payload.documentType === 'CREDIT_NOTE' || payload.documentType === 'DEBIT_NOTE';
+    if (isNote) {
+        if (payload.totalAmount !== undefined) payload.totalAmount = Math.abs(Number(payload.totalAmount));
+        if (payload.vatAmount !== undefined) payload.vatAmount = Math.abs(Number(payload.vatAmount));
+        if (payload.taxExclusiveAmount !== undefined) payload.taxExclusiveAmount = Math.abs(Number(payload.taxExclusiveAmount));
+    }
+
     if (!payload.items || !Array.isArray(payload.items)) return payload;
     
     let totalTax = 0;
     let totalTaxExclusive = 0;
     
     const items = payload.items.map((item: any) => {
-        const qty = Number(item.quantity || 1);
-        const price = Number(item.unitPrice || 0);
-        const subtotal = Number(item.subtotal || (qty * price));
+        const qty = isNote ? Math.abs(Number(item.quantity || 1)) : Number(item.quantity || 1);
+        const price = isNote ? Math.abs(Number(item.unitPrice || 0)) : Number(item.unitPrice || 0);
+        let subtotal = Number(item.subtotal || item.lineTotal || (qty * price));
+        if (isNote) subtotal = Math.abs(subtotal);
 
         // Use vatRate as a percentage (e.g. 15) or fraction (e.g. 0.15) — normalize first
         let vatRate = Number(item.vatRate ?? 0.15);
@@ -55,9 +70,13 @@ export const calculateInvoiceTotals = (payload: any) => {
         const fraction = vatRate < 1 ? vatRate : vatRate / 100;
 
         // Trust item.taxAmount if already resolved by normalizer; only recalculate as fallback
-        const tax = (item.taxAmount !== undefined && item.taxAmount !== null)
+        let tax = (item.taxAmount !== undefined && item.taxAmount !== null)
             ? Number(Number(item.taxAmount).toFixed(2))
-            : Number((subtotal * fraction).toFixed(2));
+            : (item.vatAmount !== undefined && item.vatAmount !== null) 
+                ? Number(Number(item.vatAmount).toFixed(2))
+                : Number((subtotal * fraction).toFixed(2));
+                
+        if (isNote) tax = Math.abs(tax);
         
         const roundedSubtotal = Number(subtotal.toFixed(2));
         totalTax += tax;
@@ -68,18 +87,21 @@ export const calculateInvoiceTotals = (payload: any) => {
             quantity: qty,
             unitPrice: Number(price.toFixed(2)),
             subtotal: roundedSubtotal,
+            lineTotal: roundedSubtotal,
             taxAmount: tax,
-            total: Number((roundedSubtotal + tax).toFixed(2))
+            vatAmount: tax,
+            total: Number((roundedSubtotal + tax).toFixed(2)),
+            totalWithVat: Number((roundedSubtotal + tax).toFixed(2))
         };
     });
 
     const totalCalculated = totalTaxExclusive + totalTax;
 
-    // Only override header totals if missing/zero — trust ERP-provided values when non-zero
+    // Enforce perfect math for ZATCA (overwrite header totals with exact sum of lines to prevent fractional mismatches)
     const updated = { ...payload, items };
-    if (!updated.vatAmount || updated.vatAmount === 0) updated.vatAmount = Number(totalTax.toFixed(2));
-    if (!updated.totalAmount || updated.totalAmount === 0) updated.totalAmount = Number(totalCalculated.toFixed(2));
-    if (!updated.taxExclusiveAmount || updated.taxExclusiveAmount === 0) updated.taxExclusiveAmount = Number(totalTaxExclusive.toFixed(2));
+    updated.vatAmount = Number(totalTax.toFixed(2));
+    updated.taxExclusiveAmount = Number(totalTaxExclusive.toFixed(2));
+    updated.totalAmount = Number(totalCalculated.toFixed(2));
     
     return updated;
 };
