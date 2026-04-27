@@ -112,19 +112,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         if (!erpConfig) return sendError(res, 401, 'UNAUTHORIZED', 'Invalid or inactive Client ID');
 
         const authResult = SecurityService.verifySignature(erpConfig.api_key!, timestamp, nonce, req.method, req.originalUrl, req.body, signature);
-        
-        if (!authResult.isValid) {
-            return res.status(401).json({
-                status: 'ERROR',
-                code: 'INVALID_SIGNATURE',
-                message: 'HMAC signature verification failed',
-                debug: {
-                    serverDataToSign: authResult.expectedData,
-                    receivedSignature: signature,
-                    expectedSignature: authResult.expectedSig
-                }
-            });
-        }
+        if (!authResult.isValid) return sendError(res, 401, 'INVALID_SIGNATURE', 'HMAC signature verification failed');
 
         // --- 4. Industrial 2-Tier Rate Limiting (Requirement 2) ---
         if (!(global as any).apiRateLimits) (global as any).apiRateLimits = {};
