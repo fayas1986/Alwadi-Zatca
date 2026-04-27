@@ -42,7 +42,7 @@ export class SecurityService {
     /**
      * Verifies an HMAC signature for server-to-server auth
      */
-    static verifySignature(secret: string, timestamp: string, nonce: string, method: string, path: string, body: any, signature: string): boolean {
+    static verifySignature(secret: string, timestamp: string, nonce: string, method: string, path: string, body: any, signature: string): { isValid: boolean, expectedData?: string, expectedSig?: string } {
         try {
             const bodyHash = (body && Object.keys(body).length > 0)
                 ? crypto.createHash('sha256').update(this.stableStringify(body)).digest('hex')
@@ -54,16 +54,22 @@ export class SecurityService {
                 .update(dataToSign)
                 .digest('hex');
 
-            return crypto.timingSafeEqual(
+            const isValid = crypto.timingSafeEqual(
                 Buffer.from(signature),
                 Buffer.from(expectedSignature)
             );
+
+            return { 
+                isValid, 
+                expectedData: dataToSign, 
+                expectedSig: expectedSignature 
+            };
         } catch (error) {
-            return false;
+            return { isValid: false };
         }
     }
 
-    private static stableStringify(obj: any): string {
+    public static stableStringify(obj: any): string {
         if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
         if (Array.isArray(obj)) return '[' + obj.map(v => this.stableStringify(v)).join(',') + ']';
         const keys = Object.keys(obj).sort();

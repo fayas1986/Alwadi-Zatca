@@ -142,23 +142,29 @@ export class QueueService {
             const signDuration = Date.now() - signStart;
             
             const localHash = hash || invoice.hash;
+            const isProxySubmission = (invoice.metadata as any)?.source === 'API_V2_FINAL';
 
             // Micro-GAP 2: Hash Consistency Check
             if (hash && hash !== invoice.hash) {
-                // OPT 2: Enhanced Hash Audit Trace
-                await AuditService.log({
-                    action: 'HASH_MISMATCH_TRACE',
-                    category: 'Security',
-                    user: 'System',
-                    role: 'SYSTEM',
-                    ipAddress: '127.0.0.1',
-                    details: `Local: ${invoice.hash}, ZATCA: ${hash}`,
-                    status: 'Failure',
-                    resourceId: invoice.id.toString(),
-                    metadata: { localHash: invoice.hash, zatcaHash: hash }
-                });
-                console.error(`[Queue] HASH MISMATCH for invoice ${invoice.id}. Expected: ${invoice.hash}, Received: ${hash}`);
-                throw new Error(`Hash Mismatch: Local=${invoice.hash}, ZATCA=${hash}`);
+                if (isProxySubmission) {
+                    console.log(`[Queue] Updating temporary hash for proxy invoice ${invoice.id}. Old: ${invoice.hash}, New: ${hash}`);
+                    // We proceed and the hash will be updated in the DB update call below
+                } else {
+                    // OPT 2: Enhanced Hash Audit Trace
+                    await AuditService.log({
+                        action: 'HASH_MISMATCH_TRACE',
+                        category: 'Security',
+                        user: 'System',
+                        role: 'SYSTEM',
+                        ipAddress: '127.0.0.1',
+                        details: `Local: ${invoice.hash}, ZATCA: ${hash}`,
+                        status: 'Failure',
+                        resourceId: invoice.id.toString(),
+                        metadata: { localHash: invoice.hash, zatcaHash: hash }
+                    });
+                    console.error(`[Queue] HASH MISMATCH for invoice ${invoice.id}. Expected: ${invoice.hash}, Received: ${hash}`);
+                    throw new Error(`Hash Mismatch: Local=${invoice.hash}, ZATCA=${hash}`);
+                }
             }
 
             // OPT 3: Step-Level Metrics (Time to Submit)
@@ -184,6 +190,7 @@ export class QueueService {
                     where: { id: invoice.id },
                     data: {
                         status: company.environment === 'PRODUCTION' ? (invoice.type === 'B2B' ? 'CLEARED' : 'REPORTED') : 'REPORTED',
+                        hash: localHash,
                         submission_response: JSON.stringify(result),
                         cleared_xml_payload: result.clearedInvoice || null,
                         qr_code: result.qrCode || invoice.qr_code,

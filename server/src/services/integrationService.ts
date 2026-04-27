@@ -9,6 +9,7 @@ import { parseInvoiceDate } from '../utils/dateUtils.js';
 import { calculateInvoiceTotals } from '../utils/api-helpers.js';
 import { InvoiceService } from './invoiceService.js';
 import { WebhookService } from './webhookService.js';
+import { AuditService } from './auditService.js';
 
 interface ExternalInvoice {
     invoiceNumber: string;
