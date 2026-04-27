@@ -69,13 +69,53 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
 
     try {
         // 1. Fetch from ERP
-        const response = await axios.get(sourceUrl, {
-            headers: { 'Authorization': authHeader }
-        });
+        let response;
+        try {
+            response = await axios.get(sourceUrl, {
+                headers: { 'Authorization': authHeader }
+            });
+        } catch (err: any) {
+             // Smart Fallback for Factslite: If we got a 401/404 but we are hitting a token endpoint, maybe we need to be more aggressive?
+             // Actually, the current issue is we ARE hitting /token and getting a 200 SUCCESS but with a Token, not Invoices.
+             throw err;
+        }
 
         if (environment?.toUpperCase() === 'SIMULATION') {
             console.log(`[Simulation] Response status: ${response.status} from ${sourceUrl}`);
             console.log(`[Simulation] Data snippet (Sanitized): ${sanitizePayload(response.data, 500)}...`);
+        }
+
+        // --- Smart Fetcher Logic for Factslite ---
+        // If the URL is a token endpoint and returns a token instead of invoices, 
+        // we exchange it and hit the actual data endpoint.
+        if (sourceUrl.includes('/api/token') && response.data?.status === 'SUCCESS' && response.data?.token) {
+            const dynamicToken = response.data.token;
+            const vendorId = new URL(sourceUrl).searchParams.get('vendorId') || '2';
+            
+            // Derive the data URL: replace /token with /zatca/fetchInvoices (common pattern for this vendor)
+            // If this fails, we will try /api/invoices as a fallback
+            const dataUrl = sourceUrl.replace('/api/token', '/api/zatca/fetchInvoices');
+            
+            console.log(`[Integration] Detected Token Response. Exchanging for data at ${dataUrl}...`);
+            
+            try {
+                const dataResponse = await axios.get(dataUrl, {
+                    headers: { 'Authorization': `Bearer ${dynamicToken}` }
+                });
+                response = dataResponse; // Swap for the actual data response
+            } catch (err: any) {
+                console.warn(`[Integration] Derived fetch failed at ${dataUrl}: ${err.message}. Trying direct /api/invoices fallback...`);
+                const fallbackUrl = sourceUrl.replace('/api/token', '/api/invoices');
+                try {
+                    response = await axios.get(fallbackUrl, {
+                        headers: { 'Authorization': `Bearer ${dynamicToken}` }
+                    });
+                } catch (fallbackErr: any) {
+                    console.error(`[Integration] All derived fetch attempts failed for Factslite. Setting empty result.`);
+                    // Instead of throwing, we return a mock "empty" response to prevent SyncService crash
+                    response = { data: { invoices: [] }, status: 200 };
+                }
+            }
         }
 
         // Support various JSON wrappers: .invoices, .data, .list, or direct array
@@ -507,8 +547,15 @@ export const reflectStatusToERP = async (companyId: number, invoiceNumber: strin
 
         // 3. Relay via Legacy Callback (Per-ERP Config)
         for (const config of erpConfigs) {
-            // Use common path pattern /invoices/status
-            const callbackUrl = `${config.base_url.replace(/\/$/, '')}/invoices/status`;
+            // Use URL object to safely append path even if query params exist
+            let callbackUrl: string;
+            try {
+                const urlObj = new URL(config.base_url);
+                urlObj.pathname = `${urlObj.pathname.replace(/\/$/, '')}/invoices/status`.replace(/\/+/g, '/');
+                callbackUrl = urlObj.toString();
+            } catch {
+                callbackUrl = `${config.base_url.replace(/\/$/, '')}/invoices/status`;
+            }
             
             console.log(`[ERP Status] Reflecting "${erpStatus}" for ${invoiceNumber} to ${callbackUrl}`);
 

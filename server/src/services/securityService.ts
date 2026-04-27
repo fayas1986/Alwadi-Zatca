@@ -16,7 +16,7 @@ export class SecurityService {
             return iv.toString('hex') + ':' + encrypted.toString('hex');
         } catch (error) {
             console.error('[Security] Encryption failed:', error);
-            return text; // Fallback to raw if logic fails (unsafe but prevents crash in dev)
+            return text;
         }
     }
 
@@ -25,7 +25,7 @@ export class SecurityService {
      */
     static decrypt(text: string): string {
         try {
-            if (!text.includes(':')) return text; // Assume not encrypted if no IV separator
+            if (!text.includes(':')) return text;
             const textParts = text.split(':');
             const iv = Buffer.from(textParts.shift()!, 'hex');
             const encryptedText = Buffer.from(textParts.join(':'), 'hex');
@@ -34,8 +34,7 @@ export class SecurityService {
             decrypted = Buffer.concat([decrypted, decipher.final()]);
             return decrypted.toString();
         } catch (error) {
-            // console.error('[Security] Decryption failed:', error);
-            return text; // Return as-is if decryption fails
+            return text;
         }
     }
 
@@ -69,13 +68,6 @@ export class SecurityService {
         }
     }
 
-    public static stableStringify(obj: any): string {
-        if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
-        if (Array.isArray(obj)) return '[' + obj.map(v => this.stableStringify(v)).join(',') + ']';
-        const keys = Object.keys(obj).sort();
-        return '{' + keys.map(k => `"${k}":${this.stableStringify(obj[k])}`).join(',') + '}';
-    }
-
     /**
      * Signs a payload for outgoing webhooks
      */
@@ -95,5 +87,21 @@ export class SecurityService {
             }
         }
         return protectedObj;
+    }
+
+    private static stableStringify(obj: any): string {
+        if (obj === null) return 'null';
+        if (typeof obj !== 'object') return JSON.stringify(obj);
+
+        if (Array.isArray(obj)) {
+            const items: string[] = obj.map(item => this.stableStringify(item));
+            return '[' + items.join(',') + ']';
+        }
+
+        const keys = Object.keys(obj).sort();
+        const pairs = keys.map(key => {
+            return JSON.stringify(key) + ':' + this.stableStringify(obj[key]);
+        });
+        return '{' + pairs.join(',') + '}';
     }
 }

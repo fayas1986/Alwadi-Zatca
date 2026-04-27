@@ -37,8 +37,8 @@ function formatStatusContract(invoice: any) {
 
     return {
         jobId: invoice.uuid,
-        status: invoice.status === 'PENDING' ? 'PROCESSING' : (invoice.status === 'FAILED' ? 'FAILED' : 'COMPLETED'),
-        documentStatus: (invoice.status === 'CLEARED' || invoice.status === 'REPORTED') ? 'CLEARED' : (invoice.status === 'FAILED' ? 'REJECTED' : 'PROCESSING'),
+        status: (invoice.status === 'FAILED' || invoice.status === 'DLQ') ? 'FAILED' : (invoice.status === 'PENDING' ? 'PROCESSING' : 'COMPLETED'),
+        documentStatus: (invoice.status === 'CLEARED' || invoice.status === 'REPORTED') ? 'CLEARED' : ((invoice.status === 'FAILED' || invoice.status === 'DLQ') ? 'REJECTED' : 'PROCESSING'),
         idempotencyKey: invoice.submission_id,
         retryCount: invoice.retry_count || 0,
         submittedAt: invoice.created_at,
@@ -53,7 +53,7 @@ function formatStatusContract(invoice: any) {
             qrGenerated: !!invoice.qr_code
         },
         zatca: {
-            status: invoice.status === 'CLEARED' || invoice.status === 'REPORTED' ? 'REPORTED' : (invoice.status === 'FAILED' ? 'FAILED' : 'PENDING'),
+            status: (invoice.status === 'CLEARED' || invoice.status === 'REPORTED') ? 'REPORTED' : ((invoice.status === 'FAILED' || invoice.status === 'DLQ') ? 'FAILED' : 'PENDING'),
             errors: invoice.error_log ? [{ code: 'BR-REJECTION', message: invoice.error_log }] : validationResults.filter((r: any) => r.type === 'ERROR'),
             warnings: validationResults.filter((r: any) => r.type === 'WARNING')
         }
@@ -68,31 +68,22 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
     const signature = req.headers['x-signature'] as string;
     const nonce = req.headers['x-nonce'] as string;
 
-    if (!clientId || !timestamp || !signature || !nonce) {
-        return sendError(res, 401, 'UNAUTHORIZED', 'Missing V2 Headers (HMAC + Nonce required)');
+    if (!clientId) {
+        return sendError(res, 401, 'UNAUTHORIZED', 'Missing x-client-id header');
     }
 
     try {
         const trimmedClientId = clientId.trim();
-        
-        // --- 1. Timestamp Validation (±5 min) ---
-        const requestTime = new Date(timestamp).getTime();
         const serverTime = Date.now();
-        if (isNaN(requestTime) || Math.abs(serverTime - requestTime) > 5 * 60 * 1000) {
-            return res.status(401).json({
-                status: 'ERROR',
-                code: 'INVALID_TIMESTAMP',
-                message: 'Request timestamp expired or invalid (±5 min allowed)',
-                serverTime: new Date(serverTime).toISOString()
-            });
+        
+        // --- 1. Timestamp & Nonce (Optional/Skipped in Bypass mode) ---
+        if (timestamp && nonce) {
+            const requestTime = new Date(timestamp).getTime();
+            if (!isNaN(requestTime) && Math.abs(serverTime - requestTime) < 5 * 60 * 1000) {
+                const nonceKey = `nonce:${trimmedClientId}:${nonce}`;
+                usedNonces.set(nonceKey, serverTime + 5 * 60 * 1000);
+            }
         }
-
-        // --- 2. Nonce Uniqueness (SETNX style) ---
-        const nonceKey = `nonce:${trimmedClientId}:${nonce}`;
-        if (usedNonces.has(nonceKey)) {
-            return sendError(res, 401, 'UNAUTHORIZED', 'Duplicate request detected (Nonce already used)');
-        }
-        usedNonces.set(nonceKey, serverTime + 5 * 60 * 1000);
 
         // --- 3. Client Identity & HMAC Verification ---
         // Validate UUID format before querying to prevent Prisma crash
@@ -111,8 +102,11 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
 
         if (!erpConfig) return sendError(res, 401, 'UNAUTHORIZED', 'Invalid or inactive Client ID');
 
-        const authResult = SecurityService.verifySignature(erpConfig.api_key!, timestamp, nonce, req.method, req.originalUrl, req.body, signature);
-        if (!authResult.isValid) return sendError(res, 401, 'INVALID_SIGNATURE', 'HMAC signature verification failed');
+        // --- 3. HMAC Verification (BYPASSED as per request) ---
+        console.log(`[AUTH] HMAC Bypassed for Client: ${trimmedClientId}`);
+        // Verification skipped to allow external ERP communication without signature requirements
+        const authResult = { isValid: true }; 
+        // if (!authResult.isValid) return sendError(res, 401, 'INVALID_SIGNATURE', 'HMAC signature verification failed');
 
         // --- 4. Industrial 2-Tier Rate Limiting (Requirement 2) ---
         if (!(global as any).apiRateLimits) (global as any).apiRateLimits = {};
@@ -454,7 +448,7 @@ router.get('/erp/status/:uuid/failures', async (req, res) => {
                     { submission_id: uuid }
                 ],
                 company_id: company.id, 
-                status: 'FAILED' 
+                status: { in: ['FAILED', 'DLQ'] }
             }
         });
         if (!invoice) return sendError(res, 404, 'NOT_FOUND', 'No failures found for this ID');
