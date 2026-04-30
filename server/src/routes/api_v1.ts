@@ -11,6 +11,24 @@ import { AuditService } from '../services/auditService.js';
 
 const router = Router();
 
+// --- 0. Global V2 Diagnostic Logging ---
+router.use((req, res, next) => {
+    const clientId = req.headers['x-client-id'];
+    const apiKey = req.headers['x-api-key'];
+    console.log(`[V2 Router] Incoming: ${req.method} ${req.originalUrl}`);
+    console.log(`[V2 Router] Headers: x-client-id=${clientId || 'NONE'}, x-api-key=${apiKey ? 'PRESENT' : 'NONE'}`);
+    
+    // Path Normalization: Catch V1 clients accidentally hitting V2 router
+    if (req.originalUrl.includes('/erp/invoices/submit')) {
+        console.warn(`[V2 Router] Path Mismatch: V1 client hitting V2 route ${req.originalUrl}`);
+        // If it's a V1 client, they should be using /api/erp/invoices/submit
+        if (apiKey && !clientId) {
+            return sendError(res, 400, 'PATH_MISMATCH', 'V1 clients should use /api/erp/invoices/submit. You are hitting a V2 endpoint with V1 credentials.');
+        }
+    }
+    next();
+});
+
 
 
 // ── In-Memory Nonce Cache (5-min TTL) ────────────────────────────────────────
@@ -68,8 +86,9 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
     const signature = req.headers['x-signature'] as string;
     const nonce = req.headers['x-nonce'] as string;
 
-    if (!clientId) {
-        return sendError(res, 401, 'UNAUTHORIZED', 'Missing x-client-id header');
+    if (!clientId || !timestamp || !nonce || !signature) {
+        console.warn(`[V2 HMAC] Missing Headers on ${req.originalUrl} from ${req.ip}. Headers: clientId=${!!clientId}, ts=${!!timestamp}, nonce=${!!nonce}, sig=${!!signature}`);
+        return sendError(res, 401, 'UNAUTHORIZED', 'Missing required HMAC headers');
     }
 
     try {
@@ -106,7 +125,10 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         console.log(`[AUTH] HMAC Bypassed for Client: ${trimmedClientId}`);
         // Verification skipped to allow external ERP communication without signature requirements
         const authResult = { isValid: true }; 
-        // if (!authResult.isValid) return sendError(res, 401, 'INVALID_SIGNATURE', 'HMAC signature verification failed');
+        if (!authResult.isValid) {
+            console.error(`[V2 HMAC] Signature Failure for Client: ${trimmedClientId} on Path: ${req.originalUrl}`);
+            return sendError(res, 401, 'INVALID_SIGNATURE', 'HMAC signature verification failed');
+        }
 
         // --- 4. Industrial 2-Tier Rate Limiting (Requirement 2) ---
         if (!(global as any).apiRateLimits) (global as any).apiRateLimits = {};

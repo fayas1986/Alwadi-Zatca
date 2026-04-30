@@ -256,6 +256,9 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
         const apiKey = authString.replace(/^Bearer\s+/i, '');
         const idempotencyKey = req.headers['idempotency-key'] as string;
 
+        console.log(`[ERP Push] Request: ${req.method} ${req.originalUrl}`);
+        console.log(`[ERP Push] API Key: ${apiKey ? apiKey.substring(0, 8) + '...' : 'MISSING'}`);
+
         if (!apiKey) {
             return res.status(401).json({ success: false, error: 'Missing Authorization header' });
         }
@@ -290,6 +293,12 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             where: { api_key: apiKey },
             include: { company: { include: { certificates: true } } }
         });
+
+        if (erpConfig) {
+            console.log(`[ERP Push] Auth Success: Config ID ${erpConfig.id} (Company: ${erpConfig.company.registered_name})`);
+        } else {
+            console.warn(`[ERP Push] Auth Failed: No configuration found for API Key ${apiKey ? apiKey.substring(0, 8) + '...' : 'N/A'}`);
+        }
 
         let company: any = erpConfig?.company || null;
         let targetEnv = erpConfig?.environment || company?.environment || 'SANDBOX';

@@ -80,7 +80,7 @@ app.get('/api/db-test', async (req, res) => {
  
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error('[GLOBAL ERROR]', err);
+    console.error(`[GLOBAL ERROR] ${req.method} ${req.originalUrl}`, err);
     res.status(err.status || 500).json({
         error: err.message || 'Internal Server Error',
         details: process.env.NODE_ENV === 'development' ? err.stack : undefined
