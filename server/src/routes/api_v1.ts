@@ -514,19 +514,19 @@ router.use(authenticateHMAC);
 
 // ── Simple API Routes (V1 Proxy Mode) ──────────────────────────────────────────
 // Alias for consistency with Postman collection
-router.post(['/erp/invoices/submit', '/erp/submit'], (req, res) => {
+router.post(['/erp/invoices/submit', '/erp/submit', '/erp/v1/submit'], (req, res) => {
     const docType = req.body.documentType || 'Invoice';
     handleAsyncSubmission(req, res, docType as any);
 });
 
 // Endpoint: POST /api/v1/erp/submit/sync (RETAIL MODE)
-router.post(['/erp/submit/sync', '/erp/invoices/sync'], (req, res) => {
+router.post(['/erp/submit/sync', '/erp/invoices/sync', '/erp/v1/submit/sync'], (req, res) => {
     const docType = req.body.documentType || 'Invoice';
     handleSyncSubmission(req, res, docType as any);
 });
 
 // Endpoint: GET /api/v1/erp/status/:jobId
-router.get(['/erp/status', '/erp/status/:jobId'], async (req, res) => {
+router.get(['/erp/status', '/erp/status/:jobId', '/erp/v1/status/:jobId'], async (req, res) => {
     try {
         const jobId = req.params.jobId as string;
 
