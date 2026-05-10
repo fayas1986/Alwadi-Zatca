@@ -1,5 +1,5 @@
 import axios from 'axios';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import prisma from '../lib/prisma.js';
 import { AuditService } from './auditService.js';
 

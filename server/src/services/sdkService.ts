@@ -321,7 +321,7 @@ export const validateInvoice = async (xmlContent: string, isSimulation: boolean 
             if (errors.length === 0) errors.push("SDK Validation Failed");
         }
 
-        return { isValid, errors: [...new Set(errors)], warnings: [...new Set(warnings)], raw: stdout };
+        return { isValid, errors: Array.from(new Set(errors)), warnings: Array.from(new Set(warnings)), raw: stdout };
 
     } catch (e: any) {
         return {

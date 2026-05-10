@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import axios from 'axios';
 import { generateInvoiceXML } from './xmlService.js';
 import { signInvoice } from './sdkService.js';

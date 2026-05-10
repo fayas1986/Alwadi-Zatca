@@ -2,7 +2,7 @@
 import { create } from 'xmlbuilder2';
 import { appendFileSync } from 'fs';
 import { Invoice } from '../types.js';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { signInvoice as signInvoiceSDK } from './sdkService.js';
 import { getKSATimestamp, INITIAL_PIH } from '../utils/api-helpers.js';
 

@@ -1,6 +1,6 @@
 
 import { Response } from 'express';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 /**
  * CORE COMPLIANCE HELPERS
