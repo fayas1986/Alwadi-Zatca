@@ -27,6 +27,11 @@ const port = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+    console.log(`[DEBUG] Incoming Request: ${req.method} ${req.url} (Original: ${req.originalUrl})`);
+    next();
+});
+
 
 // Initialize Background Queue & Sync (Disabled on Vercel)
 if (!process.env.VERCEL) {
