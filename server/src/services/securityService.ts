@@ -89,7 +89,7 @@ export class SecurityService {
         return protectedObj;
     }
 
-    private static stableStringify(obj: any): string {
+    public static stableStringify(obj: any): string {
         if (obj === null) return 'null';
         if (typeof obj !== 'object') return JSON.stringify(obj);
 

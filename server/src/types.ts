@@ -52,10 +52,12 @@ export interface InvoiceItem {
   unitPrice: number;
   discount: number;
   vatRate: number;
+  taxRate?: number; // Alias for vatRate to support external ERP mappings
   vatAmount: number;
   subtotal: number; // Excluding VAT
   total: number;    // Including VAT
   taxCategory?: 'S' | 'Z' | 'E' | 'O' | 'G' | 'H'; // ZATCA Tax Category Code
+  taxCategoryCode?: string; // String alias to support incoming raw data
   allowanceAmount?: number; // Added for ZATCA line-level discounts
   chargeAmount?: number;    // Added for ZATCA line-level charges
 }

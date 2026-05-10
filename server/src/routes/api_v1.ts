@@ -445,7 +445,7 @@ const handleSyncSubmission = async (req: Request, res: Response, type: 'Invoice'
 
         // 4. SIGN IMMEDIATELY (Fetch Cert first)
         const cert = await prisma.certificate.findFirst({
-            where: { company_id: company.id, status: 'ACTIVE' }
+            where: { company_id: company.id, is_active: true }
         });
 
         if (!cert || !cert.certificate || !cert.private_key) {
@@ -467,12 +467,10 @@ const handleSyncSubmission = async (req: Request, res: Response, type: 'Invoice'
                 date: new Date(), // DB storage time
                 total_amount: injected.totalWithVat,
                 tax_amount: injected.totalVat,
-                currency: injected.currencyCode || 'SAR',
                 status: 'PENDING',
                 hash: hash,
                 qr_code: qr,
                 xml_payload: JSON.stringify(injected),
-                signed_xml: signedXml,
                 metadata: { 
                     source: 'RETAIL_SYNC', 
                     syncAt: getKSATimestamp(),
@@ -482,7 +480,7 @@ const handleSyncSubmission = async (req: Request, res: Response, type: 'Invoice'
         });
 
         // 6. Queue for Background Reporting
-        QueueService.addToQueue({
+        QueueService.enqueue({
             invoiceId: saved.id,
             companyId: company.id,
             environment: company.environment,

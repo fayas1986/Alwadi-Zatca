@@ -10,16 +10,25 @@ import { calculateInvoiceTotals } from '../utils/api-helpers.js';
 import { InvoiceService } from './invoiceService.js';
 import { WebhookService } from './webhookService.js';
 import { AuditService } from './auditService.js';
+import { invoice_status } from '@prisma/client';
 
 interface ExternalInvoice {
+    uuid?: string;
     invoiceNumber: string;
     issueDate: string;
-    invoiceSubtype: 'Standard' | 'Simplified';
-    documentType?: 'Invoice' | 'Credit Note' | 'Debit Note';
-    billingReference?: string;
+    invoiceSubtype: string;
+    documentType?: string;
+    billingReference?: any;
     instructionNote?: string;
     totalAmount: number;
     vatAmount: number;
+    lineExtensionAmount?: number;
+    taxExclusiveAmount?: number;
+    taxInclusiveAmount?: number;
+    payableAmount?: number;
+    allowanceTotalAmount?: number;
+    chargeTotalAmount?: number;
+    prepaidAmount?: number;
     currencyCode?: string;
     supplyDate?: string;
     taxCategory?: string;
@@ -197,7 +206,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 invoiceNumber: String(raw.invoiceNumber || raw.invoice_number || raw.id || raw.number || `ERP-${Date.now()}`),
                 issueDate: raw.issueDate || raw.issue_date || raw.date || new Date().toISOString(),
                 invoiceSubtype: String(raw.invoiceSubtype || raw.invoice_subtype || (raw.customer?.vatNumber || raw.customer_vat ? 'STANDARD' : 'SIMPLIFIED')).toUpperCase(),
-                documentType: String(raw.documentType || raw.document_type || raw.type || 'INVOICE').toUpperCase().replace(/\s+/g, '_'),
+                documentType: String(raw.documentType || raw.document_type || raw.type || 'INVOICE').toUpperCase().replace(/\s+/g, '_') as any,
                 billingReference: raw.billingReference || raw.billing_reference || raw.original_invoice_number || raw.original_id || null,
                 instructionNote: raw.instructionNote || raw.instruction_note || raw.reason || raw.refund_reason || null,
                 totalAmount: Number(Number(raw.totalAmount || raw.total_amount || raw.total || 0).toFixed(2)),
@@ -435,8 +444,8 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                     date: parsedDate,
                     total_amount: inv.totalAmount,
                     tax_amount: inv.vatAmount,
-                    status: result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 
-                            result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED',
+                    status: (result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 
+                            result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED') as invoice_status,
                     type: (inv.invoiceSubtype === 'STANDARD' ? 'B2B' : 'B2C') as 'B2B' | 'B2C',
                     hash: hash,
                     xml_payload: Buffer.from(signedXml).toString('base64'),

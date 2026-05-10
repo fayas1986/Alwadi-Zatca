@@ -501,6 +501,7 @@ router.post('/onboard', async (req, res) => {
     // ENT: Normalize environment for case-insensitivity
     const rawEnv = req.body.environment || 'Simulation';
     const environment = rawEnv.charAt(0).toUpperCase() + rawEnv.slice(1).toLowerCase();
+    const isMockMode = () => environment === 'Simulation';
 
     const userEmail = (req.headers['x-user-email'] as string) || 'portal-user';
     const userRole = (req.headers['x-user-role'] as string) || 'USER';
