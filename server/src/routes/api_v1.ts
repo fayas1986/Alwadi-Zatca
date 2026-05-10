@@ -784,20 +784,5 @@ router.get('/erp/status/:uuid', async (req, res) => {
 
 
 
-// Catch-all for apiV1Router to diagnose 404s
-router.use((req, res) => {
-    console.warn(`[DEBUG] 404 in apiV1Router: ${req.method} ${req.url} (Full: ${req.originalUrl})`);
-    res.status(404).json({
-        status: 'ERROR',
-        code: 'NOT_FOUND',
-        message: `Route not found in API V1: ${req.method} ${req.originalUrl}`,
-        debug: {
-            path: req.path,
-            baseUrl: req.baseUrl,
-            url: req.url
-        }
-    });
-});
-
 export default router;
 
