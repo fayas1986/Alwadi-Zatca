@@ -196,8 +196,8 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
             return {
                 invoiceNumber: String(raw.invoiceNumber || raw.invoice_number || raw.id || raw.number || `ERP-${Date.now()}`),
                 issueDate: raw.issueDate || raw.issue_date || raw.date || new Date().toISOString(),
-                invoiceSubtype: raw.invoiceSubtype || raw.invoice_subtype || (raw.customer?.vatNumber || raw.customer_vat ? 'Standard' : 'Simplified'),
-                documentType: raw.documentType || raw.document_type || raw.type || 'Invoice',
+                invoiceSubtype: String(raw.invoiceSubtype || raw.invoice_subtype || (raw.customer?.vatNumber || raw.customer_vat ? 'STANDARD' : 'SIMPLIFIED')).toUpperCase(),
+                documentType: String(raw.documentType || raw.document_type || raw.type || 'INVOICE').toUpperCase().replace(/\s+/g, '_'),
                 billingReference: raw.billingReference || raw.billing_reference || raw.original_invoice_number || raw.original_id || null,
                 instructionNote: raw.instructionNote || raw.instruction_note || raw.reason || raw.refund_reason || null,
                 totalAmount: Number(Number(raw.totalAmount || raw.total_amount || raw.total || 0).toFixed(2)),
@@ -323,9 +323,12 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
 
                 // Redundant check removed.
 
-                // Get Previous Invoice Hash
+                // Get Previous Invoice Hash (Requirement: Chain to the last SUCCESSFUL invoice)
                 const lastInvoice = await prisma.invoice.findFirst({
-                    where: { company_id: company.id },
+                    where: { 
+                        company_id: company.id,
+                        status: { in: ['CLEARED', 'REPORTED'] }
+                    },
                     orderBy: { id: 'desc' }
                 });
                 const pih = lastInvoice?.hash || 'NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMjRiZmQ3NTI0MjkzZjBlYTRiM2IzZTk4MTU1MWNiMA==';
@@ -335,12 +338,20 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                     ...inv,
                     issueDate: parsedDate.toISOString(),
                     supplyDate: inv.supplyDate || parsedDate.toISOString(),
-                    uuid: crypto.randomUUID(),
-                    documentType: inv.documentType || 'Invoice',
+                    uuid: existing?.uuid || inv.uuid || crypto.randomUUID(), // Use DB UUID if available
+                    documentType: inv.documentType || 'INVOICE',
                     billingReference: inv.billingReference,
                     instructionNote: inv.instructionNote,
                     currencyCode: inv.currencyCode || 'SAR',
                     previousInvoiceHash: pih,
+                    // Ensure mandatory ZATCA monetary fields are present (from recalculated 'inv')
+                    lineExtensionAmount: inv.lineExtensionAmount,
+                    taxExclusiveAmount: inv.taxExclusiveAmount,
+                    taxInclusiveAmount: inv.taxInclusiveAmount,
+                    payableAmount: inv.payableAmount,
+                    allowanceTotalAmount: inv.allowanceTotalAmount,
+                    chargeTotalAmount: inv.chargeTotalAmount,
+                    prepaidAmount: inv.prepaidAmount,
                     supplier: {
                         name: company.registered_name,
                         vatNumber: company.vat_number,
@@ -386,7 +397,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                 // Report
                 let result;
                 
-                if (inv.invoiceSubtype === 'Standard') {
+                if (inv.invoiceSubtype === 'STANDARD') {
                     result = await clearInvoice(
                         targetZatcaEnv,
                         cert.csid,
@@ -426,7 +437,7 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                     tax_amount: inv.vatAmount,
                     status: result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 
                             result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED',
-                    type: (inv.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C') as 'B2B' | 'B2C',
+                    type: (inv.invoiceSubtype === 'STANDARD' ? 'B2B' : 'B2C') as 'B2B' | 'B2C',
                     hash: hash,
                     xml_payload: Buffer.from(signedXml).toString('base64'),
                     qr_code: qr,

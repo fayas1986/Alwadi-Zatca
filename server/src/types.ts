@@ -4,8 +4,8 @@ export type InvoiceStatus = 'Cleared' | 'Reported' | 'Rejected' | 'Pending' | 'F
 // RBAC Roles
 export type UserRole = 'IT_ADMIN' | 'FINANCE_ADMIN' | 'TAX_OFFICER' | 'SUPER_ADMIN';
 
-export type InvoiceSubtype = 'Standard' | 'Simplified';
-export type DocumentType = 'Invoice' | 'Credit Note' | 'Debit Note';
+export type InvoiceSubtype = 'STANDARD' | 'SIMPLIFIED' | 'Standard' | 'Simplified';
+export type DocumentType = 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE' | 'Invoice' | 'Credit Note' | 'Debit Note';
 
 export interface Address {
   streetName: string;
@@ -36,9 +36,11 @@ export interface Branch {
 
 export interface Party {
   name: string;
+  registrationName?: string; // cac:PartyLegalEntity/cbc:RegistrationName
   vatNumber: string; // BT-31
-  crNumber: string;  // Commercial Registration
+  crNumber?: string;  // Commercial Registration
   address: Address;
+  taxScheme?: 'VAT'; // Default to VAT
 }
 
 export interface InvoiceItem {
@@ -54,6 +56,8 @@ export interface InvoiceItem {
   subtotal: number; // Excluding VAT
   total: number;    // Including VAT
   taxCategory?: 'S' | 'Z' | 'E' | 'O' | 'G' | 'H'; // ZATCA Tax Category Code
+  allowanceAmount?: number; // Added for ZATCA line-level discounts
+  chargeAmount?: number;    // Added for ZATCA line-level charges
 }
 
 export interface InvoiceHistoryEvent {
@@ -75,8 +79,13 @@ export interface Invoice {
   documentType: DocumentType; // New: Invoice, Credit Note, or Debit Note
   
   // Credit/Debit Note Specifics
-  billingReference?: string; // UUID/ID of the original invoice
+  billingReference?: {
+    id: string;      // Original Invoice Number
+    uuid?: string;   // Original Invoice UUID
+    issueDate?: string;
+  };
   instructionNote?: string; // Reason for Credit/Debit Note
+  reasonCode?: string;      // ZATCA reason code (optional, mapped to Note)
 
   posTerminalId?: string;
   cashierId?: string;
@@ -88,6 +97,7 @@ export interface Invoice {
   paymentMethod?: 'Cash' | 'Credit Card' | 'Debit Card' | 'Transfer' | 'Other'; // Legacy UI field, mapped to code above
   source?: 'ERP' | 'POS' | 'Portal';
   
+  currency?: string;     // Alias for currencyCode
   currencyCode: string; // Added to support "Currency" requirement
 
   // Parties
@@ -95,11 +105,17 @@ export interface Invoice {
   customer: Party;
 
   // Totals
-  totalAmount: number; // TaxInclusiveAmount
+  lineExtensionAmount?: number; // Sum of line net amounts
+  taxExclusiveAmount: number;   // Total net amount
+  taxInclusiveAmount?: number;  // Total gross amount (totalAmount)
+  totalAmount: number;          // TaxInclusiveAmount
+  payableAmount?: number;       // Final amount to pay
   vatAmount: number;
   vatRate?: number; // Added for document-wide rate
   taxCategory?: 'S' | 'Z' | 'E' | 'O' | 'G' | 'H'; // Added for document-wide category
-  taxExclusiveAmount: number;
+  allowanceTotalAmount?: number; // Global allowance
+  chargeTotalAmount?: number;    // Global charge
+  prepaidAmount?: number;        // Prepaid amount
   
   items: InvoiceItem[];
   metadata?: {

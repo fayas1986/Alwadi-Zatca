@@ -7,10 +7,14 @@ import { fileURLToPath } from 'url';
 /**
  * Runs a command using spawn for robust argument handling (avoids shell quoting issues)
  */
-const runCommand = (command: string, args: string[], cwd?: string): Promise<{ stdout: string; stderr: string }> => {
+const runCommand = (command: string, args: string[], options: { cwd?: string; env?: any } = {}): Promise<{ stdout: string; stderr: string }> => {
     return new Promise((resolve, reject) => {
         console.log(`[SDK] Spawning: ${command} ${args.join(' ')}`);
-        const child = spawn(command, args, { cwd, shell: false });
+        const child = spawn(command, args, { 
+            cwd: options.cwd, 
+            env: options.env || process.env,
+            shell: false 
+        });
         let stdout = '';
         let stderr = '';
 
@@ -120,12 +124,22 @@ export const generateCSR = async (configContent: string, isSimulation: boolean =
             baseCmd = sdkPath;
         }
 
+        args.push('--globalVersion', '3.0.8', '-certpassword', '123456789');
         args.push('-csr', '-csrConfig', configPath, '-privateKey', keyPath, '-generatedCsr', csrPath, '-pem');
         if (isSimulation) {
             args.push('-sim');
         }
 
-        const { stdout, stderr } = await runCommand(baseCmd, args);
+        const sdkDir = path.dirname(sdkPath);
+        const configJsonPath = path.join(sdkDir, 'Configuration', 'config.json');
+
+        const { stdout, stderr } = await runCommand(baseCmd, args, {
+            cwd: sdkDir,
+            env: {
+                ...process.env,
+                SDK_CONFIG: configJsonPath
+            }
+        });
         
         if (!fs.existsSync(csrPath) || !fs.existsSync(keyPath)) {
             throw new Error(`SDK did not create output files. Output: ${stdout}`);
@@ -198,12 +212,22 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
             baseCmd = sdkPath;
         }
 
+        args.push('--globalVersion', '3.0.8', '-certpassword', '123456789');
         args.push('-sign', '-invoice', xmlPath, '-signedInvoice', signedXmlPath, '-certificate', certPath, '-privateKey', keyPath);
         if (isSimulation) {
             args.push('-sim');
         }
 
-        const { stdout, stderr } = await runCommand(baseCmd, args);
+        const sdkDir = path.dirname(sdkPath);
+        const configPath = path.join(sdkDir, 'Configuration', 'config.json');
+
+        const { stdout, stderr } = await runCommand(baseCmd, args, {
+            cwd: sdkDir,
+            env: {
+                ...process.env,
+                SDK_CONFIG: configPath
+            }
+        });
         
         if (!fs.existsSync(signedXmlPath)) {
             throw new Error(`SDK failed to sign invoice. Output: ${stdout}`);
@@ -265,7 +289,14 @@ export const validateInvoice = async (xmlContent: string, isSimulation: boolean 
             args.push('-sim');
         }
 
-        const { stdout, stderr } = await runCommand(javaExe, args, sdkDir);
+        const configJsonPath = path.join(sdkDir, 'Configuration', 'config.json');
+        const { stdout, stderr } = await runCommand(javaExe, args, {
+            cwd: sdkDir,
+            env: {
+                ...process.env,
+                SDK_CONFIG: configJsonPath
+            }
+        });
 
         const errors: string[] = [];
         const warnings: string[] = [];
@@ -307,14 +338,16 @@ export const validateInvoice = async (xmlContent: string, isSimulation: boolean 
 };
 
 const extractQR = (xml: string): string => {
-    const qrBlockRegex = /<cac:AdditionalDocumentReference>\s*<cbc:ID>QR<\/cbc:ID>[\s\S]*?<\/cac:AdditionalDocumentReference>/;
+    // Robust extraction: Handle various whitespace patterns between tags
+    const qrBlockRegex = /<cac:AdditionalDocumentReference>\s*<cbc:ID>\s*QR\s*<\/cbc:ID>[\s\S]*?<\/cac:AdditionalDocumentReference>/;
     const match = xml.match(qrBlockRegex);
 
     if (match) {
         const qrBlock = match[0];
-        const binaryObjectRegex = /<cbc:EmbeddedDocumentBinaryObject[^>]*>([^<]+)<\/cbc:EmbeddedDocumentBinaryObject>/;
+        // Capture the Base64 content from the binary object, allowing for attributes and varying whitespace
+        const binaryObjectRegex = /<cbc:EmbeddedDocumentBinaryObject[^>]*>\s*([^<\s]+)\s*<\/cbc:EmbeddedDocumentBinaryObject>/;
         const binaryMatch = qrBlock.match(binaryObjectRegex);
-        return binaryMatch ? binaryMatch[1] : '';
+        return binaryMatch ? binaryMatch[1].trim() : '';
     }
 
     return '';

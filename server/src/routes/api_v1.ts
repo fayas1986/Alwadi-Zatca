@@ -3,11 +3,14 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import prisma from '../lib/prisma.js';
 import { SecurityService } from '../services/securityService.js';
-import { sendError, sendAccepted, sendSuccess, injectComplianceFields } from '../utils/api-helpers.js';
+import { sendError, sendAccepted, sendSuccess, injectComplianceFields, validateHardenedCompliance, getKSATimestamp, INITIAL_PIH, processInvoiceChaining } from '../utils/api-helpers.js';
 import { InvoiceService } from '../services/invoiceService.js';
 import { WebhookService } from '../services/webhookService.js';
 import { MonitoringService } from '../services/monitoringService.js';
 import { AuditService } from '../services/auditService.js';
+import { signInvoice } from '../services/sdkService.js';
+import { generateInvoiceXML } from '../services/xmlService.js';
+import { QueueService } from '../services/queueService.js';
 
 const router = Router();
 
@@ -72,6 +75,7 @@ function formatStatusContract(invoice: any) {
         },
         zatca: {
             status: (invoice.status === 'CLEARED' || invoice.status === 'REPORTED') ? 'REPORTED' : ((invoice.status === 'FAILED' || invoice.status === 'DLQ') ? 'FAILED' : 'PENDING'),
+            qrCode: invoice.qr_code,
             errors: invoice.error_log ? [{ code: 'BR-REJECTION', message: invoice.error_log }] : validationResults.filter((r: any) => r.type === 'ERROR'),
             warnings: validationResults.filter((r: any) => r.type === 'WARNING')
         }
@@ -85,6 +89,13 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
     const timestamp = req.headers['x-timestamp'] as string;
     const signature = req.headers['x-signature'] as string;
     const nonce = req.headers['x-nonce'] as string;
+    const apiKey = req.headers['x-api-key'] as string;
+
+    // --- 0. HMAC Bypass for Simple API Communication ---
+    if (apiKey && !signature) {
+        console.log(`[AUTH] HMAC Bypassed for Simple Communication (API Key present)`);
+        return authenticateSimple(req, res, next);
+    }
 
     if (!clientId || !timestamp || !nonce || !signature) {
         console.warn(`[V2 HMAC] Missing Headers on ${req.originalUrl} from ${req.ip}. Headers: clientId=${!!clientId}, ts=${!!timestamp}, nonce=${!!nonce}, sig=${!!signature}`);
@@ -95,22 +106,31 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         const trimmedClientId = clientId.trim();
         const serverTime = Date.now();
         
-        // --- 1. Timestamp & Nonce (Optional/Skipped in Bypass mode) ---
-        if (timestamp && nonce) {
-            const requestTime = new Date(timestamp).getTime();
-            if (!isNaN(requestTime) && Math.abs(serverTime - requestTime) < 5 * 60 * 1000) {
-                const nonceKey = `nonce:${trimmedClientId}:${nonce}`;
-                usedNonces.set(nonceKey, serverTime + 5 * 60 * 1000);
-            }
+        // --- 1. Timestamp Validation (Strict 5-Minute Window) ---
+        const requestTime = new Date(timestamp).getTime();
+        if (isNaN(requestTime)) {
+            return sendError(res, 401, 'INVALID_TIMESTAMP', 'Timestamp format is invalid');
         }
 
-        // --- 3. Client Identity & HMAC Verification ---
-        // Validate UUID format before querying to prevent Prisma crash
-        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        const isUuidValid = UUID_REGEX.test(trimmedClientId);
-        console.log(`[AUTH] Client ID: "${trimmedClientId}", Valid UUID: ${isUuidValid}`);
+        const timeDiff = Math.abs(serverTime - requestTime);
+        const driftSeconds = Math.round(timeDiff / 1000);
+        
+        if (timeDiff > 5 * 60 * 1000) {
+            console.warn(`[V2 HMAC] Clock Drift Failure: Client ${trimmedClientId} sent ${timestamp} (Diff: ${driftSeconds}s)`);
+            return sendError(res, 401, 'EXPIRED_REQUEST', `Request timestamp is outside the allowed 5-minute window. Drift: ${driftSeconds}s. Received: ${timestamp}`);
+        }
 
-        if (!isUuidValid) {
+        // --- 2. Replay Protection (Nonce Uniqueness) ---
+        const nonceKey = `nonce:${trimmedClientId}:${nonce}`;
+        if (usedNonces.has(nonceKey)) {
+            console.warn(`[V2 HMAC] Replay Attack Detected: Nonce ${nonce} reused by client ${trimmedClientId}`);
+            return sendError(res, 401, 'REPLAY_ATTACK', 'Nonce already used');
+        }
+        usedNonces.set(nonceKey, serverTime + 5 * 60 * 1000);
+
+        // --- 3. Client Identity & HMAC Verification ---
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!UUID_REGEX.test(trimmedClientId)) {
             return sendError(res, 401, 'UNAUTHORIZED', 'Invalid Client ID format (Expected UUID)');
         }
 
@@ -121,14 +141,30 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
 
         if (!erpConfig) return sendError(res, 401, 'UNAUTHORIZED', 'Invalid or inactive Client ID');
 
-        // --- 3. HMAC Verification (BYPASSED as per request) ---
-        console.log(`[AUTH] HMAC Bypassed for Client: ${trimmedClientId}`);
-        // Verification skipped to allow external ERP communication without signature requirements
-        const authResult = { isValid: true }; 
+        // --- 4. Cryptographic Verification ---
+        const secret = erpConfig.api_key || process.env.V2_FALLBACK_SECRET;
+        if (!secret) {
+            console.error(`[V2 HMAC] Security Gap: No secret configured for Client ${trimmedClientId}`);
+            return sendError(res, 500, 'SECURITY_MISCONFIG', 'Server side security configuration missing');
+        }
+
+        const authResult = SecurityService.verifySignature(
+            secret,
+            timestamp,
+            nonce,
+            req.method,
+            req.originalUrl.split('?')[0],
+            req.body,
+            signature
+        );
+
         if (!authResult.isValid) {
             console.error(`[V2 HMAC] Signature Failure for Client: ${trimmedClientId} on Path: ${req.originalUrl}`);
+            // console.debug(`[V2 HMAC] Expected Data: ${authResult.expectedData}`); // Only for internal debug
             return sendError(res, 401, 'INVALID_SIGNATURE', 'HMAC signature verification failed');
         }
+
+        console.log(`[AUTH] HMAC Verified successfully for Client: ${trimmedClientId}`);
 
         // --- 4. Industrial 2-Tier Rate Limiting (Requirement 2) ---
         if (!(global as any).apiRateLimits) (global as any).apiRateLimits = {};
@@ -194,9 +230,44 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
         const company = (req as any).company;
         const payload = req.body;
 
+        // --- 0. Auto-populate Supplier (ZATCA Data Normalization) ---
+        // Requirement: Always include Supplier CRN, VAT, and Address
+        if (!payload.supplier || !payload.supplier.vatNumber || !payload.supplier.address?.streetName) {
+            const supplierAddress = payload.supplier?.address || {};
+            payload.supplier = {
+                name: company.registered_name,
+                registrationName: company.registered_name,
+                vatNumber: company.vat_number,
+                crNumber: company.cr_number,
+                address: {
+                    streetName: supplierAddress.streetName || company.street_name || 'Main Street',
+                    buildingNumber: supplierAddress.buildingNumber || company.building_number || '0000',
+                    cityName: supplierAddress.cityName || company.city || 'Riyadh',
+                    postalZone: supplierAddress.postalZone || company.postal_zone || '00000',
+                    citySubdivisionName: supplierAddress.citySubdivisionName || company.city_subdivision || company.city || 'Riyadh',
+                    countryCode: supplierAddress.countryCode || company.country || 'SA'
+                }
+            };
+        }
+
+        // --- 0.1 Auto-populate Customer (Ensure structural integrity) ---
+        if (!payload.customer) {
+            payload.customer = {
+                name: 'Cash Customer',
+                vatNumber: '300000000000003', // Default for simplified
+                address: {
+                    streetName: 'Unknown',
+                    buildingNumber: '0000',
+                    cityName: 'Riyadh',
+                    postalZone: '00000',
+                    countryCode: 'SA'
+                }
+            };
+        }
+
         // --- 1. Absolute Idempotency (Requirement: Optimized Cached Response) ---
         const idempotencyKey = payload.idempotencyKey || payload.invoiceNumber;
-        const currentHash = crypto.createHash('sha256').update(SecurityService.stableStringify(payload)).digest('hex');
+        const idempotencyHash = crypto.createHash('sha256').update(SecurityService.stableStringify(payload)).digest('hex');
         
         const existing = await prisma.invoice.findFirst({
             where: { company_id: company.id, submission_id: idempotencyKey }
@@ -206,7 +277,7 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
             const originalPayload = (existing.metadata as any)?.originalPayload;
             const originalHash = existing.hash || crypto.createHash('sha256').update(SecurityService.stableStringify(originalPayload)).digest('hex');
             
-            if (currentHash !== originalHash) {
+            if (idempotencyHash !== originalHash) {
                 return res.status(409).json({ status: 'ERROR', code: 'CONFLICT', message: 'Payload mismatch for existing key' });
             }
             
@@ -230,11 +301,23 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
 
         // 2. Compliance Injection & Hash Chaining
         const invoiceData = injectComplianceFields(payload, documentType);
+        
+        // --- 2.1 Critical Compliance Check ---
+        const validation = validateHardenedCompliance(invoiceData);
+        if (!validation.isValid) {
+            return sendError(res, 400, 'COMPLIANCE_ERROR', 'The provided data fails ZATCA mandatory requirements', validation.errors);
+        }
+
+        // Retrieve the last successful OR pending invoice to maintain a strict chain
         const lastInvoice = await prisma.invoice.findFirst({
-            where: { company_id: company.id, status: { in: ['REPORTED', 'CLEARED'] } },
+            where: { company_id: company.id },
             orderBy: { created_at: 'desc' }
         });
-        invoiceData.previousInvoiceHash = lastInvoice?.hash || 'NWZlY2ViOTZmOTk1YTRiMGNjM2YwOTUwZGYzMmM2MGFlNzVhYzZlZDAyODEzNTdhYTAzNzhkZTE2MzYxNzM5Yg==';
+        
+        const chain = await processInvoiceChaining(invoiceData, lastInvoice?.hash || null);
+        invoiceData.uuid = chain.uuid;
+        invoiceData.previousInvoiceHash = chain.previousHash;
+        const finalHash = chain.invoiceHash;
 
         // 3. Persistence (Requirement 5: Multi-Tenant)
         const saved = await InvoiceService.createInvoice({
@@ -245,8 +328,8 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
             total_amount: invoiceData.totalAmount || 0,
             tax_amount: invoiceData.vatAmount || 0,
             status: 'PENDING',
-            type: invoiceData.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
-            hash: currentHash,
+            type: invoiceData.invoiceSubtype === 'STANDARD' ? 'B2B' : 'B2C',
+            hash: finalHash,
             qr_code: '',
             xml_payload: JSON.stringify(invoiceData),
             submission_id: idempotencyKey,
@@ -292,22 +375,170 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
     }
 };
 
+/**
+ * ── RETAIL MODE: Synchronous Submission ──
+ * Returns QR Code and Hash IMMEDIATELY.
+ * Reporting to ZATCA still happens in background to avoid blocking the sale.
+ */
+const handleSyncSubmission = async (req: Request, res: Response, type: 'Invoice' | 'CreditNote' | 'DebitNote') => {
+    try {
+        const company = (req as any).company;
+        const payload = req.body;
+
+        const injected = injectComplianceFields(payload, type.toUpperCase() as any);
+
+        // 0. Compliance Hardening & Validation
+        const validation = validateHardenedCompliance(injected);
+        if (!validation.isValid) {
+            return sendError(res, 400, 'COMPLIANCE_ERROR', 'The provided data fails ZATCA mandatory requirements', validation.errors);
+        }
+
+        const idempotencyKey = req.headers['idempotency-key'] as string;
+        const invoiceNumber = payload.invoiceNumber;
+
+        // Idempotency check: Don't process the same invoice twice
+        const existing = await prisma.invoice.findFirst({
+            where: {
+                company_id: company.id,
+                invoice_number: invoiceNumber,
+                is_deleted: false
+            }
+        });
+
+        if (existing) {
+            return res.status(200).json({
+                status: 'SUCCESS',
+                message: 'Invoice already processed (Idempotency)',
+                invoiceId: existing.id,
+                hash: existing.hash,
+                qrCode: existing.qr_code
+            });
+        }
+
+        // 2. Determine Previous Hash (PIH) with Row Locking
+        const { pih } = await prisma.$transaction(async (tx) => {
+            // Lock the company row to ensure sequence
+            await tx.$executeRaw`SELECT id FROM companies WHERE id = ${company.id} FOR UPDATE`;
+
+            const prev = await tx.invoice.findFirst({
+                where: {
+                    company_id: company.id,
+                    OR: [
+                        { hash: { not: null } },
+                        { zatca_hash: { not: null } }
+                    ],
+                    status: { not: 'FAILED' }
+                },
+                orderBy: { id: 'desc' },
+                select: { hash: true, zatca_hash: true }
+            });
+
+            return {
+                pih: prev?.zatca_hash || prev?.hash || INITIAL_PIH
+            };
+        });
+
+        injected.previousInvoiceHash = pih;
+
+        // 3. Generate XML
+        const xmlContent = generateInvoiceXML(injected);
+
+        // 4. SIGN IMMEDIATELY (Fetch Cert first)
+        const cert = await prisma.certificate.findFirst({
+            where: { company_id: company.id, status: 'ACTIVE' }
+        });
+
+        if (!cert || !cert.certificate || !cert.private_key) {
+            return sendError(res, 403, 'CERTIFICATE_MISSING', 'No active ZATCA certificate found for this company.');
+        }
+
+        const decryptedSecret = SecurityService.decrypt(cert.private_key);
+        
+        // SYNC SIGNING CALL
+        const { signedXml, hash, qr } = await signInvoice(xmlContent, cert.certificate, decryptedSecret);
+
+        // 5. Store in DB
+        const saved = await prisma.invoice.create({
+            data: {
+                company_id: company.id,
+                uuid: injected.uuid,
+                submission_id: `SYNC-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                invoice_number: injected.invoiceNumber,
+                date: new Date(), // DB storage time
+                total_amount: injected.totalWithVat,
+                tax_amount: injected.totalVat,
+                currency: injected.currencyCode || 'SAR',
+                status: 'PENDING',
+                hash: hash,
+                qr_code: qr,
+                xml_payload: JSON.stringify(injected),
+                signed_xml: signedXml,
+                metadata: { 
+                    source: 'RETAIL_SYNC', 
+                    syncAt: getKSATimestamp(),
+                    idempotencyKey 
+                }
+            }
+        });
+
+        // 6. Queue for Background Reporting
+        QueueService.addToQueue({
+            invoiceId: saved.id,
+            companyId: company.id,
+            environment: company.environment,
+            retryCount: 0
+        });
+
+        // 7. RETURN IMMEDIATE SUCCESS WITH QR
+        return res.status(200).json({
+            status: 'ACCEPTED',
+            message: 'Invoice accepted and QR generated successfully.',
+            jobId: saved.uuid,
+            invoiceHash: hash,
+            previousInvoiceHash: pih,
+            qrCode: qr,
+            metadata: {
+                uuid: saved.uuid,
+                type: saved.document_type,
+                subtype: saved.invoice_subtype
+            }
+        });
+
+    } catch (error: any) {
+        console.error('[Sync Submission] Error:', error);
+        sendError(res, 500, 'TECHNICAL_ERROR', error.message);
+    }
+};
+
+// ── Auth Configuration ────────────────────────────────────────────────────
+// Apply HMAC middleware globally - it handles both HMAC and Simple API Key fallback.
+router.use(authenticateHMAC);
+
 // ── Simple API Routes (V1 Proxy Mode) ──────────────────────────────────────────
-// These routes do NOT require HMAC/Nonce. Only x-api-key.
-// Endpoint: POST /api/v1/erp/v1/submit
-router.post('/erp/v1/submit', authenticateSimple, (req, res) => {
+// Endpoint: POST /api/v1/erp/submit
+router.post('/erp/submit', (req, res) => {
     const docType = req.body.documentType || 'Invoice';
     handleAsyncSubmission(req, res, docType as any);
 });
 
-// Endpoint: GET /api/v1/erp/v1/status/:jobId
-// Note: :jobId? makes it optional so we can catch empty jobId and give a better error than HMAC failure
-router.get(['/erp/v1/status', '/erp/v1/status/:jobId'], authenticateSimple, async (req, res) => {
+// Endpoint: POST /api/v1/erp/submit/sync (RETAIL MODE)
+router.post('/erp/submit/sync', (req, res) => {
+    const docType = req.body.documentType || 'Invoice';
+    handleSyncSubmission(req, res, docType as any);
+});
+
+// Alias for consistency
+router.post('/erp/invoices/sync', (req, res) => {
+    handleSyncSubmission(req, res, 'Invoice');
+});
+
+// Endpoint: GET /api/v1/erp/status/:jobId
+router.get(['/erp/status', '/erp/status/:jobId'], async (req, res) => {
     try {
         const { jobId } = req.params;
 
         if (!jobId) {
-            return sendError(res, 400, 'MISSING_PARAMETER', 'Job ID is required. Use /api/v1/erp/v1/status/{{jobId}}');
+            return sendError(res, 400, 'MISSING_PARAMETER', 'Job ID is required. Use /api/v1/erp/status/{{jobId}}');
         }
 
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
@@ -327,8 +558,7 @@ router.get(['/erp/v1/status', '/erp/v1/status/:jobId'], authenticateSimple, asyn
     }
 });
 
-// ── Enterprise V2 Routes (Require HMAC) ─────────────────────────────────────────
-router.use(authenticateHMAC);
+// ── Enterprise V2 Routes ───────────────────────────────────────────────────────
 
 /**
  * @swagger
@@ -352,10 +582,15 @@ router.use(authenticateHMAC);
  *             properties:
  *               invoiceNumber: { type: string, example: "INV-2026-001" }
  *               idempotencyKey: { type: string, example: "req-unique-123" }
- *               invoiceSubtype: { type: string, enum: [Standard, Simplified], default: "Simplified" }
+ *               invoiceSubtype: { type: string, enum: [STANDARD, SIMPLIFIED], default: "SIMPLIFIED" }
  *               issueDate: { type: string, format: date-time }
- *               totalAmount: { type: number, example: 115.00 }
+ *               currencyCode: { type: string, example: "SAR", default: "SAR" }
+ *               lineExtensionAmount: { type: number, description: "Sum of line net amounts", example: 100.00 }
+ *               taxExclusiveAmount: { type: number, description: "Total net amount", example: 100.00 }
+ *               taxInclusiveAmount: { type: number, description: "Total gross amount", example: 115.00 }
+ *               totalAmount: { type: number, description: "Total gross amount (Alias for taxInclusiveAmount)", example: 115.00 }
  *               vatAmount: { type: number, example: 15.00 }
+ *               payableAmount: { type: number, description: "Final amount to pay", example: 115.00 }
  *               customer:
  *                 type: object
  *                 properties:
@@ -369,6 +604,7 @@ router.use(authenticateHMAC);
  *                     name: { type: string, example: "Product A" }
  *                     quantity: { type: number, example: 1 }
  *                     unitPrice: { type: number, example: 100 }
+ *                     vatRate: { type: number, example: 0.15 }
  *     responses:
  *       202:
  *         description: Accepted. Returns jobId for status tracking.

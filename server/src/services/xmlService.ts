@@ -4,60 +4,82 @@ import { appendFileSync } from 'fs';
 import { Invoice } from '../types.js';
 import crypto from 'crypto';
 import { signInvoice as signInvoiceSDK } from './sdkService.js';
+import { getKSATimestamp, INITIAL_PIH } from '../utils/api-helpers.js';
 
 const safeNum = (v: any) => Number(v) || 0;
 
 export const generateInvoiceXML = (invoice: Invoice) => {
-    // Robust calculation for Totals
-    let calcTax = 0;
-    let calcTotal = 0;
-    let calcExclusive = 0;
+    // 1. Unified Math (Halala-based to avoid float drift)
+    const toHalala = (n: number) => Math.round((n + Number.EPSILON) * 100);
+    const fromHalala = (n: number) => (n / 100).toFixed(2);
+    
+    let totalExclusiveHalala = 0;
+    let totalVatHalala = 0;
+    const taxSubtotals: Record<string, { taxableHalala: number, taxHalala: number, rate: number, category: string }> = {};
 
-    if (Array.isArray(invoice.items)) {
-        invoice.items.forEach(it => {
-            const sub = safeNum(it.subtotal || (safeNum(it.quantity) * safeNum(it.unitPrice)));
-            const rate = safeNum(it.vatRate || 0.15);
-            const lineTax = safeNum((it as any).taxAmount || it.vatAmount || (sub * rate));
-            calcTax += lineTax;
-            calcExclusive += sub;
-            calcTotal += (sub + lineTax);
-        });
-    }
+    const items = (Array.isArray(invoice.items) ? invoice.items : []).map((it, idx) => {
+        const qty = safeNum(it.quantity);
+        const price = safeNum(it.unitPrice);
+        const discount = safeNum(it.discount);
+        const rate = safeNum(it.vatRate || it.taxRate || 0.15);
+        const ratePercent = rate < 1 ? rate * 100 : rate;
+        const category = it.taxCategory || it.taxCategoryCode || 'S';
 
-    const totalAmount = (safeNum(invoice.totalAmount) || calcTotal).toFixed(2);
-    const taxAmount = (safeNum((invoice as any).taxAmount || invoice.vatAmount) || calcTax).toFixed(2);
-    const taxExclusiveAmount = (safeNum(invoice.taxExclusiveAmount || (invoice.totalAmount - (invoice.vatAmount || 0))) || calcExclusive).toFixed(2);
+        const grossHalala = toHalala(qty * price);
+        const discountHalala = toHalala(discount);
+        const lineNetHalala = grossHalala - discountHalala;
+        const lineVatHalala = Math.round((lineNetHalala * ratePercent) / 100);
 
-    const rawIssueDate = (invoice as any).issueDate || new Date().toISOString();
-    const issueDate = String(rawIssueDate);
-    const datePart = issueDate.includes('T') ? issueDate.split('T')[0] : issueDate.split(' ')[0];
-    const timePart = issueDate.includes('T') 
-        ? issueDate.split('T')[1].split('.')[0].split('+')[0].split('Z')[0] 
-        : (issueDate.includes(' ') ? issueDate.split(' ')[1].split('.')[0] : '00:00:00');
+        totalExclusiveHalala += lineNetHalala;
+        totalVatHalala += lineVatHalala;
+
+        // Group for TaxSubtotal
+        const key = `${category}_${ratePercent.toFixed(2)}`;
+        if (!taxSubtotals[key]) {
+            taxSubtotals[key] = { taxableHalala: 0, taxHalala: 0, rate: ratePercent, category };
+        }
+        taxSubtotals[key].taxableHalala += lineNetHalala;
+        taxSubtotals[key].taxHalala += lineVatHalala;
+
+        return {
+            ...it,
+            lineNetStr: fromHalala(lineNetHalala),
+            lineVatStr: fromHalala(lineVatHalala),
+            ratePercentStr: ratePercent.toFixed(2),
+            category,
+            qtyStr: qty.toString(),
+            priceStr: price.toFixed(2)
+        };
+    });
+
+    const totalInclusiveHalala = totalExclusiveHalala + totalVatHalala;
+
+    const ksaTimestamp = getKSATimestamp(invoice.issueDate ? new Date(invoice.issueDate) : undefined);
+    const [datePart, timeWithOffset] = ksaTimestamp.split('T');
+    const timePart = timeWithOffset.split('+')[0].split('.')[0]; // HH:mm:ss
 
     try {
+        const isStandard = invoice.invoiceSubtype === 'STANDARD';
+        const typeCode = invoice.documentType === 'CREDIT_NOTE' ? '381' : (invoice.documentType === 'DEBIT_NOTE' ? '383' : '388');
+        const subtypeCode = isStandard ? '0100000' : '0200000';
+
         const xml = create({ version: '1.0', encoding: 'UTF-8' })
             .ele('Invoice', {
                 'xmlns': 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2',
                 'xmlns:cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
-                'xmlns:cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2'
+                'xmlns:cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
+                'xmlns:ext': 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2',
+                'xmlns:sig': 'urn:oasis:names:specification:ubl:schema:xsd:CommonSignatureComponents-2',
+                'xmlns:sac': 'urn:oasis:names:specification:ubl:schema:xsd:SignatureAggregateComponents-2',
+                'xmlns:sbc': 'urn:oasis:names:specification:ubl:schema:xsd:SignatureBasicComponents-2',
+                'xmlns:ds': 'http://www.w3.org/2000/09/xmldsig#'
             })
-            .ele('cbc:ProfileID').txt('reporting:1.0').up()
-            .ele('cbc:ID').txt(invoice.invoiceNumber || 'SIM-' + Date.now()).up()
-            .ele('cbc:UUID').txt(crypto.randomUUID()).up()
+            .ele('cbc:ProfileID').txt(isStandard ? 'clearance:1.0' : 'reporting:1.0').up()
+            .ele('cbc:ID').txt(invoice.invoiceNumber).up()
+            .ele('cbc:UUID').txt(invoice.uuid || crypto.randomUUID()).up()
             .ele('cbc:IssueDate').txt(datePart).up()
-            .ele('cbc:IssueTime').txt(timePart).up();
-
-        // Map Document Type to ZATCA InvoiceTypeCode
-        // 388 = Invoice, 381 = Credit Note, 383 = Debit Note
-        let typeCode = '388';
-        if (invoice.documentType === 'Credit Note' || invoice.documentType === 'CREDIT_NOTE') typeCode = '381';
-        else if (invoice.documentType === 'Debit Note' || invoice.documentType === 'DEBIT_NOTE') typeCode = '383';
-
-        // Subtype (Simplified vs Standard)
-        const subtypeCode = invoice.invoiceSubtype === 'Standard' ? '0100000' : '0200000';
-
-        xml.ele('cbc:InvoiceTypeCode', { name: subtypeCode }).txt(typeCode).up()
+            .ele('cbc:IssueTime').txt(timePart).up()
+            .ele('cbc:InvoiceTypeCode', { name: subtypeCode }).txt(typeCode).up()
             .ele('cbc:Note').txt(invoice.instructionNote || 'This is a computer generated invoice').up()
             .ele('cbc:DocumentCurrencyCode').txt(invoice.currencyCode || 'SAR').up()
             .ele('cbc:TaxCurrencyCode').txt('SAR').up()
@@ -67,28 +89,38 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .ele('cbc:ID').txt('PIH').up()
             .ele('cac:Attachment')
             .ele('cbc:EmbeddedDocumentBinaryObject', { mimeCode: 'text/plain' })
-            .txt(invoice.previousInvoiceHash || 'NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMjRiZmQ3NTI0MjkzZjBlYTRiM2IzZTk4MTU1MWNiMA==')
+            .txt(invoice.previousInvoiceHash || INITIAL_PIH)
+            .up()
             .up()
             .up();
 
         // Billing Reference (Mandatory for Credit/Debit Notes)
         if (invoice.billingReference) {
-            xml.ele('cac:BillingReference')
-                .ele('cac:InvoiceDocumentReference')
-                .ele('cbc:ID').txt(invoice.billingReference).up()
-                .up()
-                .up();
+            const br = invoice.billingReference;
+            const brId = typeof br === 'string' ? br : br.id;
+            const brNode = xml.ele('cac:BillingReference')
+                .ele('cac:InvoiceDocumentReference');
+            
+            brNode.ele('cbc:ID').txt(brId).up();
+            
+            if (typeof br !== 'string' && br.issueDate) {
+                brNode.ele('cbc:IssueDate').txt(br.issueDate).up();
+            }
+            if (typeof br !== 'string' && br.uuid) {
+                brNode.ele('cbc:UUID').txt(br.uuid).up();
+            }
         }
 
         // Supplier
         xml.ele('cac:AccountingSupplierParty')
             .ele('cac:Party')
             .ele('cac:PartyIdentification')
-            .ele('cbc:ID', { schemeID: 'CRN' }).txt('1010010000').up() // Should be dynamic
+            .ele('cbc:ID', { schemeID: 'CRN' }).txt(invoice.supplier?.crNumber || '1010010000').up()
             .up()
             .ele('cac:PostalAddress')
             .ele('cbc:StreetName').txt(invoice.supplier?.address?.streetName || 'Unknown').up()
             .ele('cbc:BuildingNumber').txt(invoice.supplier?.address?.buildingNumber || '0000').up()
+            .ele('cbc:CitySubdivisionName').txt(invoice.supplier?.address?.citySubdivisionName || invoice.supplier?.address?.cityName || 'Riyadh').up()
             .ele('cbc:CityName').txt(invoice.supplier?.address?.cityName || 'Riyadh').up()
             .ele('cbc:PostalZone').txt(invoice.supplier?.address?.postalZone || '12345').up()
             .ele('cbc:CountrySubentity').txt(invoice.supplier?.address?.cityName || 'Riyadh').up()
@@ -103,7 +135,7 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .up()
             .up()
             .ele('cac:PartyLegalEntity')
-            .ele('cbc:RegistrationName').txt(invoice.supplier?.name || 'Tech Solutions Ltd').up()
+            .ele('cbc:RegistrationName').txt(invoice.supplier?.registrationName || invoice.supplier?.name || 'Tech Solutions Ltd').up()
             .up()
             .up()
             .up()
@@ -114,6 +146,7 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .ele('cac:PostalAddress')
             .ele('cbc:StreetName').txt(invoice.customer?.address?.streetName || 'Unknown').up()
             .ele('cbc:BuildingNumber').txt(invoice.customer?.address?.buildingNumber || '0000').up()
+            .ele('cbc:CitySubdivisionName').txt(invoice.customer?.address?.citySubdivisionName || invoice.customer?.address?.cityName || 'Riyadh').up()
             .ele('cbc:CityName').txt(invoice.customer?.address?.cityName || 'Riyadh').up()
             .ele('cbc:PostalZone').txt(invoice.customer?.address?.postalZone || '12345').up()
             .ele('cac:Country')
@@ -121,7 +154,7 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .up()
             .up()
             .ele('cac:PartyTaxScheme')
-            .ele('cbc:CompanyID').txt(invoice.customer?.vatNumber || '300000000000003').up() // Default for simplified if unknown
+            .ele('cbc:CompanyID').txt(invoice.customer?.vatNumber || '300000000000003').up()
             .ele('cac:TaxScheme')
             .ele('cbc:ID').txt('VAT').up()
             .up()
@@ -130,79 +163,76 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .ele('cbc:RegistrationName').txt(invoice.customer?.name || 'Cash Client').up()
             .up()
             .up()
-            .up()
-
-            // Tax Total
-            .ele('cac:TaxTotal')
-            .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(taxAmount).up()
-            .ele('cac:TaxSubtotal')
-            .ele('cbc:TaxableAmount', { currencyID: 'SAR' }).txt(taxExclusiveAmount).up()
-            .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(taxAmount).up()
-            .ele('cac:TaxCategory')
-            .ele('cbc:ID').txt(invoice.taxCategory || 'S').up() // Shared category
-            .ele('cbc:Percent').txt(safeNum(taxAmount) > 0 ? (safeNum(invoice.vatRate) * 100 || 15).toFixed(2) : '0.00').up()
-            .ele('cac:TaxScheme')
-            .ele('cbc:ID').txt('VAT').up()
-            .up()
-            .up()
-            .up()
-            .up()
-
-            // Totals
-            .ele('cac:LegalMonetaryTotal')
-            .ele('cbc:LineExtensionAmount', { currencyID: 'SAR' }).txt(taxExclusiveAmount).up()
-            .ele('cbc:TaxExclusiveAmount', { currencyID: 'SAR' }).txt(taxExclusiveAmount).up()
-            .ele('cbc:TaxInclusiveAmount', { currencyID: 'SAR' }).txt(totalAmount).up()
-            .ele('cbc:PayableAmount', { currencyID: 'SAR' }).txt(totalAmount).up()
             .up();
 
+        // Tax Total Section
+        const taxTotalNode = xml.ele('cac:TaxTotal');
+        taxTotalNode.ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(fromHalala(totalVatHalala)).up();
+        
+        Object.values(taxSubtotals).forEach(sub => {
+            taxTotalNode.ele('cac:TaxSubtotal')
+                .ele('cbc:TaxableAmount', { currencyID: 'SAR' }).txt(fromHalala(sub.taxableHalala)).up()
+                .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(fromHalala(sub.taxHalala)).up()
+                .ele('cac:TaxCategory')
+                    .ele('cbc:ID').txt(sub.category).up()
+                    .ele('cbc:Percent').txt(sub.rate.toFixed(2)).up()
+                    .ele('cac:TaxScheme')
+                        .ele('cbc:ID').txt('VAT').up()
+                    .up()
+                .up()
+            .up();
+        });
+        taxTotalNode.up();
+
+        // Legal Monetary Totals (ZATCA Full Breakdown Requirement)
+        xml.ele('cac:LegalMonetaryTotal')
+            .ele('cbc:LineExtensionAmount', { currencyID: 'SAR' }).txt(fromHalala(totalExclusiveHalala)).up()
+            .ele('cbc:TaxExclusiveAmount', { currencyID: 'SAR' }).txt(fromHalala(totalExclusiveHalala)).up()
+            .ele('cbc:TaxInclusiveAmount', { currencyID: 'SAR' }).txt(fromHalala(totalInclusiveHalala)).up()
+            .ele('cbc:AllowanceTotalAmount', { currencyID: 'SAR' }).txt('0.00').up()
+            .ele('cbc:ChargeTotalAmount', { currencyID: 'SAR' }).txt('0.00').up()
+            .ele('cbc:PayableAmount', { currencyID: 'SAR' }).txt(fromHalala(totalInclusiveHalala)).up()
+            .up();
+
+
         // Map items...
-        if (Array.isArray(invoice.items)) {
-            invoice.items.forEach((item, index) => {
-                const vatRateRaw = safeNum(item.vatRate) || 0.15;
-                const vatRatePercent = (vatRateRaw < 1) ? (vatRateRaw * 100) : vatRateRaw;
-                const subtotal = safeNum(item.subtotal) || (safeNum(item.quantity) * safeNum(item.unitPrice));
-                const lineExtensionAmount = subtotal.toFixed(2);
-                const itemTaxAmount = (subtotal * (vatRatePercent / 100)).toFixed(2);
-
-                xml.ele('cac:InvoiceLine')
-                    .ele('cbc:ID').txt((index + 1).toString()).up()
-                    .ele('cbc:InvoicedQuantity', { unitCode: 'PCE' }).txt(safeNum(item.quantity).toString()).up()
-                    .ele('cbc:LineExtensionAmount', { currencyID: 'SAR' }).txt(lineExtensionAmount).up()
-                    
-                    .ele('cac:TaxTotal')
-                        .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(itemTaxAmount).up()
-                        .ele('cac:TaxSubtotal')
-                            .ele('cbc:TaxableAmount', { currencyID: 'SAR' }).txt(lineExtensionAmount).up()
-                            .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(itemTaxAmount).up()
-                            .ele('cac:TaxCategory')
-                                .ele('cbc:ID').txt(item.taxCategory || 'S').up()
-                                .ele('cbc:Percent').txt(vatRatePercent.toFixed(2)).up()
-                                .ele('cac:TaxScheme')
-                                    .ele('cbc:ID').txt('VAT').up()
-                                .up() // Close TaxScheme
-                            .up() // Close TaxCategory
-                        .up() // Close TaxSubtotal
-                    .up() // Close TaxTotal
-
-                    .ele('cac:Item')
-                        .ele('cbc:Name').txt(item.name || 'Item').up()
-                        .ele('cbc:Description').txt(item.nameAr || item.description || '').up()
-                        .ele('cac:ClassifiedTaxCategory')
-                            .ele('cbc:ID').txt(item.taxCategory || 'S').up()
-                            .ele('cbc:Percent').txt(vatRatePercent.toFixed(2)).up()
+        items.forEach((item, index) => {
+            xml.ele('cac:InvoiceLine')
+                .ele('cbc:ID').txt((index + 1).toString()).up()
+                .ele('cbc:InvoicedQuantity', { unitCode: 'PCE' }).txt(item.qtyStr).up()
+                .ele('cbc:LineExtensionAmount', { currencyID: 'SAR' }).txt(item.lineNetStr).up()
+                
+                .ele('cac:TaxTotal')
+                    .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(item.lineVatStr).up()
+                    .ele('cac:TaxSubtotal')
+                        .ele('cbc:TaxableAmount', { currencyID: 'SAR' }).txt(item.lineNetStr).up()
+                        .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(item.lineVatStr).up()
+                        .ele('cac:TaxCategory')
+                            .ele('cbc:ID').txt(item.category).up()
+                            .ele('cbc:Percent').txt(item.ratePercentStr).up()
                             .ele('cac:TaxScheme')
                                 .ele('cbc:ID').txt('VAT').up()
                             .up() // Close TaxScheme
-                        .up() // Close ClassifiedTaxCategory
-                    .up() // Close Item
-                    
-                    .ele('cac:Price')
-                        .ele('cbc:PriceAmount', { currencyID: 'SAR' }).txt(safeNum(item.unitPrice).toFixed(2)).up()
-                    .up() // Close Price
-                .up(); // Close InvoiceLine
-            });
-        }
+                        .up() // Close TaxCategory
+                    .up() // Close TaxSubtotal
+                .up() // Close TaxTotal
+
+                .ele('cac:Item')
+                    .ele('cbc:Name').txt(item.name || 'Item').up()
+                    .ele('cac:ClassifiedTaxCategory')
+                        .ele('cbc:ID').txt(item.category).up()
+                        .ele('cbc:Percent').txt(item.ratePercentStr).up()
+                        .ele('cac:TaxScheme')
+                            .ele('cbc:ID').txt('VAT').up()
+                        .up() // Close TaxScheme
+                    .up() // Close ClassifiedTaxCategory
+                .up() // Close Item
+                
+                .ele('cac:Price')
+                    .ele('cbc:PriceAmount', { currencyID: 'SAR' }).txt(item.priceStr).up()
+                .up() // Close Price
+            .up(); // Close InvoiceLine
+        });
 
         return xml.end({ prettyPrint: true });
     } catch (err: any) {
@@ -232,3 +262,5 @@ export const signInvoiceXML = async (xmlContent: string, certificate: string, pr
         throw error;
     }
 }
+
+export const createInvoiceXml = generateInvoiceXML;

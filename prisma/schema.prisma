@@ -142,6 +142,7 @@ model invoice {
   status                invoice_status? @default(PENDING)
   type                  invoice_type?   @default(B2B)
   hash                  String?
+  zatca_hash            String?
   previous_invoice_hash String?
   xml_payload           String?
   cleared_xml_payload   String?

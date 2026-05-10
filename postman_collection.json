@@ -49,7 +49,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"invoiceNumber\": \"INV-B-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-b-{{$guid}}\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:44:09+03:00\",\n  \"totalAmount\": 1150.00,\n  \"taxExclusiveAmount\": 1000.00,\n  \"vatAmount\": 150.00,\n  \"paymentMeansCode\": \"30\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"311111111111113\",\n    \"city\": \"Jeddah\",\n    \"streetName\": \"Prince Sultan Road\",\n    \"buildingNumber\": \"4321\",\n    \"postalZone\": \"54321\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 10,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 1000.00,\n      \"vatAmount\": 150.00,\n      \"totalWithVat\": 1150.00\n    }\n  ]\n}",
+							"raw": "{\n  \"invoiceNumber\": \"INV-B-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-b-{{$guid}}\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:44:09+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 1000.00,\n  \"taxExclusiveAmount\": 1000.00,\n  \"taxInclusiveAmount\": 1150.00,\n  \"totalAmount\": 1150.00,\n  \"payableAmount\": 1150.00,\n  \"vatAmount\": 150.00,\n  \"paymentMeansCode\": \"30\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"311111111111113\",\n    \"city\": \"Jeddah\",\n    \"streetName\": \"Prince Sultan Road\",\n    \"buildingNumber\": \"4321\",\n    \"postalZone\": \"54321\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 10,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 1000.00,\n      \"vatAmount\": 150.00,\n      \"totalWithVat\": 1150.00\n    }\n  ]\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
@@ -72,7 +72,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"invoiceNumber\": \"INV-C-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-c-{{$guid}}\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T14:30:00+03:00\",\n  \"totalAmount\": 115.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"vatAmount\": 15.00,\n  \"paymentMeansCode\": \"48\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"عميل نقدي\",\n    \"city\": \"Riyadh\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Retail Item\",\n      \"quantity\": 1,\n      \"unitPrice\": 110.00,\n      \"discount\": 10.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
+							"raw": "{\n  \"invoiceNumber\": \"INV-C-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-c-{{$guid}}\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T14:30:00+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"paymentMeansCode\": \"48\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"عميل نقدي\",\n    \"city\": \"Riyadh\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Retail Item\",\n      \"quantity\": 1,\n      \"unitPrice\": 110.00,\n      \"discount\": 10.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
@@ -95,7 +95,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"invoiceNumber\": \"CN-2026-001\",\n  \"idempotencyKey\": \"req-cn-{{$guid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Credit Note\",\n  \"instructionNote\": \"Return of damaged goods\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"totalAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
+							"raw": "{\n  \"invoiceNumber\": \"CN-2026-001\",\n  \"idempotencyKey\": \"req-cn-{{$guid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Credit Note\",\n  \"instructionNote\": \"Return of damaged goods\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
@@ -206,13 +206,13 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"invoiceNumber\": \"SIMP-{{$randomInt}}\",\n  \"documentType\": \"Invoice\",\n  \"totalAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"items\": [\n    { \"name\": \"Standard Item\", \"quantity\": 1, \"unitPrice\": 100, \"vatRate\": 0.15 }\n  ]\n}",
+							"raw": "{\n  \"invoiceNumber\": \"SIMP-{{$randomInt}}\",\n  \"documentType\": \"Invoice\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"items\": [\n    { \"name\": \"Standard Item\", \"quantity\": 1, \"unitPrice\": 100, \"vatRate\": 0.15 }\n  ]\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/v1/submit",
+							"raw": "{{baseUrl}}/api/v1/erp/submit",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "v1", "submit"]
+							"path": ["api", "v1", "erp", "submit"]
 						}
 					}
 				},
@@ -224,9 +224,9 @@
 							{ "key": "x-api-key", "value": "{{clientSecret}}", "type": "text" }
 						],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/v1/status/{{lastJobId}}",
+							"raw": "{{baseUrl}}/api/v1/erp/status/{{lastJobId}}",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "v1", "status", "{{lastJobId}}"]
+							"path": ["api", "v1", "erp", "status", "{{lastJobId}}"]
 						}
 					}
 				}

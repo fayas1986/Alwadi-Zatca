@@ -138,8 +138,8 @@ export const reportInvoice = async (env: string, csid: string, secret: string, x
     const url = FailoverManager.getUrl(normalizedEnv, '/invoices/reporting/single');
     const auth = Buffer.from(`${csid}:${secret}`).toString('base64');
 
-    if (isMockMode() || normalizedEnv === 'simulation' || csid === 'MOCK_TOKEN' || csid?.startsWith('MOCK_')) {
-        console.log(`[ZATCA] ${csid?.startsWith('MOCK_') || isMockMode() ? 'Mock Mode' : 'Simulation mode'}: Bypassing reporting for ${uuid}`);
+    if (isMockMode() || csid === 'MOCK_TOKEN' || csid?.startsWith('MOCK_')) {
+        console.log(`[ZATCA] ${csid?.startsWith('MOCK_') || isMockMode() ? 'Mock Mode' : 'Bypass requested'}: Bypassing reporting for ${uuid}`);
         return {
             validationResults: { status: 'PASS', warnings: [], errors: [] },
             reportingStatus: 'REPORTED',
@@ -173,8 +173,8 @@ export const clearInvoice = async (env: string, csid: string, secret: string, xm
     const url = FailoverManager.getUrl(normalizedEnv, '/invoices/clearance/single');
     const auth = Buffer.from(`${csid}:${secret}`).toString('base64');
 
-    if (isMockMode() || normalizedEnv === 'simulation' || csid === 'MOCK_TOKEN' || csid?.startsWith('MOCK_')) {
-        console.log(`[ZATCA] ${csid?.startsWith('MOCK_') || isMockMode() ? 'Mock Mode' : 'Simulation mode'}: Bypassing clearance for ${uuid}`);
+    if (isMockMode() || csid === 'MOCK_TOKEN' || csid?.startsWith('MOCK_')) {
+        console.log(`[ZATCA] ${csid?.startsWith('MOCK_') || isMockMode() ? 'Mock Mode' : 'Bypass requested'}: Bypassing clearance for ${uuid}`);
         return {
             validationResults: { status: 'PASS', warnings: [], errors: [] },
             clearanceStatus: 'CLEARED',

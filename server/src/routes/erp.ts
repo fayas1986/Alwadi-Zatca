@@ -9,7 +9,7 @@ import prisma from '../lib/prisma.js';
 import { AuditService } from '../services/auditService.js';
 import { parseInvoiceDate } from '../utils/dateUtils.js';
 import { InvoiceService } from '../services/invoiceService.js';
-import { calculateInvoiceTotals } from '../utils/api-helpers.js';
+import { calculateInvoiceTotals, injectComplianceFields } from '../utils/api-helpers.js';
 
 const router = Router();
 
@@ -330,6 +330,24 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, error: `Valid ERP configuration or Company with VAT ${vatNumber} not found.` });
         }
 
+        // ── 0. Auto-populate Supplier (ZATCA Data Normalization) ──
+        if (!invoice.supplier) {
+            invoice.supplier = {
+                name: company.registered_name,
+                registrationName: company.registered_name,
+                vatNumber: company.vat_number,
+                crNumber: company.cr_number,
+                address: {
+                    streetName: company.street_name || 'Main Street',
+                    buildingNumber: company.building_number || '0000',
+                    cityName: company.city || 'Riyadh',
+                    postalZone: company.postal_zone || '00000',
+                    citySubdivision: company.city_subdivision || company.city || 'Riyadh',
+                    countryCode: company.country || 'SA'
+                }
+            };
+        }
+
         const existingInvoice = await prisma.invoice.findFirst({
             where: {
                company_id: company.id,
@@ -354,17 +372,13 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
 
         // ── Build ZATCA-shaped invoice ──
         const pih = 'NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMjRiZmQ3NTI0MjkzZjBlYTRiM2IzZTk4MTU1MWNiMA==';
-        const zatcaInvoice: any = {
-            ...invoice,
-            issueDate: parsedDate.toISOString(),
-            uuid: crypto.randomUUID(),
-            documentType: invoice.documentType || 'Invoice',
-            billingReference: invoice.billingReference,
-            instructionNote: invoice.instructionNote,
-            taxCategory: invoice.taxCategory || (invoice.items?.[0]?.taxCategory || 'S'),
-            currencyCode: invoice.currencyCode || 'SAR',
-            previousInvoiceHash: pih,
-        };
+        const zatcaInvoice = injectComplianceFields(invoice, invoice.invoiceSubtype || 'Simplified');
+        
+        // Final overrides for ZATCA logic
+        zatcaInvoice.issueDate = parsedDate.toISOString();
+        zatcaInvoice.previousInvoiceHash = pih;
+        zatcaInvoice.taxCategory = zatcaInvoice.taxCategory || (zatcaInvoice.items?.[0]?.taxCategory || 'S');
+        zatcaInvoice.documentType = zatcaInvoice.documentType || 'Invoice';
 
         let signedXml: string = '';
         let hash: string = '';

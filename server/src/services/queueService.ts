@@ -8,6 +8,7 @@ import { LockService } from './lockService.js';
 import { generateInvoiceXML } from './xmlService.js';
 import { reflectStatusToERP } from './integrationService.js';
 import { invoice_status } from '@prisma/client';
+import { INITIAL_PIH } from '../utils/api-helpers.js';
 
 interface QueueItem {
     invoiceId: number;
@@ -125,11 +126,38 @@ export class QueueService {
             // ENT 2: Field-Level Decryption
             const decryptedSecret = SecurityService.decrypt(cert.secret!);
             
+            // PIH: Find the last submitted invoice hash for this company
+            // We use a TRANSACTION with a LOCK to prevent multiple workers from reading the same PIH
+            const { pih, lastInvoiceId } = await prisma.$transaction(async (tx) => {
+                // LOCK the company row to ensure only one worker processes this company at a time
+                await tx.$executeRaw`SELECT id FROM companies WHERE id = ${companyId} FOR UPDATE`;
+
+                const prev = await tx.invoice.findFirst({
+                    where: {
+                        company_id: companyId,
+                        OR: [
+                            { hash: { not: null } },
+                            { zatca_hash: { not: null } }
+                        ],
+                        status: { not: 'FAILED' } // Only chain from successful/pending ones
+                    },
+                    orderBy: { id: 'desc' },
+                    select: { id: true, hash: true, zatca_hash: true }
+                });
+
+                return {
+                    pih: prev?.zatca_hash || prev?.hash || INITIAL_PIH,
+                    lastInvoiceId: prev?.id
+                };
+            });
+
             // NEW: Handle JSON payloads from API V1 (Async manual submissions)
             let xmlToSign = invoice.xml_payload;
             if (invoice.xml_payload && (invoice.xml_payload.trim().startsWith('{') || invoice.xml_payload.trim().startsWith('['))) {
                 try {
                     const jsonData = JSON.parse(invoice.xml_payload);
+                    // Inject PIH into JSON before XML generation
+                    jsonData.previousInvoiceHash = pih;
                     xmlToSign = generateInvoiceXML(jsonData);
                 } catch (e) {
                     console.error(`[Queue] Failed to parse JSON payload for invoice ${invoice.id}`);
@@ -167,9 +195,12 @@ export class QueueService {
                 }
             }
 
-            // OPT 3: Step-Level Metrics (Time to Submit)
+            // Explicit ZATCA Flow Routing:
+            // STANDARD -> Clearance (ClearInvoice)
+            // SIMPLIFIED -> Reporting (ReportInvoice)
             const submitStart = Date.now();
-            const result = await (invoice.type === 'B2B' ? clearInvoice : reportInvoice)(
+            const useClearance = (invoice.invoice_subtype === 'STANDARD');
+            const result = await (useClearance ? clearInvoice : reportInvoice)(
                 company.environment,
                 cert.csid!,
                 decryptedSecret,
@@ -191,9 +222,11 @@ export class QueueService {
                     data: {
                         status: company.environment === 'PRODUCTION' ? (invoice.type === 'B2B' ? 'CLEARED' : 'REPORTED') : 'REPORTED',
                         hash: localHash,
+                        zatca_hash: hash, // Store official signed hash
+                        previous_invoice_hash: pih, // Store the PIH used
                         submission_response: JSON.stringify(result),
                         cleared_xml_payload: result.clearedInvoice || null,
-                        qr_code: result.qrCode || invoice.qr_code,
+                        qr_code: qr || invoice.qr_code,
                         retry_count: 0,
                         metadata: {
                             ...(invoice.metadata as any || {}),

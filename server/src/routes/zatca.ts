@@ -508,19 +508,14 @@ router.post('/onboard', async (req, res) => {
 
     console.log(`[ZATCA Onboard] New request: Env=${environment}, VAT=${vat}, TIN=${tin}`);
 
-    // HARD BYPASS FOR SIMULATION: If environment is simulation, we don't even need to wait for real logic
-    if (environment === 'Simulation') {
-        console.log(`[ZATCA Onboard] HARD BYPASS TRIGGERED for Simulation mode.`);
-        // Note: The rest of the function below also has 'Simulation' checks, 
-        // but this early log confirms we hit this route correctly.
-    }
+    // ENT: Basic Validation
 
     // ENT: Basic Validation
     if (!vat || vat.length !== 15) {
         return res.status(400).json({ success: false, error: 'VAT Number must be exactly 15 digits.' });
     }
-    if (environment !== 'Simulation' && (!otp || otp.length !== 6)) {
-        return res.status(400).json({ success: false, error: 'OTP must be exactly 6 digits for Sandbox/Production.' });
+    if (!isMockMode() && (!otp || otp.length !== 6)) {
+        return res.status(400).json({ success: false, error: 'OTP must be exactly 6 digits for Sandbox/Simulation/Production.' });
     }
 
     const logActivity = async (action: string, status: 'Success' | 'Failure' | 'Warning', details: string, metadata: any = {}) => {
@@ -562,12 +557,12 @@ csr.location.address=${location || 'Riyadh'}
 csr.industry.business.category=${industry || 'IT'}`;
 
         let csr, privateKey;
-        if (environment === 'Simulation') {
-            console.log(`[ZATCA] Simulation mode active. Mocking CSR and Private Key.`);
+        if (isMockMode()) {
+            console.log(`[ZATCA] Mock mode active. Mocking CSR and Private Key.`);
             csr = 'MOCK_CSR_CONTENT';
             // Use a mock prefix that the signInvoice service recognizes for bypass
             privateKey = 'MOCK_PRIVATE_KEY_SIM';
-            await logActivity('CSR Simulated', 'Success', 'Simulation mode: Local CSR and Private Key mocked.');
+            await logActivity('CSR Simulated', 'Success', 'Mock mode: Local CSR and Private Key mocked.');
         } else {
             try {
                 const result = await generateCSR(csrConfig, false);
@@ -583,14 +578,14 @@ csr.industry.business.category=${industry || 'IT'}`;
 
         // 2. Obtain Compliance CSID (The OTP check)
         let complianceResult;
-        if (environment === 'Simulation') {
-            console.log(`[ZATCA] Simulation mode active. Generating mock Compliance CSID.`);
+        if (isMockMode()) {
+            console.log(`[ZATCA] Mock mode active. Generating mock Compliance CSID.`);
             complianceResult = {
                 binarySecurityToken: `MOCK_COMPLIANCE_BST_${Date.now()}`,
                 secret: `MOCK_SECRET_${Date.now()}`,
                 requestID: `MOCK_REQ_${Date.now()}`
             };
-            await logActivity('Compliance CSID Simulated', 'Success', 'Simulation mode: Mock Compliance CSID generated.');
+            await logActivity('Compliance CSID Simulated', 'Success', 'Mock mode: Mock Compliance CSID generated.');
         } else {
             try {
                 complianceResult = await onboardCompliance(environment, csr, otp);
@@ -629,9 +624,9 @@ csr.industry.business.category=${industry || 'IT'}`;
             const isSimulation = environment === 'Simulation';
             const { signedXml, hash } = await signInvoice(xml, complianceCSID.trim(), privateKey, isSimulation);
 
-            if (environment === 'Simulation') {
-                console.log(`[ZATCA] Simulation mode: Skipping real compliance check API.`);
-                await logActivity('Compliance Checks Simulated', 'Success', 'Sample invoice signed and local validation passed (Simulation).');
+            if (isMockMode()) {
+                console.log(`[ZATCA] Mock mode: Skipping real compliance check API.`);
+                await logActivity('Compliance Checks Simulated', 'Success', 'Sample invoice signed and local validation passed (Mock).');
             } else {
                 await checkCompliance(environment, complianceCSID, complianceSecret, hash, Buffer.from(signedXml).toString('base64'), sampleInvoice.uuid);
                 await logActivity('Compliance Checks Passed', 'Success', 'Sample invoice signed and verified by ZATCA compliance API.');
@@ -643,13 +638,13 @@ csr.industry.business.category=${industry || 'IT'}`;
 
         // 4. Request Production CSID
         let prodResult;
-        if (environment === 'Simulation') {
-            console.log(`[ZATCA] Simulation mode: Generating mock Production CSID.`);
+        if (isMockMode()) {
+            console.log(`[ZATCA] Mock mode: Generating mock Production CSID.`);
             prodResult = {
                 binarySecurityToken: `MOCK_PROD_BST_${Date.now()}`,
                 secret: `MOCK_PROD_SECRET_${Date.now()}`
             };
-            await logActivity('Production CSID Simulated', 'Success', 'Simulation mode: Mock Production CSID generated.');
+            await logActivity('Production CSID Simulated', 'Success', 'Mock mode: Mock Production CSID generated.');
         } else {
             try {
                 prodResult = await requestProductionCSID(environment, complianceCSID, complianceSecret, complianceResult.requestID);
