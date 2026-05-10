@@ -30,3 +30,9 @@ server/.env
 scratch/
 ZATKSA/
 prisma/seed_mock_data.ts
+*.xml
+*.pem
+server/zatca-sdk/audit_evidence/
+server/zatca-sdk/Configuration/config.json
+server/zatca-sdk/*.xml
+server/zatca-sdk/test_in.xml
