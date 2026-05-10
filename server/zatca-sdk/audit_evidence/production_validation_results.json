@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-05-06T02:27:39.612Z",
+  "concurrencyTest": {
+    "totalInvoices": 10,
+    "successCount": 0,
+    "chainValid": true,
+    "gaps": 0,
+    "durationMs": 19432
+  },
+  "idempotency": {
+    "rowCountUnchanged": true
+  }
+}

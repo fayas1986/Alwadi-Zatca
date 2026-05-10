@@ -499,9 +499,8 @@ router.post('/onboard', async (req, res) => {
     } = req.body;
 
     // ENT: Normalize environment for case-insensitivity
-    const rawEnv = req.body.environment || 'Simulation';
-    const environment = rawEnv.charAt(0).toUpperCase() + rawEnv.slice(1).toLowerCase();
-    const isMockMode = () => environment === 'Simulation';
+    const environment = (req.body.environment || 'Simulation').charAt(0).toUpperCase() + (req.body.environment || 'Simulation').slice(1).toLowerCase();
+    const isMockMode = environment === 'Simulation';
 
     const userEmail = (req.headers['x-user-email'] as string) || 'portal-user';
     const userRole = (req.headers['x-user-role'] as string) || 'USER';
@@ -515,7 +514,7 @@ router.post('/onboard', async (req, res) => {
     if (!vat || vat.length !== 15) {
         return res.status(400).json({ success: false, error: 'VAT Number must be exactly 15 digits.' });
     }
-    if (!isMockMode() && (!otp || otp.length !== 6)) {
+    if (!isMockMode && (!otp || otp.length !== 6)) {
         return res.status(400).json({ success: false, error: 'OTP must be exactly 6 digits for Sandbox/Simulation/Production.' });
     }
 
@@ -558,7 +557,7 @@ csr.location.address=${location || 'Riyadh'}
 csr.industry.business.category=${industry || 'IT'}`;
 
         let csr, privateKey;
-        if (isMockMode()) {
+        if (isMockMode) {
             console.log(`[ZATCA] Mock mode active. Mocking CSR and Private Key.`);
             csr = 'MOCK_CSR_CONTENT';
             // Use a mock prefix that the signInvoice service recognizes for bypass
@@ -579,7 +578,7 @@ csr.industry.business.category=${industry || 'IT'}`;
 
         // 2. Obtain Compliance CSID (The OTP check)
         let complianceResult;
-        if (isMockMode()) {
+        if (isMockMode) {
             console.log(`[ZATCA] Mock mode active. Generating mock Compliance CSID.`);
             complianceResult = {
                 binarySecurityToken: `MOCK_COMPLIANCE_BST_${Date.now()}`,
@@ -625,7 +624,7 @@ csr.industry.business.category=${industry || 'IT'}`;
             const isSimulation = environment === 'Simulation';
             const { signedXml, hash } = await signInvoice(xml, complianceCSID.trim(), privateKey, isSimulation);
 
-            if (isMockMode()) {
+            if (isMockMode) {
                 console.log(`[ZATCA] Mock mode: Skipping real compliance check API.`);
                 await logActivity('Compliance Checks Simulated', 'Success', 'Sample invoice signed and local validation passed (Mock).');
             } else {
@@ -639,7 +638,7 @@ csr.industry.business.category=${industry || 'IT'}`;
 
         // 4. Request Production CSID
         let prodResult;
-        if (isMockMode()) {
+        if (isMockMode) {
             console.log(`[ZATCA] Mock mode: Generating mock Production CSID.`);
             prodResult = {
                 binarySecurityToken: `MOCK_PROD_BST_${Date.now()}`,

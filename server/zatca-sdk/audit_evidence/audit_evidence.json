@@ -1,0 +1,16 @@
+{
+  "assertions": {
+    "namespaces": false,
+    "timezoneAST": false,
+    "immutability": true
+  },
+  "canonicalizationAlgorithm": "http://www.w3.org/2006/12/xml-c14n11",
+  "referenceScope": "document",
+  "digestMatch": false,
+  "signaturePresent": true,
+  "signatureVerified": true,
+  "qrParity": {
+    "hashMatch": false,
+    "totalsMatch": true
+  }
+}

@@ -458,17 +458,17 @@ const handleSyncSubmission = async (req: Request, res: Response, type: 'Invoice'
         const { signedXml, hash, qr } = await signInvoice(xmlContent, cert.certificate, decryptedSecret);
 
         // 5. Store in DB
-        const saved = await prisma.invoice.create({
+        const saved: any = await prisma.invoice.create({
             data: {
-                company_id: company.id,
+                company_id: (company as any).id,
                 uuid: injected.uuid,
                 submission_id: `SYNC-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
                 invoice_number: injected.invoiceNumber,
                 date: new Date(), // DB storage time
                 total_amount: injected.totalWithVat,
                 tax_amount: injected.totalVat,
-                status: 'PENDING',
-                type: (injected.invoiceSubtype === 'STANDARD' ? 'B2B' : 'B2C'),
+                status: 'PENDING' as any,
+                type: (injected.invoiceSubtype === 'STANDARD' ? 'B2B' : 'B2C') as any,
                 hash: hash,
                 qr_code: qr,
                 xml_payload: Buffer.from(signedXml).toString('base64'),
@@ -482,8 +482,8 @@ const handleSyncSubmission = async (req: Request, res: Response, type: 'Invoice'
         // 6. Queue for Background Reporting
         QueueService.enqueue({
             invoiceId: saved.id,
-            companyId: company.id,
-            environment: company.environment,
+            companyId: (company as any).id,
+            environment: (company as any).environment,
             retryCount: 0
         });
 
@@ -513,21 +513,16 @@ const handleSyncSubmission = async (req: Request, res: Response, type: 'Invoice'
 router.use(authenticateHMAC);
 
 // ── Simple API Routes (V1 Proxy Mode) ──────────────────────────────────────────
-// Endpoint: POST /api/v1/erp/submit
-router.post('/erp/submit', (req, res) => {
+// Alias for consistency with Postman collection
+router.post(['/erp/invoices/submit', '/erp/submit'], (req, res) => {
     const docType = req.body.documentType || 'Invoice';
     handleAsyncSubmission(req, res, docType as any);
 });
 
 // Endpoint: POST /api/v1/erp/submit/sync (RETAIL MODE)
-router.post('/erp/submit/sync', (req, res) => {
+router.post(['/erp/submit/sync', '/erp/invoices/sync'], (req, res) => {
     const docType = req.body.documentType || 'Invoice';
     handleSyncSubmission(req, res, docType as any);
-});
-
-// Alias for consistency
-router.post('/erp/invoices/sync', (req, res) => {
-    handleSyncSubmission(req, res, 'Invoice');
 });
 
 // Endpoint: GET /api/v1/erp/status/:jobId
@@ -546,11 +541,11 @@ router.get(['/erp/status', '/erp/status/:jobId'], async (req, res) => {
                     ...(isUuid ? [{ uuid: jobId }] : []),
                     { submission_id: jobId }
                 ], 
-                company_id: (req as any).company.id 
+                company_id: ((req as any).company as any).id 
             } 
         });
         if (!invoice) return sendError(res, 404, 'NOT_FOUND', 'Job ID not found');
-        res.status(200).json(formatStatusContract(invoice));
+        res.status(200).json(formatStatusContract(invoice as any));
     } catch (error: any) {
         sendError(res, 500, 'SERVER_ERROR', error.message);
     }
