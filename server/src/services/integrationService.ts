@@ -296,11 +296,11 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
         for (const rawInv of invoices) {
             let invNumberFallback = rawInv.invoiceNumber || rawInv.invoice_number || rawInv.id || 'UNKNOWN';
             try {
-                let inv = normalizeInvoice(rawInv);
+                let inv: any = normalizeInvoice(rawInv);
                 invNumberFallback = inv.invoiceNumber;
                 
                 // Recalculate totals if missing (tax-first approach)
-                inv = calculateInvoiceTotals(inv) as any;
+                inv = calculateInvoiceTotals(inv);
 
                 // IDEMPOTENCY/UPDATE LOGIC: 
                 const existing = await prisma.invoice.findFirst({
