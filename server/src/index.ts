@@ -39,10 +39,15 @@ if (!process.env.VERCEL) {
 } else {
     console.log('[Server] Running on Vercel: Background Sync Service is inactive.');
 }
-// Disable CSP to allow all resources (fonts, styles, etc.) for development
+// Harden security headers with Helmet
 app.use(helmet({
-    contentSecurityPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" }
+    contentSecurityPolicy: false, // Managed by vercel.json for better granularity
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true
+    }
 }));
 
 
