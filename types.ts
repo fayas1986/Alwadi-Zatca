@@ -4,8 +4,8 @@ export type InvoiceStatus = 'Cleared' | 'Reported' | 'Rejected' | 'Pending' | 'F
 // RBAC Roles
 export type UserRole = 'IT_ADMIN' | 'FINANCE_ADMIN' | 'TAX_OFFICER' | 'SUPER_ADMIN';
 
-export type InvoiceSubtype = 'Standard' | 'Simplified';
-export type DocumentType = 'Invoice' | 'Credit Note' | 'Debit Note';
+export type InvoiceSubtype = 'STANDARD' | 'SIMPLIFIED' | 'Standard' | 'Simplified';
+export type DocumentType = 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE' | 'Invoice' | 'Credit Note' | 'Debit Note';
 
 export interface Address {
   streetName: string;

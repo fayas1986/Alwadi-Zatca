@@ -286,7 +286,7 @@ const App: React.FC = () => {
       case 'items':
         return <ItemMaster selectedBranch={currentBranch} userRole={userRole} userEmail={userEmail} />;
       case 'certificates':
-        return <CertificateManager selectedBranch={currentBranch} organizations={organizations} userRole={userRole} userEmail={userEmail} />;
+        return <CertificateManager selectedBranch={currentBranch} organizations={organizations} />;
       case 'erp-connectors':
         return <ERPConnectors selectedBranch={currentBranch} />;
       case 'audit':
@@ -329,7 +329,7 @@ const App: React.FC = () => {
       case 'api-docs':
         return <ApiDocs />;
       default:
-        return <Dashboard onNavigate={navigate} selectedBranch={currentBranch} />;
+        return <Dashboard onNavigate={navigate} selectedBranch={currentBranch} userRole={userRole} userEmail={userEmail} />;
     }
   };
 

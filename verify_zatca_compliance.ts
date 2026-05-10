@@ -25,7 +25,7 @@ function select(xml: string, path: string, single: boolean = true) {
         'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
         'ubl': 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2'
     });
-    const result = resolver(path, doc);
+    const result = resolver(path, doc as any);
     if (single) {
         return Array.isArray(result) ? (result[0] as any)?.nodeValue || (result[0] as any)?.textContent : (result as any)?.nodeValue || (result as any)?.textContent;
     }
@@ -41,11 +41,11 @@ function canonicalize(xml: string, nodePath: string | null = null): string {
             'ds': 'http://www.w3.org/2000/09/xmldsig#',
             'ubl': 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2'
         });
-        const node = resolver(nodePath, doc, true);
+        const node = resolver(nodePath, doc as any, true);
         if (!node) throw new Error(`Node not found for canonicalization: ${nodePath}`);
-        return c14n.process(node as Node);
+        return (c14n as any).process(node as any, "");
     }
-    return c14n.process(doc.documentElement);
+    return (c14n as any).process(doc.documentElement as any, "");
 }
 
 function sha256Base64(data: string | Buffer): string {

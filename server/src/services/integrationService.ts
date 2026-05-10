@@ -10,14 +10,15 @@ import { calculateInvoiceTotals } from '../utils/api-helpers.js';
 import { InvoiceService } from './invoiceService.js';
 import { WebhookService } from './webhookService.js';
 import { AuditService } from './auditService.js';
+import { Invoice, InvoiceSubtype, DocumentType } from '../types.js';
 import { invoice_status } from '@prisma/client';
 
 interface ExternalInvoice {
     uuid?: string;
     invoiceNumber: string;
     issueDate: string;
-    invoiceSubtype: string;
-    documentType?: string;
+    invoiceSubtype: InvoiceSubtype;
+    documentType: DocumentType;
     billingReference?: any;
     instructionNote?: string;
     totalAmount: number;
@@ -205,8 +206,8 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
             return {
                 invoiceNumber: String(raw.invoiceNumber || raw.invoice_number || raw.id || raw.number || `ERP-${Date.now()}`),
                 issueDate: raw.issueDate || raw.issue_date || raw.date || new Date().toISOString(),
-                invoiceSubtype: String(raw.invoiceSubtype || raw.invoice_subtype || (raw.customer?.vatNumber || raw.customer_vat ? 'STANDARD' : 'SIMPLIFIED')).toUpperCase(),
-                documentType: String(raw.documentType || raw.document_type || raw.type || 'INVOICE').toUpperCase().replace(/\s+/g, '_') as any,
+                invoiceSubtype: (raw.invoiceSubtype || raw.invoice_subtype || (raw.customer?.vatNumber || raw.customer_vat ? 'STANDARD' : 'SIMPLIFIED')).toString().toUpperCase() as InvoiceSubtype,
+                documentType: (raw.documentType || raw.document_type || raw.type || 'INVOICE').toString().toUpperCase().replace(/\s+/g, '_') as DocumentType,
                 billingReference: raw.billingReference || raw.billing_reference || raw.original_invoice_number || raw.original_id || null,
                 instructionNote: raw.instructionNote || raw.instruction_note || raw.reason || raw.refund_reason || null,
                 totalAmount: Number(Number(raw.totalAmount || raw.total_amount || raw.total || 0).toFixed(2)),
@@ -451,10 +452,10 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
                     xml_payload: Buffer.from(signedXml).toString('base64'),
                     qr_code: qr,
                     submission_response: JSON.stringify(result),
-                    items: zatcaInvoice.items,
-                    customer: zatcaInvoice.customer,
                     metadata: {
                         erp_raw: rawInv as any,
+                        items: zatcaInvoice.items,
+                        customer: zatcaInvoice.customer,
                         updated_at: new Date().toISOString()
                     }
                 };

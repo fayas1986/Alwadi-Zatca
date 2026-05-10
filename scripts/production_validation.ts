@@ -20,7 +20,7 @@ async function runProductionValidation() {
     }
 
     const companyId = company.id;
-    console.log(`Using Company: ${company.name} (ID: ${companyId})`);
+    console.log(`Using Company: ${company.registered_name} (ID: ${companyId})`);
 
     // 2. Scenario: Concurrency & No-Gap Chain Proof
     console.log("\n[Scenario] Concurrency & No-Gap Chain Proof (10 Parallel Invoices)...");

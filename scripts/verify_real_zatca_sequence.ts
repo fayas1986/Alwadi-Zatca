@@ -35,10 +35,13 @@ interface ProofBundle {
         qrParity: boolean;
         zatcaHashMatch: boolean;
         storedAfterAcceptance: boolean;
+        structuralDrift: boolean;
     };
     previousHashUsed: string;
     currentHash: string;
     gatewayHash: string | null;
+    signedXml?: string;
+    metadata?: any;
 }
 
 async function archiveProof(bundle: ProofBundle) {
@@ -239,7 +242,7 @@ async function runMinimalSequence() {
             }
 
             // BULLETPROOF: Strict VAT-level isolation
-            await prisma.company.update({
+            await (prisma.company as any).update({
                 where: { vat_number: company.vat_number },
                 data: { last_invoice_hash: hash }
             });

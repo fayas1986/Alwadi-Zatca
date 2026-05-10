@@ -41,7 +41,17 @@ if (!process.env.VERCEL) {
 }
 // Harden security headers with Helmet
 app.use(helmet({
-    contentSecurityPolicy: false, // Managed by vercel.json for better granularity
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", "https://core.zatca.gov.sa", "https://simulation.zatca.gov.sa", "http://localhost:3001"],
+            upgradeInsecureRequests: null,
+        },
+    },
     crossOriginResourcePolicy: { policy: "cross-origin" },
     hsts: {
         maxAge: 31536000,

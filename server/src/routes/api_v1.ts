@@ -468,17 +468,17 @@ const handleSyncSubmission = async (req: Request, res: Response, type: 'Invoice'
                 total_amount: injected.totalWithVat,
                 tax_amount: injected.totalVat,
                 status: 'PENDING',
+                type: (injected.invoiceSubtype === 'STANDARD' ? 'B2B' : 'B2C'),
                 hash: hash,
                 qr_code: qr,
-                xml_payload: JSON.stringify(injected),
-                metadata: { 
-                    source: 'RETAIL_SYNC', 
-                    syncAt: getKSATimestamp(),
-                    idempotencyKey 
+                xml_payload: Buffer.from(signedXml).toString('base64'),
+                metadata: {
+                    items: injected.items,
+                    customer: injected.customer,
+                    invoice_subtype: injected.invoiceSubtype
                 }
             }
         });
-
         // 6. Queue for Background Reporting
         QueueService.enqueue({
             invoiceId: saved.id,
@@ -497,8 +497,8 @@ const handleSyncSubmission = async (req: Request, res: Response, type: 'Invoice'
             qrCode: qr,
             metadata: {
                 uuid: saved.uuid,
-                type: saved.document_type,
-                subtype: saved.invoice_subtype
+                type: saved.type,
+                subtype: (saved.metadata as any)?.invoice_subtype || 'SIMPLIFIED'
             }
         });
 
@@ -533,7 +533,7 @@ router.post('/erp/invoices/sync', (req, res) => {
 // Endpoint: GET /api/v1/erp/status/:jobId
 router.get(['/erp/status', '/erp/status/:jobId'], async (req, res) => {
     try {
-        const { jobId } = req.params;
+        const jobId = req.params.jobId as string;
 
         if (!jobId) {
             return sendError(res, 400, 'MISSING_PARAMETER', 'Job ID is required. Use /api/v1/erp/status/{{jobId}}');

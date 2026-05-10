@@ -134,9 +134,9 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
     
     if (Array.isArray(invoice.items)) {
         invoice.items.forEach(item => {
-            const sub = Number(invoice.type === 'Simplified' ? (item as any).total / 1.15 : (item.subtotal || (Number(item.quantity || 1) * Number(item.unitPrice || 0))));
+            const sub = Number(invoice.invoiceSubtype === 'Simplified' ? (item as any).total / 1.15 : (item.subtotal || (Number(item.quantity || 1) * Number(item.unitPrice || 0))));
             const rate = 0.15; // Standard VAT
-            const tax = invoice.type === 'Simplified' ? ((item as any).total - sub) : Number(item.taxAmount || (sub * rate));
+            const tax = invoice.invoiceSubtype === 'Simplified' ? ((item as any).total - sub) : Number(item.vatAmount || (sub * rate));
             
             calcVat += tax;
             calcExclusive += sub;
