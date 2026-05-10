@@ -22,9 +22,9 @@ router.use((req, res, next) => {
     console.log(`[V2 Router] Headers: x-client-id=${clientId || 'NONE'}, x-api-key=${apiKey ? 'PRESENT' : 'NONE'}`);
     
     // Path Normalization: Catch V1 clients accidentally hitting V2 router
-    if (req.originalUrl.includes('/erp/invoices/submit')) {
+    // NOTE: We allow /erp/invoices/submit here because we explicitly aliased it for Postman compatibility
+    if (req.originalUrl.includes('/erp/invoices/submit') && !req.originalUrl.endsWith('/submit')) {
         console.warn(`[V2 Router] Path Mismatch: V1 client hitting V2 route ${req.originalUrl}`);
-        // If it's a V1 client, they should be using /api/erp/invoices/submit
         if (apiKey && !clientId) {
             return sendError(res, 400, 'PATH_MISMATCH', 'V1 clients should use /api/erp/invoices/submit. You are hitting a V2 endpoint with V1 credentials.');
         }
