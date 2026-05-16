@@ -29,9 +29,13 @@ const FALLBACK_USERS: Record<string, { id: string; email: string; password: stri
         id: 'u-alka-001', email: 'alka.sharma@yiron.in', password: 'password123',
         name: 'Alka Sharma', role: 'IT_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
     },
-    'alka@yiron.in': {
-        id: 'u-alka-002', email: 'alka@yiron.in', password: 'password123',
-        name: 'Alka Sharma', role: 'IT_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
+    'kamila.banu@easylease.ae': {
+        id: 'a698efe8-0995-4ea1-9c3b-c01aba88fae3', email: 'kamila.banu@easylease.ae', password: 'password123',
+        name: 'Kamila Banu', role: 'IT_ADMIN', company_name: 'EasyLease', company_id: 1
+    },
+    'mahesh@easylease.ae': {
+        id: 'c584c436-e3a3-4f8e-8a9c-634abad878dc', email: 'mahesh@easylease.ae', password: 'password123',
+        name: 'Mahesh', role: 'IT_ADMIN', company_name: 'EasyLease', company_id: 1
     },
 };
 
@@ -114,7 +118,7 @@ router.post('/login', async (req, res) => {
         // ── Step 2: Database Lookup (with strict timeout) ─────────────────────
         let dbUser: any = null;
         try {
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 3000));
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 15000));
             const queryPromise = prisma.user.findUnique({ where: { email: normalizedEmail } });
             
             dbUser = await Promise.race([queryPromise, timeoutPromise]);
