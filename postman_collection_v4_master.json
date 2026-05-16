@@ -300,7 +300,7 @@
 					"",
 					"const method = pm.request.method.toUpperCase();",
 					"const path = pm.request.url.getPathWithQuery();",
-					"const apiKey = pm.environment.get('apiKey') || pm.collectionVariables.get('apiKey') || pm.variables.get('apiKey') || \"\";",
+					"const apiKey = pm.environment.get('apiKey') || pm.collectionVariables.get('apiKey') || pm.variables.get('apiKey') || \"sk_live_zatcaconnect_prod_v1\";",
 					"const trimmedKey = apiKey.trim();",
 					"",
 					"function stableStringify(obj) {",
