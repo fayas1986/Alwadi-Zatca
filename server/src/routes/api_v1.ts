@@ -154,12 +154,13 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
             return sendError(res, 500, 'SECURITY_MISCONFIG', 'Server side security configuration missing');
         }
 
+        const cleanPath = req.originalUrl.split('?')[0].replace(/\/$/, '') || '/';
         const authResult = SecurityService.verifySignature(
             secret,
             timestamp,
             nonce,
             req.method,
-            req.originalUrl.split('?')[0],
+            cleanPath,
             req.body,
             signature
         );
