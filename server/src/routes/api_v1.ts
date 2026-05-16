@@ -107,9 +107,16 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         const serverTime = Date.now();
         
         // --- 1. Timestamp Validation (Strict 5-Minute Window) ---
-        const requestTime = new Date(timestamp).getTime();
+        let requestTime = new Date(timestamp).getTime();
+        
+        // If ISO parse fails, try numeric parse (Unix timestamp)
+        if (isNaN(requestTime) && /^\d+$/.test(timestamp)) {
+            requestTime = parseInt(timestamp) * (timestamp.length <= 10 ? 1000 : 1);
+        }
+
         if (isNaN(requestTime)) {
-            return sendError(res, 401, 'INVALID_TIMESTAMP', 'Timestamp format is invalid');
+            console.error(`[V2 HMAC] Invalid Timestamp Header: "${timestamp}" (Type: ${typeof timestamp})`);
+            return sendError(res, 401, 'INVALID_TIMESTAMP', `Timestamp format is invalid. Received: "${timestamp}"`);
         }
 
         const timeDiff = Math.abs(serverTime - requestTime);
