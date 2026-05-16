@@ -160,9 +160,13 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
             return sendError(res, 500, 'SECURITY_MISCONFIG', 'Server side security configuration missing');
         }
 
-        const cleanPath = req.originalUrl.split('?')[0].replace(/\/$/, '') || '/';
+        const cleanPath = req.originalUrl.split('?')[0].replace(/\/$/, '').replace(/[^\x00-\x7F]/g, '') || '/';
+        const bodyHash = crypto.createHash('sha256').update(JSON.stringify(req.body)).digest('hex');
+        const dataToSign = (timestamp + nonce + req.method + cleanPath + bodyHash).replace(/\s/g, '');
+        const normalizedSecret = secret.trim().replace(/[\r\n]/g, '');
+
         const authResult = SecurityService.verifySignature(
-            secret,
+            normalizedSecret,
             timestamp,
             nonce,
             req.method,
@@ -177,7 +181,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
             console.error(`Expected Sig: ${authResult.expectedSig}`);
             console.error(`Data Signed: ${authResult.expectedData}`);
             
-            return sendError(res, 401, 'INVALID_SIGNATURE', `HMAC failed. Server Expected: ${authResult.expectedSig} | Postman Sent: ${signature} | Data: ${authResult.expectedData} | KeyPrefix: ${secret.substring(0, 5)}`);
+            return sendError(res, 401, 'INVALID_SIGNATURE', `HMAC failed. Server Expected: ${authResult.expectedSig} | Postman Sent: ${signature} | Data: "${authResult.expectedData}" | Len: ${authResult.expectedData.length} | KeyPrefix: ${normalizedSecret.substring(0, 5)}`);
         }
 
         console.log(`[AUTH] HMAC Verified successfully for Client: ${trimmedClientId}`);
