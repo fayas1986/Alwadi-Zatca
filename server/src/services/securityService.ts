@@ -43,18 +43,27 @@ export class SecurityService {
      */
     static verifySignature(secret: string, timestamp: string, nonce: string, method: string, path: string, body: any, signature: string): { isValid: boolean, expectedData?: string, expectedSig?: string } {
         try {
+            const safeSecret = (secret || '').trim();
+            const safeTimestamp = (timestamp || '').trim();
+            const safeNonce = (nonce || '').trim();
+            const safeMethod = (method || '').trim().toUpperCase();
+            const safePath = (path || '').trim();
+            const safeSignature = (signature || '').trim();
+
             const bodyHash = (body && Object.keys(body).length > 0)
                 ? crypto.createHash('sha256').update(this.stableStringify(body)).digest('hex')
                 : '';
 
-            const dataToSign = `${timestamp}${nonce}${method.toUpperCase()}${path}${bodyHash}`;
+            const dataToSign = `${safeTimestamp}${safeNonce}${safeMethod}${safePath}${bodyHash}`;
             const expectedSignature = crypto
-                .createHmac('sha256', secret.trim())
+                .createHmac('sha256', safeSecret)
                 .update(dataToSign)
                 .digest('hex');
 
+            if (!safeSignature) return { isValid: false, expectedData: dataToSign, expectedSig: expectedSignature };
+
             const isValid = crypto.timingSafeEqual(
-                Buffer.from(signature),
+                Buffer.from(safeSignature),
                 Buffer.from(expectedSignature)
             );
 
