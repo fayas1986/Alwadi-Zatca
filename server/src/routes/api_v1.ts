@@ -177,7 +177,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
             console.error(`Received Sig:  ${signature}`);
             console.error(`---------------------------\n`);
             
-            return sendError(res, 401, 'INVALID_SIGNATURE', `HMAC signature verification failed. Server expected: ${authResult.expectedData} (Secret starts with: ${secret.substring(0, 5)}...)`);
+            return sendError(res, 401, 'INVALID_SIGNATURE', `HMAC failed. Expected Sig: ${authResult.expectedSig} | Data signed: ${authResult.expectedData}`);
         }
 
         console.log(`[AUTH] HMAC Verified successfully for Client: ${trimmedClientId}`);
