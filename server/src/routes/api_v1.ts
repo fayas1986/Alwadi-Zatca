@@ -148,6 +148,8 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         }
 
         // --- 4. Cryptographic Verification ---
+        let secret = erpConfig.api_key || process.env.V2_FALLBACK_SECRET;
+
         // FLEXIBLE BYPASS FOR PRODUCTION SYNC
         if (trimmedClientId && trimmedClientId.includes('zatcaconnect_prod')) {
             secret = 'sk_live_zatcaconnect_prod_v1';
