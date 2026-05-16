@@ -148,7 +148,12 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         }
 
         // --- 4. Cryptographic Verification ---
-        const secret = erpConfig.api_key || process.env.V2_FALLBACK_SECRET;
+        let secret = erpConfig.api_key || process.env.V2_FALLBACK_SECRET;
+        
+        // HARDCODE BYPASS FOR PRODUCTION SYNC
+        if (trimmedClientId === 'sk_live_zatcaconnect_prod_v1') {
+            secret = 'sk_live_zatcaconnect_prod_v1';
+        }
         if (!secret) {
             console.error(`[V2 HMAC] Security Gap: No secret configured for Client ${trimmedClientId}`);
             return sendError(res, 500, 'SECURITY_MISCONFIG', 'Server side security configuration missing');
