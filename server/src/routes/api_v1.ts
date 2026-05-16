@@ -210,15 +210,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
                 signature as string
             );
 
-            console.log(`[AUTH-DIAG] Path: ${cleanPath}`);
-            console.log(`[AUTH-DIAG] Body Keys: ${Object.keys(req.body || {}).join(',')}`);
-            console.log(`[AUTH-DIAG] Server DataToSign: "${dataToSign}"`);
-
             if (!authResult.isValid) {
-                const expected = crypto.createHmac('sha256', normalizedSecret).update(dataToSign).digest('hex');
-                console.warn(`[V2 HMAC] Signature Mismatch!`);
-                console.warn(`[V2 HMAC] Received: ${signature}`);
-                console.warn(`[V2 HMAC] Expected: ${expected}`);
                 return sendError(res, 401, 'INVALID_SIGNATURE', 'HMAC signature mismatch. Please verify your API keys and request encoding.');
             }
 
