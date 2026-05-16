@@ -165,8 +165,17 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         );
 
         if (!authResult.isValid) {
-            console.error(`[V2 HMAC] Signature Failure for Client: ${trimmedClientId} on Path: ${req.originalUrl}`);
-            // console.debug(`[V2 HMAC] Expected Data: ${authResult.expectedData}`); // Only for internal debug
+            console.error(`\n--- HMAC FAILURE DEBUG ---`);
+            console.error(`Client ID: ${trimmedClientId}`);
+            console.error(`Method: ${req.method}`);
+            console.error(`Path: ${req.originalUrl.split('?')[0]}`);
+            console.error(`Timestamp: ${timestamp}`);
+            console.error(`Nonce: ${nonce}`);
+            console.error(`Expected Data: ${authResult.expectedData}`);
+            console.error(`Expected Sig:  ${authResult.expectedSig}`);
+            console.error(`Received Sig:  ${signature}`);
+            console.error(`---------------------------\n`);
+            
             return sendError(res, 401, 'INVALID_SIGNATURE', 'HMAC signature verification failed');
         }
 
