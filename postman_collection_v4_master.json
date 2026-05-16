@@ -300,7 +300,8 @@
 					"",
 					"const method = pm.request.method.toUpperCase();",
 					"const path = pm.request.url.getPathWithQuery();",
-					"const apiKey = pm.variables.get('apiKey');",
+					"const apiKey = pm.environment.get('apiKey') || pm.collectionVariables.get('apiKey') || pm.variables.get('apiKey') || \"\";",
+					"const trimmedKey = apiKey.trim();",
 					"",
 					"function stableStringify(obj) {",
 					"    if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);",
@@ -318,7 +319,7 @@
 					"}",
 					"",
 					"const dataToSign = timestamp + nonce + method + path + bodyHash;",
-					"const signature = CryptoJS.HmacSHA256(dataToSign, apiKey).toString();",
+					"const signature = CryptoJS.HmacSHA256(dataToSign, trimmedKey).toString();",
 					"pm.collectionVariables.set('calculatedSignature', signature);"
 				],
 				"type": "text/javascript"
