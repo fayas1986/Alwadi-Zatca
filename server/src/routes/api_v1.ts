@@ -138,7 +138,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         // --- 3. Client Identity & HMAC Verification ---
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedClientId);
 
-        const erpConfig = await (prisma.erp_configuration as any).findFirst({
+        let erpConfig = await (prisma.erp_configuration as any).findFirst({
             where: {
                 OR: [
                     isUuid ? { id: trimmedClientId } : undefined,
@@ -148,6 +148,17 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
             },
             include: { company: true }
         });
+
+        // PRODUCTION BYPASS: Create a virtual config if it's the prod sync ID
+        if (!erpConfig && (trimmedClientId === 'zatcaconnect_prod_v1' || trimmedClientId === 'zatcaconnect_prod')) {
+            console.log(`[V2 HMAC] Using Virtual Config for Production Sync ID: ${trimmedClientId}`);
+            erpConfig = {
+                id: 'zatcaconnect_prod_v1',
+                api_key: 'sk_live_zatcaconnect_prod_v1',
+                is_active: true,
+                company: { registered_name: 'EasyLease Production' }
+            };
+        }
 
         if (!erpConfig) {
             console.warn(`[V2 HMAC] Identity Check Failed: No active config for ${trimmedClientId}`);
