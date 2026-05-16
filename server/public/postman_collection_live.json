@@ -178,7 +178,7 @@
 					"",
 					"const method = pm.request.method.toUpperCase();",
 					"const path = pm.request.url.getPathWithQuery();",
-					"const apiKey = pm.collectionVariables.get('apiKey');",
+					"const apiKey = pm.variables.get('apiKey');",
 					"",
 					"function stableStringify(obj) {",
 					"    if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);",
