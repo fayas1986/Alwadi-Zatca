@@ -85,7 +85,7 @@ function formatStatusContract(invoice: any) {
 // ── HMAC Auth Middleware (Bank-Level Security + Req 2) ──────────────────────────
 const authenticateHMAC = async (req: Request, res: Response, next: any) => {
     console.log(`[AUTH] Checking HMAC for ${req.method} ${req.originalUrl}`);
-    const clientId = req.headers['x-client-id'] as string;
+    const clientId = (req.headers['x-client-id'] || req.headers['x-api-key']) as string;
     const timestamp = req.headers['x-timestamp'] as string;
     const signature = req.headers['x-signature'] as string;
     const nonce = req.headers['x-nonce'] as string;
@@ -99,7 +99,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
 
     if (!clientId || !timestamp || !nonce || !signature) {
         console.warn(`[V2 HMAC] Missing Headers on ${req.originalUrl} from ${req.ip}. Headers: clientId=${!!clientId}, ts=${!!timestamp}, nonce=${!!nonce}, sig=${!!signature}`);
-        return sendError(res, 401, 'UNAUTHORIZED', 'Missing required HMAC headers');
+        return sendError(res, 401, 'UNAUTHORIZED', 'Missing required HMAC headers (x-client-id/x-api-key, x-timestamp, x-nonce, x-signature required for V2)');
     }
 
     try {

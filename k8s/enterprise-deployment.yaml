@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zatca-compliance-engine
+  namespace: finance
+  labels:
+    app: zatca-compliance
+spec:
+  replicas: 3 # High Availability for Dynamics 365 batch loads
+  selector:
+    matchLabels:
+      app: zatca-compliance
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/api/v1/erp/metrics"
+        prometheus.io/port: "3000"
+      labels:
+        app: zatca-compliance
+    spec:
+      containers:
+      - name: engine
+        image: your-registry.azurecr.io/zatca-compliance:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: connection-string
+        - name: KMS_PROVIDER
+          value: "azure-key-vault"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+        readinessProbe:
+          httpGet:
+            path: /api/v1/erp/health/compliance
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: zatca-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: zatca-compliance-engine
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
