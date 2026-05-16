@@ -160,31 +160,29 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
             return sendError(res, 500, 'SECURITY_MISCONFIG', 'Server side security configuration missing');
         }
 
-        const cleanPath = req.originalUrl.split('?')[0].replace(/\/$/, '').replace(/[^\x00-\x7F]/g, '') || '/';
-        const bodyHash = crypto.createHash('sha256').update(JSON.stringify(req.body)).digest('hex');
-        const dataToSign = (timestamp + nonce + req.method + cleanPath + bodyHash).replace(/\s/g, '');
-        const normalizedSecret = secret.trim().replace(/[\r\n]/g, '');
+        try {
+            const cleanPath = req.originalUrl.split('?')[0].replace(/\/$/, '').replace(/[^\x00-\x7F]/g, '') || '/';
+            const normalizedSecret = secret.trim().replace(/[\r\n]/g, '');
 
-        const authResult = SecurityService.verifySignature(
-            normalizedSecret,
-            timestamp as string,
-            nonce as string,
-            req.method,
-            cleanPath,
-            req.body,
-            signature as string
-        );
+            const authResult = SecurityService.verifySignature(
+                normalizedSecret,
+                timestamp as string,
+                nonce as string,
+                req.method,
+                cleanPath,
+                req.body,
+                signature as string
+            );
 
-        if (!authResult.isValid) {
-            console.error(`\n--- HMAC FAILURE DEBUG ---`);
-            console.error(`Client ID: ${trimmedClientId}`);
-            console.error(`Expected Sig: ${authResult.expectedSig}`);
-            console.error(`Data Signed: ${authResult.expectedData}`);
-            
-            return sendError(res, 401, 'INVALID_SIGNATURE', `HMAC failed. Server Expected: ${authResult.expectedSig} | Postman Sent: ${signature} | Data: "${authResult.expectedData}" | Len: ${authResult.expectedData?.length} | KeyPrefix: ${normalizedSecret.substring(0, 5)}`);
+            if (!authResult.isValid) {
+                return sendError(res, 401, 'INVALID_SIGNATURE', `HMAC failed. Server Expected: ${authResult.expectedSig} | Postman Sent: ${signature} | Data: "${authResult.expectedData}" | Len: ${authResult.expectedData?.length} | KeyPrefix: ${normalizedSecret.substring(0, 5)}`);
+            }
+
+            console.log(`[AUTH] HMAC Verified successfully for Client: ${trimmedClientId}`);
+        } catch (authError: any) {
+            console.error(`[CRITICAL AUTH ERROR]:`, authError);
+            return sendError(res, 500, 'AUTH_CRASH', `Auth Engine Crash: ${authError.message} | SecretType: ${typeof secret} | SigType: ${typeof signature}`);
         }
-
-        console.log(`[AUTH] HMAC Verified successfully for Client: ${trimmedClientId}`);
 
         // --- 4. Industrial 2-Tier Rate Limiting (Requirement 2) ---
         if (!(global as any).apiRateLimits) (global as any).apiRateLimits = {};
