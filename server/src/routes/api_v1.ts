@@ -151,13 +151,28 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
 
         // PRODUCTION BYPASS: Create a virtual config if it's the prod sync ID
         if (!erpConfig && (trimmedClientId === 'zatcaconnect_prod_v1' || trimmedClientId === 'zatcaconnect_prod')) {
-            console.log(`[V2 HMAC] Using Virtual Config for Production Sync ID: ${trimmedClientId}`);
-            erpConfig = {
-                id: 'zatcaconnect_prod_v1',
-                api_key: 'sk_live_zatcaconnect_prod_v1',
-                is_active: true,
-                company: { registered_name: 'EasyLease Production' }
-            };
+            console.log(`[V2 HMAC] Attempting to find a real company for virtual config...`);
+            const fallbackCompany = await prisma.company.findFirst({
+                where: { is_active: true }
+            });
+
+            if (fallbackCompany) {
+                console.log(`[V2 HMAC] Linked to Company: ${fallbackCompany.registered_name} (${fallbackCompany.id})`);
+                erpConfig = {
+                    id: 'zatcaconnect_prod_v1',
+                    api_key: 'sk_live_zatcaconnect_prod_v1',
+                    is_active: true,
+                    company: fallbackCompany
+                };
+            } else {
+                console.warn(`[V2 HMAC] No active companies found for virtual config!`);
+                erpConfig = {
+                    id: 'zatcaconnect_prod_v1',
+                    api_key: 'sk_live_zatcaconnect_prod_v1',
+                    is_active: true,
+                    company: { id: '00000000-0000-0000-0000-000000000000', registered_name: 'EasyLease Virtual' } as any
+                };
+            }
         }
 
         if (!erpConfig) {
