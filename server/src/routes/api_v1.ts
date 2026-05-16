@@ -370,6 +370,14 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
             idempotencyKey: saved.submission_id
         });
 
+        // 6. Queue for Background Processing
+        QueueService.enqueue({
+            invoiceId: saved.id,
+            companyId: company.id,
+            environment: company.environment,
+            retryCount: 0
+        });
+
         return res.status(202).json({
             status: 'ACCEPTED',
             jobId: saved.uuid,
