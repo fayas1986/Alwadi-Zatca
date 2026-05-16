@@ -236,7 +236,15 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
         const company = (req as any).company;
         const payload = req.body;
 
-        // --- 0. Auto-populate Supplier (ZATCA Data Normalization) ---
+        // --- 0. UUID Normalization (ZATCA Requirement: RFC 4122 Version 4) ---
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!payload.uuid || !uuidRegex.test(payload.uuid)) {
+            const oldUuid = payload.uuid;
+            payload.uuid = crypto.randomUUID();
+            console.log(`[V2 Router] Fixed invalid UUID: ${oldUuid || 'MISSING'} -> ${payload.uuid}`);
+        }
+
+        // --- 0.1 Auto-populate Supplier (ZATCA Data Normalization) ---
         // Requirement: Always include Supplier CRN, VAT, and Address
         if (!payload.supplier || !payload.supplier.vatNumber || !payload.supplier.address?.streetName) {
             const supplierAddress = payload.supplier?.address || {};
