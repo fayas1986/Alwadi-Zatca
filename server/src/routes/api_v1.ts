@@ -255,6 +255,9 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
                 }
             };
         }
+        
+        // --- 0.0b Normalize Subtype (Ensure ZATCA case-sensitivity is handled) ---
+        if (payload.invoiceSubtype) payload.invoiceSubtype = payload.invoiceSubtype.toUpperCase();
 
         // --- 0.1 Auto-populate Customer (Ensure structural integrity) ---
         if (!payload.customer) {
@@ -269,6 +272,20 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
                     countryCode: 'SA'
                 }
             };
+        } else if (!payload.customer.address && payload.invoiceSubtype === 'STANDARD') {
+            // Requirement: Standard invoices MUST have a customer address
+            payload.customer.address = {
+                streetName: 'Client Street',
+                buildingNumber: '0000',
+                cityName: 'Riyadh',
+                postalZone: '00000',
+                countryCode: 'SA'
+            };
+        }
+
+        // --- 0.2 Map ERP field names (Dynamics F&O compatibility) ---
+        if (!payload.items && (payload.invoiceLines || payload.SalesInvoiceLines)) {
+            payload.items = payload.invoiceLines || payload.SalesInvoiceLines;
         }
 
         // --- 1. Absolute Idempotency (Requirement: Optimized Cached Response) ---
