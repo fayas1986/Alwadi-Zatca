@@ -129,17 +129,23 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         usedNonces.set(nonceKey, serverTime + 5 * 60 * 1000);
 
         // --- 3. Client Identity & HMAC Verification ---
-        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!UUID_REGEX.test(trimmedClientId)) {
-            return sendError(res, 401, 'UNAUTHORIZED', 'Invalid Client ID format (Expected UUID)');
-        }
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedClientId);
 
         const erpConfig = await (prisma.erp_configuration as any).findFirst({
-            where: { id: trimmedClientId, is_active: true },
+            where: {
+                OR: [
+                    isUuid ? { id: trimmedClientId } : undefined,
+                    { api_key: trimmedClientId }
+                ].filter(Boolean) as any[],
+                is_active: true
+            },
             include: { company: true }
         });
 
-        if (!erpConfig) return sendError(res, 401, 'UNAUTHORIZED', 'Invalid or inactive Client ID');
+        if (!erpConfig) {
+            console.warn(`[V2 HMAC] Identity Check Failed: No active config for ${trimmedClientId}`);
+            return sendError(res, 401, 'UNAUTHORIZED', 'Invalid or inactive Client ID / API Key');
+        }
 
         // --- 4. Cryptographic Verification ---
         const secret = erpConfig.api_key || process.env.V2_FALLBACK_SECRET;
