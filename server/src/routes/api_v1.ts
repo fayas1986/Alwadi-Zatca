@@ -182,13 +182,13 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
             );
 
             if (!authResult.isValid) {
-                return sendError(res, 401, 'INVALID_SIGNATURE', `HMAC failed. Server Expected: ${authResult.expectedSig} | Postman Sent: ${signature} | Data: "${authResult.expectedData}" | Len: ${authResult.expectedData?.length} | KeyPrefix: ${normalizedSecret.substring(0, 5)}`);
+                return sendError(res, 401, 'INVALID_SIGNATURE', 'HMAC signature mismatch. Please verify your API keys and request encoding.');
             }
 
             console.log(`[AUTH] HMAC Verified successfully for Client: ${trimmedClientId}`);
         } catch (authError: any) {
             console.error(`[CRITICAL AUTH ERROR]:`, authError);
-            return sendError(res, 500, 'AUTH_CRASH', `Auth Engine Crash: ${authError.message} | SecretType: ${typeof secret} | SigType: ${typeof signature}`);
+            return sendError(res, 500, 'AUTH_CRASH', 'An internal error occurred during authentication.');
         }
 
         // --- 4. Industrial 2-Tier Rate Limiting (Requirement 2) ---
