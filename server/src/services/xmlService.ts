@@ -17,6 +17,9 @@ export const generateInvoiceXML = (invoice: Invoice) => {
     let totalVatHalala = 0;
     const taxSubtotals: Record<string, { taxableHalala: number, taxHalala: number, rate: number, category: string }> = {};
 
+    let totalAllowanceHalala = 0;
+    let totalChargeHalala = 0;
+
     const items = (Array.isArray(invoice.items) ? invoice.items : []).map((it, idx) => {
         const qty = safeNum(it.quantity);
         const price = safeNum(it.unitPrice);
@@ -32,6 +35,7 @@ export const generateInvoiceXML = (invoice: Invoice) => {
 
         totalExclusiveHalala += lineNetHalala;
         totalVatHalala += lineVatHalala;
+        totalAllowanceHalala += discountHalala;
 
         // Group for TaxSubtotal
         const key = `${category}_${ratePercent.toFixed(2)}`;
@@ -189,20 +193,30 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .ele('cbc:LineExtensionAmount', { currencyID: 'SAR' }).txt(fromHalala(totalExclusiveHalala)).up()
             .ele('cbc:TaxExclusiveAmount', { currencyID: 'SAR' }).txt(fromHalala(totalExclusiveHalala)).up()
             .ele('cbc:TaxInclusiveAmount', { currencyID: 'SAR' }).txt(fromHalala(totalInclusiveHalala)).up()
-            .ele('cbc:AllowanceTotalAmount', { currencyID: 'SAR' }).txt('0.00').up()
-            .ele('cbc:ChargeTotalAmount', { currencyID: 'SAR' }).txt('0.00').up()
+            .ele('cbc:AllowanceTotalAmount', { currencyID: 'SAR' }).txt(fromHalala(totalAllowanceHalala)).up()
+            .ele('cbc:ChargeTotalAmount', { currencyID: 'SAR' }).txt(fromHalala(totalChargeHalala)).up()
             .ele('cbc:PayableAmount', { currencyID: 'SAR' }).txt(fromHalala(totalInclusiveHalala)).up()
             .up();
 
 
         // Map items...
         items.forEach((item, index) => {
-            xml.ele('cac:InvoiceLine')
+            const xmlLine = xml.ele('cac:InvoiceLine')
                 .ele('cbc:ID').txt((index + 1).toString()).up()
                 .ele('cbc:InvoicedQuantity', { unitCode: 'PCE' }).txt(item.qtyStr).up()
-                .ele('cbc:LineExtensionAmount', { currencyID: 'SAR' }).txt(item.lineNetStr).up()
+                .ele('cbc:LineExtensionAmount', { currencyID: 'SAR' }).txt(item.lineNetStr).up();
+
+            // Line-Level Discount (AllowanceCharge) - Mandatory for explicit discounts
+            const discountAmount = safeNum(item.discount);
+            if (discountAmount > 0) {
+                xmlLine.ele('cac:AllowanceCharge')
+                    .ele('cbc:ChargeIndicator').txt('false').up()
+                    .ele('cbc:AllowanceChargeReason').txt('discount').up()
+                    .ele('cbc:Amount', { currencyID: 'SAR' }).txt(fromHalala(toHalala(discountAmount))).up()
+                .up();
+            }
                 
-                .ele('cac:TaxTotal')
+            xmlLine.ele('cac:TaxTotal')
                     .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(item.lineVatStr).up()
                     .ele('cac:TaxSubtotal')
                         .ele('cbc:TaxableAmount', { currencyID: 'SAR' }).txt(item.lineNetStr).up()
@@ -229,7 +243,7 @@ export const generateInvoiceXML = (invoice: Invoice) => {
                 .up() // Close Item
                 
                 .ele('cac:Price')
-                    .ele('cbc:PriceAmount', { currencyID: 'SAR' }).txt(item.priceStr).up()
+                    .ele('cbc:PriceAmount', { currencyID: 'SAR' }).txt(safeNum(item.unitPrice).toFixed(4)).up()
                 .up() // Close Price
             .up(); // Close InvoiceLine
         });

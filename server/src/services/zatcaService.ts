@@ -3,7 +3,7 @@ import axios from 'axios';
 const ZATCA_BASE_URL = {
     sandbox: 'https://sandbox.zatca.gov.sa/e-invoicing/sandbox',
     simulation: 'https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation',
-    production: 'https://core.zatca.gov.sa/e-invoicing/core'
+    production: 'https://gw-fatoora.zatca.gov.sa/e-invoicing/core'
 };
 
 const isMockMode = () => {
