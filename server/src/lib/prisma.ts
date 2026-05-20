@@ -2,7 +2,16 @@ import './env.js';
 import { PrismaClient } from '@prisma/client';
 
 const prismaClientSingleton = () => {
-  const url = process.env.DATABASE_URL;
+  let url = process.env.DATABASE_URL;
+  
+  // Fix for Neon Postgres: Remove connection pooler to avoid connection issues on cold starts
+  if (url && url.includes('neon.tech')) {
+    url = url.replace('-pooler.', '.');
+    url = url.replace('?pgbouncer=true&', '?');
+    url = url.replace('?pgbouncer=true', '');
+    url = url.replace('&pgbouncer=true', '');
+  }
+
   console.log('[Prisma] Initializing with DB URL:', url ? (url.substring(0, 20) + '...') : 'MISSING');
   
   return new PrismaClient({
