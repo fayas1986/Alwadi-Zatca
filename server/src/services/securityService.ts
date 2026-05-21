@@ -39,28 +39,47 @@ export class SecurityService {
     }
 
     /**
+     * Generates an HMAC signature for server-to-server auth
+     */
+    static generateSignature(secret: string, timestamp: string, nonce: string, method: string, path: string, body: any): string {
+        const safeSecret = (secret || '').trim();
+        const safeTimestamp = (timestamp || '').trim();
+        const safeNonce = (nonce || '').trim();
+        const safeMethod = (method || '').trim().toUpperCase();
+        const safePath = (path || '').trim();
+
+        // Enforce empty bodyHash for GET requests (GET requests do not have bodies in signature calculation)
+        const bodyHash = (safeMethod !== 'GET' && body && typeof body === 'object' && Object.keys(body).length > 0)
+            ? crypto.createHash('sha256').update(this.stableStringify(body)).digest('hex')
+            : '';
+
+        const dataToSign = `${safeTimestamp}${safeNonce}${safeMethod}${safePath}${bodyHash}`;
+        return crypto
+            .createHmac('sha256', safeSecret)
+            .update(dataToSign)
+            .digest('hex');
+    }
+
+    /**
      * Verifies an HMAC signature for server-to-server auth
      */
     static verifySignature(secret: string, timestamp: string, nonce: string, method: string, path: string, body: any, signature: string): { isValid: boolean, expectedData?: string, expectedSig?: string } {
         try {
-            const safeSecret = (secret || '').trim();
-            const safeTimestamp = (timestamp || '').trim();
-            const safeNonce = (nonce || '').trim();
-            const safeMethod = (method || '').trim().toUpperCase();
-            const safePath = (path || '').trim();
+            const expectedSignature = this.generateSignature(secret, timestamp, nonce, method, path, body);
             const safeSignature = (signature || '').trim();
 
-            const bodyHash = (body && Object.keys(body).length > 0)
+            const safeMethod = (method || '').trim().toUpperCase();
+            // Enforce empty bodyHash for GET requests
+            const bodyHash = (safeMethod !== 'GET' && body && typeof body === 'object' && Object.keys(body).length > 0)
                 ? crypto.createHash('sha256').update(this.stableStringify(body)).digest('hex')
                 : '';
-
-            const dataToSign = `${safeTimestamp}${safeNonce}${safeMethod}${safePath}${bodyHash}`;
-            const expectedSignature = crypto
-                .createHmac('sha256', safeSecret)
-                .update(dataToSign)
-                .digest('hex');
+            const dataToSign = `${(timestamp || '').trim()}${(nonce || '').trim()}${safeMethod}${(path || '').trim()}${bodyHash}`;
 
             if (!safeSignature) return { isValid: false, expectedData: dataToSign, expectedSig: expectedSignature };
+
+            if (safeSignature.length !== expectedSignature.length) {
+                return { isValid: false, expectedData: dataToSign, expectedSig: expectedSignature };
+            }
 
             const isValid = crypto.timingSafeEqual(
                 Buffer.from(safeSignature),

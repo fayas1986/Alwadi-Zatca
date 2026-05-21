@@ -84,12 +84,19 @@ function formatStatusContract(invoice: any) {
 
 // ── HMAC Auth Middleware (Bank-Level Security + Req 2) ──────────────────────────
 const authenticateHMAC = async (req: Request, res: Response, next: any) => {
-    console.log(`[AUTH] Checking HMAC for ${req.method} ${req.originalUrl}`);
-    const clientId = (req.headers['x-client-id'] || req.headers['x-api-key']) as string;
-    const timestamp = req.headers['x-timestamp'] as string;
-    const signature = req.headers['x-signature'] as string;
-    const nonce = req.headers['x-nonce'] as string;
-    const apiKey = req.headers['x-api-key'] as string;
+    // Defensive Header Extractor to handle duplicate headers (represented as string arrays)
+    const getHeader = (val: any): string => {
+        if (Array.isArray(val)) return val[0] || '';
+        return (val || '') as string;
+    };
+
+    const clientId = getHeader(req.headers['x-client-id'] || req.headers['x-api-key']);
+    const timestamp = getHeader(req.headers['x-timestamp']);
+    const signature = getHeader(req.headers['x-signature']);
+    const nonce = getHeader(req.headers['x-nonce']);
+    const apiKey = getHeader(req.headers['x-api-key']);
+
+    console.log(`[AUTH] Checking HMAC for ${req.method} ${req.originalUrl || req.url || ''}`);
 
     // --- 0. HMAC Bypass for Simple API Communication ---
     if (apiKey && !signature) {
@@ -98,7 +105,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
     }
 
     if (!clientId || !timestamp || !nonce || !signature) {
-        console.warn(`[V2 HMAC] Missing Headers on ${req.originalUrl} from ${req.ip}. Headers: clientId=${!!clientId}, ts=${!!timestamp}, nonce=${!!nonce}, sig=${!!signature}`);
+        console.warn(`[V2 HMAC] Missing Headers on ${req.originalUrl || req.url || ''} from ${req.ip}. Headers: clientId=${!!clientId}, ts=${!!timestamp}, nonce=${!!nonce}, sig=${!!signature}`);
         return sendError(res, 401, 'UNAUTHORIZED', 'Missing required HMAC headers (x-client-id/x-api-key, x-timestamp, x-nonce, x-signature required for V2)');
     }
 
@@ -194,20 +201,18 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         }
 
         try {
-            const cleanPath = req.originalUrl.split('?')[0].replace(/\/$/, '').replace(/[^\x00-\x7F]/g, '') || '/';
+            const originalUrl = req.originalUrl || req.url || '';
+            const cleanPath = originalUrl.split('?')[0].replace(/\/$/, '').replace(/[^\x00-\x7F]/g, '') || '/';
             const normalizedSecret = secret.trim().replace(/[\r\n]/g, '');
 
-            const bodyHash = crypto.createHash('sha256').update(JSON.stringify(req.body)).digest('hex');
-            const dataToSign = timestamp + nonce + req.method + cleanPath + bodyHash;
-            
             const authResult = SecurityService.verifySignature(
                 normalizedSecret,
-                timestamp as string,
-                nonce as string,
+                timestamp,
+                nonce,
                 req.method,
                 cleanPath,
                 req.body,
-                signature as string
+                signature
             );
 
             if (!authResult.isValid) {
@@ -342,6 +347,34 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
         // --- 0.2 Map ERP field names (Dynamics F&O compatibility) ---
         if (!payload.items && (payload.invoiceLines || payload.SalesInvoiceLines)) {
             payload.items = payload.invoiceLines || payload.SalesInvoiceLines;
+        }
+
+        // Normalize item properties for robust compliance mapping
+        if (Array.isArray(payload.items)) {
+            payload.items = payload.items.map((item: any) => {
+                const normalized = { ...item };
+                
+                // Map itemName -> name (required by xmlService)
+                if (!normalized.name && normalized.itemName) {
+                    normalized.name = normalized.itemName;
+                }
+                
+                // Map taxCategory if passed as an object (e.g., { id: 'S', percent: 15 })
+                if (normalized.taxCategory && typeof normalized.taxCategory === 'object') {
+                    const catId = normalized.taxCategory.id || normalized.taxCategory.code || normalized.taxCategory.taxCategoryCode;
+                    const catPercent = normalized.taxCategory.percent ?? normalized.taxCategory.rate ?? normalized.taxCategory.vatRate ?? normalized.taxCategory.taxRate;
+                    
+                    if (catId) {
+                        normalized.taxCategory = catId;
+                        normalized.taxCategoryCode = catId;
+                    }
+                    if (catPercent !== undefined && normalized.vatRate === undefined && normalized.taxRate === undefined) {
+                        normalized.vatRate = catPercent;
+                    }
+                }
+                
+                return normalized;
+            });
         }
 
         // --- 1. Absolute Idempotency (Requirement: Optimized Cached Response) ---

@@ -24,8 +24,7 @@ async function main() {
 
         const baseUrl = 'http://localhost:3001/api/v1';
         const headers = {
-            'x-api-key': erpConfig.id,
-            'Authorization': `Bearer ${erpConfig.api_key}`,
+            'x-api-key': erpConfig.api_key,
             'Content-Type': 'application/json'
         };
 

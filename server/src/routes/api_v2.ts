@@ -170,9 +170,9 @@ const authenticateFlexible = async (req: Request, res: Response, next: any) => {
             return sendError(res, 401, 'UNAUTHORIZED', 'Invalid or inactive Client ID. Ensure you are using the correct UUID from the dashboard.');
         }
 
-        const isValid = SecurityService.verifySignature(erpConfig.api_key!, timestamp, nonce, req.method, req.originalUrl, req.body, signature);
+        const authResult = SecurityService.verifySignature(erpConfig.api_key!, timestamp, nonce, req.method, req.originalUrl, req.body, signature);
         
-        if (!isValid) {
+        if (!authResult.isValid) {
             const bodyHash = (req.body && Object.keys(req.body).length > 0)
                 ? crypto.createHash('sha256').update(SecurityService.stableStringify(req.body)).digest('hex')
                 : '';
