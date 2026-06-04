@@ -10,6 +10,12 @@ const prismaClientSingleton = () => {
     url = url.replace('?pgbouncer=true&', '?');
     url = url.replace('?pgbouncer=true', '');
     url = url.replace('&pgbouncer=true', '');
+    
+    // Add connection timeout for cold starts
+    if (!url.includes('connect_timeout=')) {
+      const separator = url.includes('?') ? '&' : '?';
+      url = `${url}${separator}connect_timeout=30`;
+    }
   }
 
   console.log('[Prisma] Initializing with DB URL:', url ? (url.substring(0, 20) + '...') : 'MISSING');

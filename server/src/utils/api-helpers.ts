@@ -104,8 +104,8 @@ export const calculateInvoiceTotals = (payload: any) => {
         const qty = isNote ? Math.abs(Number(item.quantity || 1)) : Number(item.quantity || 1);
         const price = isNote ? Math.abs(Number(item.unitPrice || 0)) : Number(item.unitPrice || 0);
         
-        // Handle allowances/charges at line level
-        const allowance = Number(item.allowanceAmount || 0);
+        // Handle allowances/charges at line level (normalize discount and allowanceAmount)
+        const allowance = Number(item.allowanceAmount !== undefined ? item.allowanceAmount : (item.discount || 0));
         const charge = Number(item.chargeAmount || 0);
         
         const grossHalala = toHalala(qty * price);
@@ -129,6 +129,8 @@ export const calculateInvoiceTotals = (payload: any) => {
             ...item,
             quantity: qty,
             unitPrice: Number(price.toFixed(2)),
+            discount: allowance,
+            allowanceAmount: allowance,
             subtotal: fromHalala(lineNetHalala),
             lineTotal: fromHalala(lineNetHalala),
             taxAmount: fromHalala(taxHalala),
