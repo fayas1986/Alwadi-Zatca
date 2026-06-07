@@ -692,17 +692,12 @@ router.delete('/config/:id', async (req: Request, res: Response) => {
 
 // Mock Server for Real-time Testing
 router.get('/mock-server', (req, res) => {
-    const now = new Date();
-    const timestamp = now.toISOString();
-    // Use minute-based timestamp for stable testing IDs
-    const day = timestamp.split('T')[0].replace(/-/g, '');
-    const hourMin = `${now.getHours()}${now.getMinutes()}`;
     res.json({
         status: 'success',
         invoices: [
             {
-                invoiceNumber: `SIM-${day}-${hourMin}-001`,
-                issueDate: timestamp.split('T')[0],
+                invoiceNumber: 'SIM-MOCK-001',
+                issueDate: '2026-06-07',
                 invoiceSubtype: 'Simplified',
                 totalAmount: 115.00,
                 vatAmount: 15.00,

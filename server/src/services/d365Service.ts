@@ -65,12 +65,10 @@ export class D365Service {
     }
 
     private static getMockRawInvoices(): any[] {
-        const timestamp = new Date().toISOString();
-        const day = timestamp.split('T')[0].replace(/-/g, '');
-        const hourMin = `${new Date().getHours()}${new Date().getMinutes()}`;
+        const timestamp = '2026-06-07T13:00:00.000Z';
         return [
             {
-                InvoiceNumber: `D365-B2B-${day}-${hourMin}`,
+                InvoiceNumber: 'D365-B2B-MOCK-001',
                 InvoiceDate: timestamp,
                 InvoiceType: 'Standard',
                 InvoiceAmount: 1150.00,
@@ -90,7 +88,7 @@ export class D365Service {
                 ]
             },
             {
-                InvoiceNumber: `D365-B2C-${day}-${hourMin}`,
+                InvoiceNumber: 'D365-B2C-MOCK-001',
                 InvoiceDate: timestamp,
                 InvoiceType: 'Simplified',
                 InvoiceAmount: 230.00,
