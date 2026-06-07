@@ -322,8 +322,8 @@ export const fetchAndProcessInvoices = async (
 
                 const isSimulation = (environment || company.environment || 'SANDBOX').toLowerCase() === 'simulation';
                 
-                if (existing && !isSimulation) {
-                    console.log(`[Integration] Invoice ${inv.invoiceNumber} already exists in database. Skipping.`);
+                if (existing && !isSimulation && existing.status !== 'FAILED') {
+                    console.log(`[Integration] Invoice ${inv.invoiceNumber} already exists in database with status ${existing.status}. Skipping.`);
                     results.push({ invoiceNumber: inv.invoiceNumber, status: 'skipped', reason: 'Already exists' });
                     continue;
                 }
@@ -470,7 +470,7 @@ export const fetchAndProcessInvoices = async (
                     }
                 };
 
-                if (existing && isSimulation) {
+                if (existing) {
                     await InvoiceService.updateInvoice(existing.id, invoiceData);
                 } else {
                     await InvoiceService.createInvoice(invoiceData);
