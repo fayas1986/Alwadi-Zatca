@@ -1,5 +1,6 @@
 import prisma from '../lib/prisma.js';
 import { fetchAndProcessInvoices } from './integrationService.js';
+import { D365Service } from './d365Service.js';
 
 export class SyncService {
     private static interval: NodeJS.Timeout | null = null;
@@ -76,11 +77,30 @@ export class SyncService {
                     }
 
                     console.log(`[Sync] Pulling for ${config.company.registered_name} (${config.environment || 'PRODUCTION'})...`);
+                    
+                    let preFetchedInvoices: any[] | undefined = undefined;
+                    if (config.type === 'D365' || (config.type === 'MICROSOFT' && !config.base_url.includes('mock-server'))) {
+                        console.log(`[Sync] D365 configuration detected (${config.type}). Fetching invoices via D365Service...`);
+                        const d365Config = {
+                            clientId: config.id,
+                            clientSecret: process.env.D365_CLIENT_SECRET || config.api_key || '',
+                            tenantId: process.env.D365_TENANT_ID || 'common',
+                            baseUrl: config.base_url
+                        };
+                        try {
+                            preFetchedInvoices = await D365Service.fetchInvoices(d365Config);
+                        } catch (err: any) {
+                            console.error(`[Sync] Failed to fetch from D365:`, err.message);
+                            throw err;
+                        }
+                    }
+
                     const results = await fetchAndProcessInvoices(
                         config.base_url,
                         config.api_key || '',
                         config.company.vat_number,
-                        config.environment || undefined
+                        config.environment || undefined,
+                        preFetchedInvoices
                     );
                     
                     summary.push({ 

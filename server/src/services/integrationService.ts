@@ -10,6 +10,7 @@ import { calculateInvoiceTotals } from '../utils/api-helpers.js';
 import { InvoiceService } from './invoiceService.js';
 import { WebhookService } from './webhookService.js';
 import { AuditService } from './auditService.js';
+import { D365Service } from './d365Service.js';
 import { Invoice, InvoiceSubtype, DocumentType } from '../types.js';
 import { invoice_status } from '@prisma/client';
 
@@ -74,72 +75,81 @@ const sanitizePayload = (data: any, limit: number = 300): string => {
     }
 };
 
-export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: string, vatNumber: string, environment?: string) => {
-    console.log(`Fetching invoices from ${sourceUrl} for environment: ${environment || 'Default'}...`);
+export const fetchAndProcessInvoices = async (
+    sourceUrl: string, 
+    authHeader: string, 
+    vatNumber: string, 
+    environment?: string, 
+    preFetchedInvoices?: any[]
+) => {
+    console.log(`Processing invoices for environment: ${environment || 'Default'} (preFetched: ${!!preFetchedInvoices})...`);
 
     try {
-        // 1. Fetch from ERP
-        let response;
-        try {
-            response = await axios.get(sourceUrl, {
-                headers: { 'Authorization': authHeader }
-            });
-        } catch (err: any) {
-             // Smart Fallback for Factslite: If we got a 401/404 but we are hitting a token endpoint, maybe we need to be more aggressive?
-             // Actually, the current issue is we ARE hitting /token and getting a 200 SUCCESS but with a Token, not Invoices.
-             throw err;
-        }
+        let invoices: any[];
 
-        if (environment?.toUpperCase() === 'SIMULATION') {
-            console.log(`[Simulation] Response status: ${response.status} from ${sourceUrl}`);
-            console.log(`[Simulation] Data snippet (Sanitized): ${sanitizePayload(response.data, 500)}...`);
-        }
-
-        // --- Smart Fetcher Logic for Factslite ---
-        // If the URL is a token endpoint and returns a token instead of invoices, 
-        // we exchange it and hit the actual data endpoint.
-        if (sourceUrl.includes('/api/token') && response.data?.status === 'SUCCESS' && response.data?.token) {
-            const dynamicToken = response.data.token;
-            const vendorId = new URL(sourceUrl).searchParams.get('vendorId') || '2';
-            
-            // Derive the data URL: replace /token with /zatca/fetchInvoices (common pattern for this vendor)
-            // If this fails, we will try /api/invoices as a fallback
-            const dataUrl = sourceUrl.replace('/api/token', '/api/zatca/fetchInvoices');
-            
-            console.log(`[Integration] Detected Token Response. Exchanging for data at ${dataUrl}...`);
-            
+        if (preFetchedInvoices) {
+            invoices = preFetchedInvoices;
+        } else {
+            // 1. Fetch from ERP
+            let response;
             try {
-                const dataResponse = await axios.get(dataUrl, {
-                    headers: { 'Authorization': `Bearer ${dynamicToken}` }
+                response = await axios.get(sourceUrl, {
+                    headers: { 'Authorization': authHeader }
                 });
-                response = dataResponse; // Swap for the actual data response
             } catch (err: any) {
-                console.warn(`[Integration] Derived fetch failed at ${dataUrl}: ${err.message}. Trying direct /api/invoices fallback...`);
-                const fallbackUrl = sourceUrl.replace('/api/token', '/api/invoices');
+                 throw err;
+            }
+
+            if (environment?.toUpperCase() === 'SIMULATION') {
+                console.log(`[Simulation] Response status: ${response.status} from ${sourceUrl}`);
+                console.log(`[Simulation] Data snippet (Sanitized): ${sanitizePayload(response.data, 500)}...`);
+            }
+
+            // --- Smart Fetcher Logic for Factslite ---
+            // If the URL is a token endpoint and returns a token instead of invoices, 
+            // we exchange it and hit the actual data endpoint.
+            if (sourceUrl.includes('/api/token') && response.data?.status === 'SUCCESS' && response.data?.token) {
+                const dynamicToken = response.data.token;
+                
+                // Derive the data URL: replace /token with /zatca/fetchInvoices (common pattern for this vendor)
+                // If this fails, we will try /api/invoices as a fallback
+                const dataUrl = sourceUrl.replace('/api/token', '/api/zatca/fetchInvoices');
+                
+                console.log(`[Integration] Detected Token Response. Exchanging for data at ${dataUrl}...`);
+                
                 try {
-                    response = await axios.get(fallbackUrl, {
+                    const dataResponse = await axios.get(dataUrl, {
                         headers: { 'Authorization': `Bearer ${dynamicToken}` }
                     });
-                } catch (fallbackErr: any) {
-                    console.error(`[Integration] All derived fetch attempts failed for Factslite. Setting empty result.`);
-                    // Instead of throwing, we return a mock "empty" response to prevent SyncService crash
-                    response = { data: { invoices: [] }, status: 200 };
+                    response = dataResponse; // Swap for the actual data response
+                } catch (err: any) {
+                    console.warn(`[Integration] Derived fetch failed at ${dataUrl}: ${err.message}. Trying direct /api/invoices fallback...`);
+                    const fallbackUrl = sourceUrl.replace('/api/token', '/api/invoices');
+                    try {
+                        response = await axios.get(fallbackUrl, {
+                            headers: { 'Authorization': `Bearer ${dynamicToken}` }
+                        });
+                    } catch (fallbackErr: any) {
+                        console.error(`[Integration] All derived fetch attempts failed for Factslite. Setting empty result.`);
+                        // Instead of throwing, we return a mock "empty" response to prevent SyncService crash
+                        response = { data: { invoices: [] }, status: 200 };
+                    }
                 }
             }
+
+            // Support various JSON wrappers: .invoices, .data, .list, or direct array
+            invoices = 
+              response.data.invoices || 
+              (Array.isArray(response.data.data) ? response.data.data : response.data.data?.rows || response.data.data?.list) || 
+              response.data.list || 
+              (Array.isArray(response.data) ? response.data : null);
+
+            if (!invoices || !Array.isArray(invoices)) {
+                console.error('[Integration] raw response (potential format error):', sanitizePayload(response.data, 500));
+                const responseSnippet = sanitizePayload(response.data, 300);
+                throw new Error(`Invalid response format: Expected array of invoices (checked .invoices, .data, .list). Received: ${responseSnippet}...`);
+            }
         }
-
-        // Support various JSON wrappers: .invoices, .data, .list, or direct array
-        const invoices: any[] = 
-          response.data.invoices || 
-          (Array.isArray(response.data.data) ? response.data.data : response.data.data?.rows || response.data.data?.list) || 
-          response.data.list || 
-          (Array.isArray(response.data) ? response.data : null);
-
-          if (!invoices || !Array.isArray(invoices)) {
-              console.error('[Integration] raw response (potential format error):', sanitizePayload(response.data, 500));
-              const responseSnippet = sanitizePayload(response.data, 300);
-              throw new Error(`Invalid response format: Expected array of invoices (checked .invoices, .data, .list). Received: ${responseSnippet}...`);
-          }
 
         console.log(`Fetched ${invoices.length} invoices. Processing...`);
 
@@ -500,6 +510,19 @@ export const fetchAndProcessInvoices = async (sourceUrl: string, authHeader: str
             } catch (err: any) {
                 console.error(`Error processing invoice ${invNumberFallback}:`, err.message);
                 results.push({ invoice: invNumberFallback, status: 'Failed', error: err.message });
+                
+                // Reflect failure/rejection back to ERP in real-time so it can be corrected and pushed again!
+                try {
+                    await reflectStatusToERP(
+                        company.id,
+                        invNumberFallback,
+                        existing?.uuid || crypto.randomUUID(),
+                        'FAILED',
+                        { message: err.message }
+                    );
+                } catch (reflectErr: any) {
+                    console.error(`[Integration] Failed to reflect processing error to ERP:`, reflectErr.message);
+                }
             }
         }
 
@@ -566,8 +589,30 @@ export const reflectStatusToERP = async (companyId: number, invoiceNumber: strin
             }).catch(err => console.error('[Webhook] Service call failed:', err.message));
         }
 
-        // 3. Relay via Legacy Callback (Per-ERP Config)
+        // 3. Relay via Callback
         for (const config of erpConfigs) {
+            if (config.type === 'D365' || (config.type === 'MICROSOFT' && !config.base_url.includes('mock-server'))) {
+                console.log(`[ERP Status] Reflecting status for ${invoiceNumber} to D365...`);
+                try {
+                    const d365Config = {
+                        clientId: config.id,
+                        clientSecret: process.env.D365_CLIENT_SECRET || config.api_key || '',
+                        tenantId: process.env.D365_TENANT_ID || 'common',
+                        baseUrl: config.base_url
+                    };
+                    await D365Service.pushStatusUpdate(d365Config, {
+                        invoiceNumber,
+                        uuid,
+                        status: erpStatus.toUpperCase(),
+                        rejectionReason: rejectionReason || (zatcaResponse?.message || null),
+                        zatcaResponse
+                    });
+                } catch (err: any) {
+                    console.warn(`[ERP Status] Failed to update D365 status: ${err.message}`);
+                }
+                continue;
+            }
+
             // Use URL object to safely append path even if query params exist
             let callbackUrl: string;
             try {
