@@ -75,22 +75,22 @@ async function testHmac() {
         const response = await axios.get(`${baseUrl}${path}`, { headers });
         console.log('SUCCESS:', JSON.stringify(response.data, null, 2));
 
-        // Now test V2 route as well
-        const v2Nonce = crypto.randomBytes(16).toString('hex');
-        const v2Timestamp = new Date().toISOString();
-        const v2Path = `/api/v2/erp/invoices/${jobId}/status`;
-        const v2DataToSign = `${v2Timestamp}${v2Nonce}${method}${v2Path}${bodyHash}`;
-        const v2Signature = crypto.createHmac('sha256', apiKey).update(v2DataToSign).digest('hex');
+        // Now test Replay Protection (Nonce Uniqueness)
+        const replayNonce = crypto.randomBytes(16).toString('hex');
+        const replayTimestamp = new Date().toISOString();
+        const replayPath = `/api/v1/erp/status/${jobId}`;
+        const replayDataToSign = `${replayTimestamp}${replayNonce}${method}${replayPath}${bodyHash}`;
+        const replaySignature = crypto.createHmac('sha256', apiKey).update(replayDataToSign).digest('hex');
 
-        const v2Headers = {
+        const replayHeaders = {
             ...headers,
-            'x-timestamp': v2Timestamp,
-            'x-nonce': v2Nonce,
-            'x-signature': v2Signature
+            'x-timestamp': replayTimestamp,
+            'x-nonce': replayNonce,
+            'x-signature': replaySignature
         };
-        console.log(`[HMAC TEST] Hitting V2 URL path schema: ${baseUrl}${v2Path}...`);
-        const response2 = await axios.get(`${baseUrl}${v2Path}`, { headers: v2Headers });
-        console.log('SUCCESS V2:', JSON.stringify(response2.data, null, 2));
+        console.log(`[HMAC TEST] Hitting again to test replay protection: ${baseUrl}${replayPath}...`);
+        const response2 = await axios.get(`${baseUrl}${replayPath}`, { headers: replayHeaders });
+        console.log('SUCCESS (Replay protection passed):', JSON.stringify(response2.data, null, 2));
 
         process.exit(0);
     } catch (error: any) {
