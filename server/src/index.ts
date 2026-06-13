@@ -50,9 +50,19 @@ app.use(helmet({
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "https:"],
             connectSrc: ["'self'", "https://core.zatca.gov.sa", "https://simulation.zatca.gov.sa", "http://localhost:3001"],
+            frameAncestors: [
+                "'self'",
+                "https://el-uat.sandbox.operations.uae.dynamics.com",
+                "https://*.operations.uae.dynamics.com",
+                "https://*.operations.dynamics.com",
+                "https://*.dynamics.com",
+                "https://*.powerapps.com",
+                "https://*.sharepoint.com"
+            ],
             upgradeInsecureRequests: null,
         },
     },
+    frameguard: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
     hsts: {
         maxAge: 31536000,
