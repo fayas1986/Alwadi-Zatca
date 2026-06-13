@@ -226,7 +226,8 @@ export class D365Service {
                 throw error;
             }
         } catch (error: any) {
-            console.warn(`[D365 Status] Push status update failed for ${update.invoiceNumber}: ${error.message}. Emulating success back to caller.`);
+            console.error(`[D365 Status] Push status update failed for ${update.invoiceNumber}: ${error.message}`);
+            throw error;
         }
     }
 
