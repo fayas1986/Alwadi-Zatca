@@ -82,7 +82,7 @@ export class SyncService {
                     if (config.type === 'D365' || (config.type === 'MICROSOFT' && !config.base_url.includes('mock-server'))) {
                         console.log(`[Sync] D365 configuration detected (${config.type}). Fetching invoices via D365Service...`);
                         const d365Config = {
-                            clientId: config.id,
+                            clientId: process.env.D365_CLIENT_ID || '',
                             clientSecret: process.env.D365_CLIENT_SECRET || config.api_key || '',
                             tenantId: process.env.D365_TENANT_ID || 'common',
                             baseUrl: config.base_url
