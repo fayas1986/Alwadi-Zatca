@@ -61,8 +61,13 @@ router.get('/configs', async (req: Request, res: Response) => {
         const { companyId } = req.query;
         if (!companyId) return res.status(400).json({ error: 'companyId is required' });
 
+        let cleanCompanyId = companyId as string;
+        if (cleanCompanyId.startsWith('br-')) {
+            cleanCompanyId = cleanCompanyId.replace('br-', '');
+        }
+
         const configs = await prisma.erp_configuration.findMany({
-            where: { company_id: parseInt(companyId as string) }
+            where: { company_id: parseInt(cleanCompanyId) }
         });
         res.json(configs);
     } catch (error: any) {
@@ -81,10 +86,15 @@ router.post('/config', async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, error: 'companyId, type and baseUrl are required' });
         }
 
+        let cleanCompanyId = companyId.toString();
+        if (cleanCompanyId.startsWith('br-')) {
+            cleanCompanyId = cleanCompanyId.replace('br-', '');
+        }
+
         // Check for existing active configuration with same URL and Environment for this company
         const existingConfig = await prisma.erp_configuration.findFirst({
             where: {
-                company_id: parseInt(companyId),
+                company_id: parseInt(cleanCompanyId),
                 base_url: baseUrl,
                 environment: environment || 'PRODUCTION',
                 is_active: true
@@ -100,7 +110,7 @@ router.post('/config', async (req: Request, res: Response) => {
 
         const config = await (prisma as any).erp_configuration.create({
             data: {
-                company_id: parseInt(companyId),
+                company_id: parseInt(cleanCompanyId),
                 name: name || `${type} Connection`,
                 type,
                 base_url: baseUrl,

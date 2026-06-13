@@ -223,7 +223,11 @@ router.get('/certificates', async (req, res) => {
         const userRole = req.headers['x-user-role'];
         const userEmail = req.headers['x-user-email'] as string;
 
-        const where: any = { company_id: parseInt(companyId as string) };
+        let cleanCompanyId = companyId as string;
+        if (cleanCompanyId.startsWith('br-')) {
+            cleanCompanyId = cleanCompanyId.replace('br-', '');
+        }
+        const where: any = { company_id: parseInt(cleanCompanyId) };
 
         // If not SUPER_ADMIN, verify ownership OR membership
         if (userRole !== 'SUPER_ADMIN' && userEmail) {
@@ -377,8 +381,12 @@ router.get('/invoices', async (req, res) => {
             return res.status(400).json({ error: 'companyId is required' });
         }
 
+        let cleanCompanyId = companyId as string;
+        if (cleanCompanyId.startsWith('br-')) {
+            cleanCompanyId = cleanCompanyId.replace('br-', '');
+        }
         const where: any = { 
-            company_id: parseInt(companyId as string),
+            company_id: parseInt(cleanCompanyId),
             is_deleted: false
         };
 
@@ -824,9 +832,13 @@ router.post('/invoice/report', async (req, res) => {
 
         // 1. Find company by ID or VAT
         let company;
-        if (companyId) {
+        let cleanCompanyId = companyId;
+        if (typeof cleanCompanyId === 'string' && cleanCompanyId.startsWith('br-')) {
+            cleanCompanyId = cleanCompanyId.replace('br-', '');
+        }
+        if (cleanCompanyId) {
             company = await prisma.company.findUnique({
-                where: { id: typeof companyId === 'string' ? parseInt(companyId) : companyId },
+                where: { id: typeof cleanCompanyId === 'string' ? parseInt(cleanCompanyId) : cleanCompanyId },
                 include: { certificates: true }
             });
         } else if (vat) {
@@ -869,7 +881,7 @@ router.post('/invoice/report', async (req, res) => {
 
         // 2. Early Idempotency Check
         const existingInvoice = await prisma.invoice.findFirst({
-            where: { company_id: companyId, hash: hash } as any
+            where: { company_id: company.id, hash: hash } as any
         });
 
         if (existingInvoice && (existingInvoice.status === 'CLEARED' || existingInvoice.status === 'REPORTED')) {

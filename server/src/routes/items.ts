@@ -65,7 +65,11 @@ router.get('/', async (req: Request, res: Response) => {
 
         // Filter by companyId (if provided and not empty)
         if (companyId && companyId !== '' && companyId !== 'undefined') {
-            where.company_id = Number(companyId);
+            let cleanCompanyId = companyId as string;
+            if (cleanCompanyId.startsWith('br-')) {
+                cleanCompanyId = cleanCompanyId.replace('br-', '');
+            }
+            where.company_id = Number(cleanCompanyId);
         }
 
         // Search filter
@@ -117,9 +121,14 @@ router.post('/', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'name and unitPrice are required' });
         }
 
+        let cleanCompanyId = companyId ? String(companyId) : '';
+        if (cleanCompanyId.startsWith('br-')) {
+            cleanCompanyId = cleanCompanyId.replace('br-', '');
+        }
+
         const newItem = await prisma.item.create({
             data: {
-                company_id: Number(companyId) || 1, // Defaulting to 1 if not provided
+                company_id: Number(cleanCompanyId) || 1, // Defaulting to 1 if not provided
                 sku: sku || `ITEM-${Date.now()}`,
                 name,
                 description: description || '',
@@ -217,7 +226,11 @@ router.post('/bulk', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'items array is required' });
         }
 
-        const company_id = Number(companyId) || 1;
+        let cleanCompanyId = companyId ? String(companyId) : '';
+        if (cleanCompanyId.startsWith('br-')) {
+            cleanCompanyId = cleanCompanyId.replace('br-', '');
+        }
+        const company_id = Number(cleanCompanyId) || 1;
 
         const data = items.map((item: any) => ({
             company_id,
