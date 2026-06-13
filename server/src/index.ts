@@ -13,6 +13,7 @@ import SyncService from './services/syncService.js';
 import reportsRouter from './routes/reports.js';
 import prisma from './lib/prisma.js';
 import apiV1Router from './routes/api_v1.js';
+import apiV2Router from './routes/api_v2.js';
 
 import { swaggerSpec } from './utils/swagger.js';
 
@@ -74,6 +75,7 @@ app.use(helmet({
 
 app.use('/api/zatca', zatcaRouter);
 app.use('/api/v1', apiV1Router);
+app.use('/api/v2', apiV2Router);
 app.use('/api/erp', erpRouter);
 app.use('/api/admin/reports', reportsRouter);
 app.use('/api/admin', adminRoutes);
