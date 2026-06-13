@@ -157,6 +157,9 @@ export class D365Service {
                 throw lastError;
             }
         } catch (error: any) {
+            if (process.env.NODE_ENV === 'production' && process.env.USE_MOCK_SDK !== 'true') {
+                throw new Error(`D365 OData fetch failed: ${error.message}`);
+            }
             console.warn(`[D365] OData fetch failed (${error.message}). Falling back to mock invoices to ensure flow completion.`);
             return this.getMockRawInvoices().map((inv: any) => this.mapToInternalFormat(inv));
         }
