@@ -170,13 +170,16 @@ const authenticateFlexible = async (req: Request, res: Response, next: any) => {
             return sendError(res, 401, 'UNAUTHORIZED', 'Invalid or inactive Client ID. Ensure you are using the correct UUID from the dashboard.');
         }
 
-        const authResult = SecurityService.verifySignature(erpConfig.api_key!, timestamp, nonce, req.method, req.originalUrl, req.body, signature);
+        const originalUrl = req.originalUrl || req.url || '';
+        const cleanPath = originalUrl.split('?')[0].replace(/\/$/, '').replace(/[^\x00-\x7F]/g, '') || '/';
+
+        const authResult = SecurityService.verifySignature(erpConfig.api_key!, timestamp, nonce, req.method, cleanPath, req.body, signature);
         
         if (!authResult.isValid) {
             const bodyHash = (req.body && Object.keys(req.body).length > 0)
                 ? crypto.createHash('sha256').update(SecurityService.stableStringify(req.body)).digest('hex')
                 : '';
-            const dataToSign = `${timestamp}${nonce}${req.method.toUpperCase()}${req.originalUrl}${bodyHash}`;
+            const dataToSign = `${timestamp}${nonce}${req.method.toUpperCase()}${cleanPath}${bodyHash}`;
             console.log('\n--- HMAC DEBUG START ---');
             console.log('Client ID (Raw):', req.headers['x-client-id']);
             console.log('Client ID (Trimmed):', trimmedClientId);
@@ -184,11 +187,12 @@ const authenticateFlexible = async (req: Request, res: Response, next: any) => {
             console.log('Nonce:', nonce);
             console.log('Method:', req.method);
             console.log('Path (originalUrl):', req.originalUrl);
+            console.log('Path (cleanPath):', cleanPath);
             console.log('Body:', JSON.stringify(req.body));
             console.log('BodyHash:', bodyHash);
             console.log('String To Sign:', dataToSign);
             console.log('Secret Used (first 5 chars):', erpConfig.api_key?.substring(0, 5));
-            console.log('Expected Signature (Server):', SecurityService.generateSignature(erpConfig.api_key!, timestamp, nonce, req.method, req.originalUrl, req.body));
+            console.log('Expected Signature (Server):', SecurityService.generateSignature(erpConfig.api_key!, timestamp, nonce, req.method, cleanPath, req.body));
             console.log('Received Signature (Postman):', signature);
             console.log('--- HMAC DEBUG END ---\n');
             return sendError(res, 401, 'INVALID_SIGNATURE', 'HMAC signature verification failed');
