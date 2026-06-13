@@ -46,10 +46,10 @@ const sanitizePayload = (data: any, limit: number = 300): string => {
         const isHtml = data.trim().startsWith('<') || data.includes('<!DOCTYPE') || data.includes('<html>');
         return isHtml ? data.substring(0, limit) : data.substring(0, limit);
     }
-    
+
     // Keys that likely contain PII or sensitive business data
     const sensitiveKeys = ['name', 'address', 'vat', 'customer', 'email', 'phone', 'mobile', 'street', 'city', 'post', 'building', 'contact'];
-    
+
     const redact = (obj: any): any => {
         if (Array.isArray(obj)) return obj.slice(0, 3).map(redact); // Limit array samples
         if (obj !== null && typeof obj === 'object') {
@@ -76,10 +76,10 @@ const sanitizePayload = (data: any, limit: number = 300): string => {
 };
 
 export const fetchAndProcessInvoices = async (
-    sourceUrl: string, 
-    authHeader: string, 
-    vatNumber: string, 
-    environment?: string, 
+    sourceUrl: string,
+    authHeader: string,
+    vatNumber: string,
+    environment?: string,
     preFetchedInvoices?: any[]
 ) => {
     console.log(`Processing invoices for environment: ${environment || 'Default'} (preFetched: ${!!preFetchedInvoices})...`);
@@ -97,7 +97,7 @@ export const fetchAndProcessInvoices = async (
                     headers: { 'Authorization': authHeader }
                 });
             } catch (err: any) {
-                 throw err;
+                throw err;
             }
 
             if (environment?.toUpperCase() === 'SIMULATION') {
@@ -110,13 +110,13 @@ export const fetchAndProcessInvoices = async (
             // we exchange it and hit the actual data endpoint.
             if (sourceUrl.includes('/api/token') && response.data?.status === 'SUCCESS' && response.data?.token) {
                 const dynamicToken = response.data.token;
-                
+
                 // Derive the data URL: replace /token with /zatca/fetchInvoices (common pattern for this vendor)
                 // If this fails, we will try /api/invoices as a fallback
                 const dataUrl = sourceUrl.replace('/api/token', '/api/zatca/fetchInvoices');
-                
+
                 console.log(`[Integration] Detected Token Response. Exchanging for data at ${dataUrl}...`);
-                
+
                 try {
                     const dataResponse = await axios.get(dataUrl, {
                         headers: { 'Authorization': `Bearer ${dynamicToken}` }
@@ -138,11 +138,11 @@ export const fetchAndProcessInvoices = async (
             }
 
             // Support various JSON wrappers: .invoices, .data, .list, or direct array
-            invoices = 
-              response.data.invoices || 
-              (Array.isArray(response.data.data) ? response.data.data : response.data.data?.rows || response.data.data?.list) || 
-              response.data.list || 
-              (Array.isArray(response.data) ? response.data : null);
+            invoices =
+                response.data.invoices ||
+                (Array.isArray(response.data.data) ? response.data.data : response.data.data?.rows || response.data.data?.list) ||
+                response.data.list ||
+                (Array.isArray(response.data) ? response.data : null);
 
             if (!invoices || !Array.isArray(invoices)) {
                 console.error('[Integration] raw response (potential format error):', sanitizePayload(response.data, 500));
@@ -163,21 +163,21 @@ export const fetchAndProcessInvoices = async (
         });
 
         if (!company) throw new Error(`Company with VAT ${vatNumber} not found`);
-        
+
         // Find certificate matching the ERP environment, or fallback to any active cert
         let cert = company.certificates.find((c: any) => {
             if (!c.is_active) return false;
             if (!environment) return true;
-            
+
             const certType = c.type.toUpperCase();
             const targetEnv = environment.toUpperCase();
-            
+
             return certType === targetEnv;
         });
-        
+
         // If still no exact match, fallback to any active cert
         if (!cert) cert = company.certificates.find((c: any) => c.is_active);
-        
+
         if (!cert) {
             throw new Error(`No active certificate found for VAT ${vatNumber}. Please complete onboarding.`);
         }
@@ -188,28 +188,28 @@ export const fetchAndProcessInvoices = async (
         let decryptedSecret = '';
 
         try {
-                 // Check if key is actually encrypted (contains IV separator)
-                 if (cert.private_key.includes(':')) {
-                     decryptedPrivateKey = SecurityService.decrypt(cert.private_key);
-                 } else {
-                     decryptedPrivateKey = cert.private_key; // Assume plaintext fallback
-                 }
-
-                 if (cert.secret && cert.secret.includes(':')) {
-                     decryptedSecret = SecurityService.decrypt(cert.secret);
-                 } else {
-                     decryptedSecret = cert.secret || '';
-                 }
-
-                 certPem = cert.certificate
-                    .replace(/-----BEGIN CERTIFICATE-----/g, '')
-                    .replace(/-----END CERTIFICATE-----/g, '')
-                    .replace(/\s/g, '');
-
-            } catch (e: any) {
-                console.error("Decryption failed:", e.message);
-                throw new Error("Failed to decrypt credentials. Please re-onboard.");
+            // Check if key is actually encrypted (contains IV separator)
+            if (cert.private_key.includes(':')) {
+                decryptedPrivateKey = SecurityService.decrypt(cert.private_key);
+            } else {
+                decryptedPrivateKey = cert.private_key; // Assume plaintext fallback
             }
+
+            if (cert.secret && cert.secret.includes(':')) {
+                decryptedSecret = SecurityService.decrypt(cert.secret);
+            } else {
+                decryptedSecret = cert.secret || '';
+            }
+
+            certPem = cert.certificate
+                .replace(/-----BEGIN CERTIFICATE-----/g, '')
+                .replace(/-----END CERTIFICATE-----/g, '')
+                .replace(/\s/g, '');
+
+        } catch (e: any) {
+            console.error("Decryption failed:", e.message);
+            throw new Error("Failed to decrypt credentials. Please re-onboard.");
+        }
 
         // Helper for robust mapping
         const normalizeInvoice = (raw: any): ExternalInvoice => {
@@ -305,15 +305,16 @@ export const fetchAndProcessInvoices = async (
 
         for (const rawInv of invoices) {
             let invNumberFallback = rawInv.invoiceNumber || rawInv.invoice_number || rawInv.id || 'UNKNOWN';
+            let existing: any = null;
             try {
                 let inv: any = normalizeInvoice(rawInv);
                 invNumberFallback = inv.invoiceNumber;
-                
+
                 // Recalculate totals if missing (tax-first approach)
                 inv = calculateInvoiceTotals(inv);
 
                 // IDEMPOTENCY/UPDATE LOGIC: 
-                const existing = await prisma.invoice.findFirst({
+                existing = await prisma.invoice.findFirst({
                     where: {
                         company_id: company.id,
                         invoice_number: inv.invoiceNumber
@@ -321,7 +322,7 @@ export const fetchAndProcessInvoices = async (
                 });
 
                 const isSimulation = (environment || company.environment || 'SANDBOX').toLowerCase() === 'simulation';
-                
+
                 if (existing && !isSimulation && existing.status !== 'FAILED') {
                     console.log(`[Integration] Invoice ${inv.invoiceNumber} already exists in database with status ${existing.status}. Skipping.`);
                     results.push({ invoiceNumber: inv.invoiceNumber, status: 'skipped', reason: 'Already exists' });
@@ -330,11 +331,11 @@ export const fetchAndProcessInvoices = async (
                 const parsedDate = parseInvoiceDate(inv.issueDate);
 
                 console.log(`[Integration] Processing invoice ${inv.invoiceNumber} for company ${company.id} (Date: ${parsedDate.toISOString()})`);
-                
+
                 // Safety check: Skip mock/test invoices in production/sandbox unless explicitly allowed
                 const isProductionMode = (environment || company.environment || 'SANDBOX').toLowerCase() !== 'simulation';
                 const isMockInvoice = inv.invoiceNumber.startsWith('MOCK-') || inv.invoiceNumber.startsWith('TEST-');
-                
+
                 if (isProductionMode && isMockInvoice) {
                     console.warn(`[Integration] Skipping ${inv.invoiceNumber} - Mock invoices are not allowed in ${environment || 'Production'} mode.`);
                     results.push({ invoice: inv.invoiceNumber, status: 'Skipped (Mock Restricted)' });
@@ -345,7 +346,7 @@ export const fetchAndProcessInvoices = async (
 
                 // Get Previous Invoice Hash (Requirement: Chain to the last SUCCESSFUL invoice)
                 const lastInvoice = await prisma.invoice.findFirst({
-                    where: { 
+                    where: {
                         company_id: company.id,
                         status: { in: ['CLEARED', 'REPORTED'] }
                     },
@@ -416,7 +417,7 @@ export const fetchAndProcessInvoices = async (
 
                 // Report
                 let result;
-                
+
                 if (inv.invoiceSubtype === 'STANDARD') {
                     result = await clearInvoice(
                         targetZatcaEnv,
@@ -436,18 +437,18 @@ export const fetchAndProcessInvoices = async (
                         zatcaInvoice.uuid
                     );
                 }
-                
+
                 if (isSimulation) {
                     console.log(`[Simulation] ZATCA Response for ${inv.invoiceNumber}:`, JSON.stringify(result, null, 2));
                     if (result.validationResults?.warningMessages) {
-                         console.warn(`[Simulation] ZATCA Warnings for ${inv.invoiceNumber}:`, result.validationResults.warningMessages);
+                        console.warn(`[Simulation] ZATCA Warnings for ${inv.invoiceNumber}:`, result.validationResults.warningMessages);
                     }
                 }
-                
+
                 // Save to Database
                 // Save to Database
                 console.log(`[Integration] Saving invoice ${inv.invoiceNumber} to DB (Update: ${!!existing})`);
-                
+
                 const invoiceData = {
                     company_id: company.id,
                     invoice_number: inv.invoiceNumber,
@@ -455,8 +456,8 @@ export const fetchAndProcessInvoices = async (
                     date: parsedDate,
                     total_amount: inv.totalAmount,
                     tax_amount: inv.vatAmount,
-                    status: (result.clearanceStatus === 'CLEARED' ? 'CLEARED' : 
-                            result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED') as invoice_status,
+                    status: (result.clearanceStatus === 'CLEARED' ? 'CLEARED' :
+                        result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED') as invoice_status,
                     type: (inv.invoiceSubtype === 'STANDARD' ? 'B2B' : 'B2C') as 'B2B' | 'B2C',
                     hash: hash,
                     xml_payload: Buffer.from(signedXml).toString('base64'),
@@ -492,9 +493,9 @@ export const fetchAndProcessInvoices = async (
                     details: `Successfully synced invoice ${inv.invoiceNumber} to ZATCA.`,
                     resourceId: inv.invoiceNumber,
                     payload: result.clearedInvoice || Buffer.from(signedXml).toString('base64'),
-                    metadata: { 
+                    metadata: {
                         uuid: zatcaInvoice.uuid,
-                        zatcaResponse: result 
+                        zatcaResponse: result
                     }
                 });
 
@@ -510,7 +511,7 @@ export const fetchAndProcessInvoices = async (
             } catch (err: any) {
                 console.error(`Error processing invoice ${invNumberFallback}:`, err.message);
                 results.push({ invoice: invNumberFallback, status: 'Failed', error: err.message });
-                
+
                 // Reflect failure/rejection back to ERP in real-time so it can be corrected and pushed again!
                 try {
                     await reflectStatusToERP(
@@ -595,12 +596,11 @@ export const reflectStatusToERP = async (companyId: number, invoiceNumber: strin
                 console.log(`[ERP Status] Reflecting status for ${invoiceNumber} to D365...`);
                 try {
                     const d365Config = {
-                        clientId: config.id,
+                        clientId: process.env.D365_CLIENT_ID || '',
                         clientSecret: process.env.D365_CLIENT_SECRET || config.api_key || '',
                         tenantId: process.env.D365_TENANT_ID || 'common',
                         baseUrl: config.base_url
-                    };
-                    await D365Service.pushStatusUpdate(d365Config, {
+                    }; await D365Service.pushStatusUpdate(d365Config, {
                         invoiceNumber,
                         uuid,
                         status: erpStatus.toUpperCase(),
@@ -622,7 +622,7 @@ export const reflectStatusToERP = async (companyId: number, invoiceNumber: strin
             } catch {
                 callbackUrl = `${config.base_url.replace(/\/$/, '')}/invoices/status`;
             }
-            
+
             console.log(`[ERP Status] Reflecting "${erpStatus}" for ${invoiceNumber} to ${callbackUrl}`);
 
             try {
