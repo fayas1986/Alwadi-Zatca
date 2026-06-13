@@ -37,7 +37,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch, userRole, userEmail }) => {
-  const [timeRange, setTimeRange] = useState<string>('Monthly');
+  const [timeRange, setTimeRange] = useState<string>('All Time');
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
 
