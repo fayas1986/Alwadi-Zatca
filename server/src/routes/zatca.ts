@@ -14,6 +14,7 @@ import path from 'path';
 import https from 'https';
 import { AuditService } from '../services/auditService.js';
 import { invoice_status } from '@prisma/client';
+import { getSafeString } from '../utils/stringUtils.js';
 import { InvoiceService } from '../services/invoiceService.js';
 const router = Router();
 // ISOLATION_FALLBACK_EMAILS removed - Access now strictly database and role-driven
@@ -223,7 +224,7 @@ router.get('/certificates', async (req, res) => {
         const userRole = req.headers['x-user-role'];
         const userEmail = req.headers['x-user-email'] as string;
 
-        let cleanCompanyId = companyId as string;
+        let cleanCompanyId = getSafeString(companyId);
         if (cleanCompanyId.startsWith('br-')) {
             cleanCompanyId = cleanCompanyId.replace('br-', '');
         }
@@ -381,7 +382,7 @@ router.get('/invoices', async (req, res) => {
             return res.status(400).json({ error: 'companyId is required' });
         }
 
-        let cleanCompanyId = companyId as string;
+        let cleanCompanyId = getSafeString(companyId);
         if (cleanCompanyId.startsWith('br-')) {
             cleanCompanyId = cleanCompanyId.replace('br-', '');
         }
@@ -832,8 +833,8 @@ router.post('/invoice/report', async (req, res) => {
 
         // 1. Find company by ID or VAT
         let company;
-        let cleanCompanyId = companyId;
-        if (typeof cleanCompanyId === 'string' && cleanCompanyId.startsWith('br-')) {
+        let cleanCompanyId = getSafeString(companyId);
+        if (cleanCompanyId.startsWith('br-')) {
             cleanCompanyId = cleanCompanyId.replace('br-', '');
         }
         if (cleanCompanyId) {

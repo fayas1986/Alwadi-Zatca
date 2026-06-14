@@ -2,6 +2,7 @@ import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { PrivacyService } from './privacyService.js';
 
 export interface AuditLogParams {
     action: string;
@@ -33,9 +34,13 @@ export class AuditService {
 
     private static async _privateLog(params: AuditLogParams) {
         try {
+            const scrubbedDetails = PrivacyService.scrubString(params.details);
+            const scrubbedMetadata = PrivacyService.scrubObject(params.metadata || {});
+            const scrubbedPayload = params.payload ? PrivacyService.scrubString(params.payload) : null;
+
             // Generate integrity hash of the log entry content
             const timestamp = params.timestamp || new Date().toISOString();
-            const contentToHash = `${timestamp}|${params.action}|${params.user}|${params.details}|${params.status}`;
+            const contentToHash = `${timestamp}|${params.action}|${params.user}|${scrubbedDetails}|${params.status}`;
             const hash = crypto.createHash('sha256').update(contentToHash).digest('hex');
 
             await (prisma as any).audit_log.create({
@@ -45,11 +50,11 @@ export class AuditService {
                     user: params.user,
                     role: params.role,
                     ip_address: params.ipAddress,
-                    details: params.details,
+                    details: scrubbedDetails,
                     status: params.status,
                     resource_id: params.resourceId,
-                    metadata: params.metadata || {},
-                    payload: params.payload || null,
+                    metadata: scrubbedMetadata,
+                    payload: scrubbedPayload,
                     hash: hash
                 }
             });
@@ -60,7 +65,14 @@ export class AuditService {
                 const logDir = path.join(process.cwd(), 'logs');
                 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
                 const logFile = path.join(logDir, 'audit_failover.log');
-                const logLine = JSON.stringify({ ...params, timestamp: new Date().toISOString() }) + '\n';
+                const logEntry = {
+                    ...params,
+                    details: PrivacyService.scrubString(params.details),
+                    metadata: PrivacyService.scrubObject(params.metadata || {}),
+                    payload: params.payload ? PrivacyService.scrubString(params.payload) : null,
+                    timestamp: new Date().toISOString()
+                };
+                const logLine = JSON.stringify(logEntry) + '\n';
                 fs.appendFileSync(logFile, logLine);
             } catch (fsError) {
                 console.error('Critical: Audit Log File Fallback Failed:', fsError);

@@ -10,6 +10,7 @@ import { AuditService } from '../services/auditService.js';
 import { parseInvoiceDate } from '../utils/dateUtils.js';
 import { InvoiceService } from '../services/invoiceService.js';
 import { calculateInvoiceTotals, injectComplianceFields } from '../utils/api-helpers.js';
+import { getSafeString } from '../utils/stringUtils.js';
 
 const router = Router();
 
@@ -61,7 +62,7 @@ router.get('/configs', async (req: Request, res: Response) => {
         const { companyId } = req.query;
         if (!companyId) return res.status(400).json({ error: 'companyId is required' });
 
-        let cleanCompanyId = companyId as string;
+        let cleanCompanyId = getSafeString(companyId);
         if (cleanCompanyId.startsWith('br-')) {
             cleanCompanyId = cleanCompanyId.replace('br-', '');
         }
@@ -86,7 +87,7 @@ router.post('/config', async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, error: 'companyId, type and baseUrl are required' });
         }
 
-        let cleanCompanyId = companyId.toString();
+        let cleanCompanyId = getSafeString(companyId);
         if (cleanCompanyId.startsWith('br-')) {
             cleanCompanyId = cleanCompanyId.replace('br-', '');
         }
@@ -681,7 +682,7 @@ router.delete('/config/:id', async (req: Request, res: Response) => {
             category: 'Operational',
             user: 'System', 
             role: 'IT_ADMIN',
-            ipAddress: String(req.ip || '127.0.0.1'),
+            ipAddress: getSafeString(req.ip || '127.0.0.1'),
             details: `ERP System "${config.name || 'External ERP'}" disconnected for VAT ${config.company?.vat_number || 'Unknown'}`,
             status: 'Success',
             resourceId: String(id),

@@ -2,6 +2,7 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import { Decimal } from '@prisma/client/runtime/library.js';
+import { getSafeString } from '../utils/stringUtils.js';
 
 const router = Router();
 
@@ -65,7 +66,7 @@ router.get('/', async (req: Request, res: Response) => {
 
         // Filter by companyId (if provided and not empty)
         if (companyId && companyId !== '' && companyId !== 'undefined') {
-            let cleanCompanyId = companyId as string;
+            let cleanCompanyId = getSafeString(companyId);
             if (cleanCompanyId.startsWith('br-')) {
                 cleanCompanyId = cleanCompanyId.replace('br-', '');
             }
@@ -121,7 +122,7 @@ router.post('/', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'name and unitPrice are required' });
         }
 
-        let cleanCompanyId = companyId ? String(companyId) : '';
+        let cleanCompanyId = getSafeString(companyId);
         if (cleanCompanyId.startsWith('br-')) {
             cleanCompanyId = cleanCompanyId.replace('br-', '');
         }
@@ -226,7 +227,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'items array is required' });
         }
 
-        let cleanCompanyId = companyId ? String(companyId) : '';
+        let cleanCompanyId = getSafeString(companyId);
         if (cleanCompanyId.startsWith('br-')) {
             cleanCompanyId = cleanCompanyId.replace('br-', '');
         }

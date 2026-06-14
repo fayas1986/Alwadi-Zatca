@@ -80,74 +80,94 @@ export const fetchAndProcessInvoices = async (
     authHeader: string,
     vatNumber: string,
     environment?: string,
-    preFetchedInvoices?: any[]
+    preFetchedInvoicesOrOptions?: any[] | any
 ) => {
-    console.log(`Processing invoices for environment: ${environment || 'Default'} (preFetched: ${!!preFetchedInvoices})...`);
+    console.log(`Processing invoices for environment: ${environment || 'Default'} (preFetched: ${Array.isArray(preFetchedInvoicesOrOptions)})...`);
 
     try {
-        let invoices: any[];
+        let invoices: any[] = [];
 
-        if (preFetchedInvoices) {
-            invoices = preFetchedInvoices;
+        if (Array.isArray(preFetchedInvoicesOrOptions)) {
+            invoices = preFetchedInvoicesOrOptions;
         } else {
-            // 1. Fetch from ERP
-            let response;
-            try {
-                response = await axios.get(sourceUrl, {
-                    headers: { 'Authorization': authHeader }
-                });
-            } catch (err: any) {
-                throw err;
-            }
+            const options = preFetchedInvoicesOrOptions || {};
+            const isPaginated = options.type === 'page';
+            let currentPage = 1;
+            let hasMorePages = true;
 
-            if (environment?.toUpperCase() === 'SIMULATION') {
-                console.log(`[Simulation] Response status: ${response.status} from ${sourceUrl}`);
-                console.log(`[Simulation] Data snippet (Sanitized): ${sanitizePayload(response.data, 500)}...`);
-            }
+            while (hasMorePages) {
+                // 1. Fetch from ERP
+                let response;
+                let fetchUrl = sourceUrl;
 
-            // --- Smart Fetcher Logic for Factslite ---
-            // If the URL is a token endpoint and returns a token instead of invoices, 
-            // we exchange it and hit the actual data endpoint.
-            if (sourceUrl.includes('/api/token') && response.data?.status === 'SUCCESS' && response.data?.token) {
-                const dynamicToken = response.data.token;
-
-                // Derive the data URL: replace /token with /zatca/fetchInvoices (common pattern for this vendor)
-                // If this fails, we will try /api/invoices as a fallback
-                const dataUrl = sourceUrl.replace('/api/token', '/api/zatca/fetchInvoices');
-
-                console.log(`[Integration] Detected Token Response. Exchanging for data at ${dataUrl}...`);
-
-                try {
-                    const dataResponse = await axios.get(dataUrl, {
-                        headers: { 'Authorization': `Bearer ${dynamicToken}` }
-                    });
-                    response = dataResponse; // Swap for the actual data response
-                } catch (err: any) {
-                    console.warn(`[Integration] Derived fetch failed at ${dataUrl}: ${err.message}. Trying direct /api/invoices fallback...`);
-                    const fallbackUrl = sourceUrl.replace('/api/token', '/api/invoices');
-                    try {
-                        response = await axios.get(fallbackUrl, {
-                            headers: { 'Authorization': `Bearer ${dynamicToken}` }
-                        });
-                    } catch (fallbackErr: any) {
-                        console.error(`[Integration] All derived fetch attempts failed for Factslite. Setting empty result.`);
-                        // Instead of throwing, we return a mock "empty" response to prevent SyncService crash
-                        response = { data: { invoices: [] }, status: 200 };
+                if (isPaginated) {
+                    const separator = fetchUrl.includes('?') ? '&' : '?';
+                    fetchUrl = `${fetchUrl}${separator}${options.pageParam || 'page'}=${currentPage}`;
+                    if (options.limitParam && options.pageSize) {
+                        fetchUrl = `${fetchUrl}&${options.limitParam}=${options.pageSize}`;
                     }
                 }
-            }
 
-            // Support various JSON wrappers: .invoices, .data, .list, or direct array
-            invoices =
-                response.data.invoices ||
-                (Array.isArray(response.data.data) ? response.data.data : response.data.data?.rows || response.data.data?.list) ||
-                response.data.list ||
-                (Array.isArray(response.data) ? response.data : null);
+                try {
+                    response = await axios.get(fetchUrl, {
+                        headers: { 'Authorization': authHeader }
+                    });
+                } catch (err: any) {
+                    throw err;
+                }
 
-            if (!invoices || !Array.isArray(invoices)) {
-                console.error('[Integration] raw response (potential format error):', sanitizePayload(response.data, 500));
-                const responseSnippet = sanitizePayload(response.data, 300);
-                throw new Error(`Invalid response format: Expected array of invoices (checked .invoices, .data, .list). Received: ${responseSnippet}...`);
+                if (environment?.toUpperCase() === 'SIMULATION') {
+                    console.log(`[Simulation] Response status: ${response.status} from ${fetchUrl}`);
+                    console.log(`[Simulation] Data snippet (Sanitized): ${sanitizePayload(response.data, 500)}...`);
+                }
+
+                // --- Smart Fetcher Logic for Factslite ---
+                // If the URL is a token endpoint and returns a token instead of invoices, 
+                // we exchange it and hit the actual data endpoint.
+                if (fetchUrl.includes('/api/token') && response.data?.status === 'SUCCESS' && response.data?.token) {
+                    const dynamicToken = response.data.token;
+                    const dataUrl = fetchUrl.replace('/api/token', '/api/zatca/fetchInvoices');
+                    console.log(`[Integration] Detected Token Response. Exchanging for data at ${dataUrl}...`);
+
+                    try {
+                        const dataResponse = await axios.get(dataUrl, {
+                            headers: { 'Authorization': `Bearer ${dynamicToken}` }
+                        });
+                        response = dataResponse; 
+                    } catch (err: any) {
+                        console.warn(`[Integration] Derived fetch failed at ${dataUrl}: ${err.message}. Trying direct /api/invoices fallback...`);
+                        const fallbackUrl = fetchUrl.replace('/api/token', '/api/invoices');
+                        try {
+                            response = await axios.get(fallbackUrl, {
+                                headers: { 'Authorization': `Bearer ${dynamicToken}` }
+                            });
+                        } catch (fallbackErr: any) {
+                            console.error(`[Integration] All derived fetch attempts failed for Factslite. Setting empty result.`);
+                            response = { data: { invoices: [] }, status: 200 };
+                        }
+                    }
+                }
+
+                // Support various JSON wrappers: .invoices, .data, .list, or direct array
+                const currentInvoices =
+                    response.data.invoices ||
+                    (Array.isArray(response.data.data) ? response.data.data : response.data.data?.rows || response.data.data?.list) ||
+                    response.data.list ||
+                    (Array.isArray(response.data) ? response.data : null);
+
+                if (!currentInvoices || !Array.isArray(currentInvoices)) {
+                    console.error('[Integration] raw response (potential format error):', sanitizePayload(response.data, 500));
+                    const responseSnippet = sanitizePayload(response.data, 300);
+                    throw new Error(`Invalid response format: Expected array of invoices (checked .invoices, .data, .list). Received: ${responseSnippet}...`);
+                }
+
+                invoices.push(...currentInvoices);
+
+                if (isPaginated && currentInvoices.length > 0 && (!options.pageSize || currentInvoices.length === options.pageSize)) {
+                    currentPage++;
+                } else {
+                    hasMorePages = false;
+                }
             }
         }
 

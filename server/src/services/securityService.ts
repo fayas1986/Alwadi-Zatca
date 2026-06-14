@@ -86,8 +86,31 @@ export class SecurityService {
                 Buffer.from(expectedSignature)
             );
 
+            if (isValid) {
+                return { 
+                    isValid: true, 
+                    expectedData: dataToSign, 
+                    expectedSig: expectedSignature 
+                };
+            }
+
+            // --- Fallback for legacy V1 clients ---
+            // Legacy clients hashed JSON.stringify(body) even for GET requests or empty objects.
+            const legacyBodyHash = crypto.createHash('sha256').update(JSON.stringify(body || {})).digest('hex');
+            const legacyDataToSign = `${(timestamp || '').trim()}${(nonce || '').trim()}${safeMethod}${(path || '').trim()}${legacyBodyHash}`;
+            const legacyExpectedSignature = crypto.createHmac('sha256', secret).update(legacyDataToSign).digest('hex');
+
+            if (safeSignature.length === legacyExpectedSignature.length && 
+                crypto.timingSafeEqual(Buffer.from(safeSignature), Buffer.from(legacyExpectedSignature))) {
+                return { 
+                    isValid: true, 
+                    expectedData: legacyDataToSign, 
+                    expectedSig: legacyExpectedSignature 
+                };
+            }
+
             return { 
-                isValid, 
+                isValid: false, 
                 expectedData: dataToSign, 
                 expectedSig: expectedSignature 
             };
