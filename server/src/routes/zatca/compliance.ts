@@ -73,7 +73,7 @@ router.get('/certificates', async (req, res) => {
                 where.company = {
                     OR: [
                         { user: { email: userEmail } },
-                        { registered_name: user.company_name || '___NEVER_MATCH___' }
+                        { registered_name: { equals: user.company_name || '___NEVER_MATCH___', mode: 'insensitive' } }
                     ]
                 };
             }

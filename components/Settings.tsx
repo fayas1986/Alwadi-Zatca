@@ -58,6 +58,12 @@ type EnvStatus = {
 
 const ENV_KEYS = ['sandbox', 'simulation', 'production'] as const;
 
+const cleanBranchName = (name: string | undefined): string => {
+    if (!name) return 'HQ';
+    const cleaned = name.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1').trim();
+    return cleaned || 'HQ';
+};
+
 export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organizations, userRole, onRefresh }) => {
   const { addToast } = useToast(); 
   const [activeTab, setActiveTab] = useState<'profile' | 'compliance' | 'security' | 'notifications'>('profile');
@@ -284,9 +290,9 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
                  <p className="text-slate-500 text-sm">Manage profile and settings for:</p>
                  {selectedBranch && (
                      <span className="text-xs font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 flex items-center">
-                        <Building size={12} className="mr-1" />
-                        {selectedBranch.name}
-                     </span>
+                         <Building size={12} className="mr-1" />
+                         {cleanBranchName(selectedBranch.name)}
+                      </span>
                  )}
               </div>
           </div>
@@ -379,7 +385,7 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
                           <div>
                               <div className="flex items-center justify-between mb-6">
                                   <h3 className="text-lg font-bold text-slate-900 flex items-center">
-                                      <MapPin size={20} className="mr-2 text-indigo-500" /> {selectedBranch ? `${selectedBranch.name} Address` : 'HQ National Address'}
+                                      <MapPin size={20} className="mr-2 text-indigo-500" /> {cleanBranchName(selectedBranch?.name)} — National Address
                                   </h3>
                                   <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100">Verified</span>
                               </div>
@@ -492,7 +498,7 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                   <InputGroup label="CSR Common Name (CN)" value={complianceConfig.csrCommonName} onChange={(v: string) => setComplianceConfig({...complianceConfig, csrCommonName: v})} placeholder="TS-RYD-01" />
-                                  <InputGroup label="Organization Unit (OU)" value={selectedBranch ? selectedBranch.name : "Satguru Branch"} onChange={() => {}} placeholder="Satguru Branch" disabled />
+                                  <InputGroup label="Organization Unit (OU)" value={cleanBranchName(selectedBranch?.name || "Main Branch")} onChange={() => {}} placeholder="Main Branch" disabled />
                                   
                                   <div className="md:col-span-2">
                                       <Toggle 

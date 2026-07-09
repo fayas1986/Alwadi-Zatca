@@ -147,15 +147,16 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
             // Find the user by email to get their canonical ID and organization name
             const user = await prisma.user.findUnique({ where: { email: userEmail } });
             if (user) {
-                // Return companies where either the user is the owner OR the user is assigned via company_name
-                where.OR = [
-                    { user_id: user.id },
-                    { registered_name: user.company_name }
-                ].filter(condition => {
-                    // Filter out empty conditions (e.g. if company_name is null)
-                    const val = Object.values(condition)[0];
-                    return val !== null && val !== undefined && val !== '';
-                });
+                const conditions: any[] = [{ user_id: user.id }];
+                if (user.company_name) {
+                    conditions.push({
+                        registered_name: {
+                            equals: user.company_name,
+                            mode: 'insensitive'
+                        }
+                    });
+                }
+                where.OR = conditions;
 
                 logAdmin(`++ [ISOLATION] Access via Ownership (${user.id}) OR Membership (${user.company_name || 'NONE'})`);
             }

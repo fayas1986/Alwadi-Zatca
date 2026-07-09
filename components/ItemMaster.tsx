@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Search, Edit2, Trash2, Box, Save, X, AlertCircle, Loader2, FileUp, Download } from 'lucide-react';
 import { Item, Branch } from '../types';
 import { getItems, createItem, updateItem, deleteItem, bulkCreateItems } from '../services/itemApi';
@@ -309,12 +310,12 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch, userRole
                 </div>
             </div>
 
-            {/* Edit Modal */}
-            {isEditing && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-                    <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in duration-200 border border-slate-200 relative">
-                        <div className="h-1.5 w-full bg-slate-900 absolute top-0 left-0"></div>
-                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
+            {/* Edit Modal rendered via Portal to prevent container clipping */}
+            {isEditing && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 relative my-auto">
+                        <div className="h-1.5 w-full bg-slate-900 absolute top-0 left-0 z-10"></div>
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
                             <h3 className="font-bold text-slate-900 text-2xl flex items-center">
                                 <Box size={24} className="mr-3 text-indigo-600" /> 
                                 {currentItem.id ? 'Edit Item' : 'Add New Item'}
@@ -323,7 +324,7 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch, userRole
                                 <X size={26} />
                             </button>
                         </div>
-                        <div className="p-8 space-y-6">
+                        <div className="p-8 space-y-6 overflow-y-auto flex-1">
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="col-span-1">
                                     <label className="block text-sm font-bold text-slate-900 mb-2">SKU (Internal Code)</label>
@@ -403,7 +404,7 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch, userRole
                                 </div>
                             </div>
                         </div>
-                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end space-x-3">
+                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end space-x-3 shrink-0">
                             <button
                                 onClick={() => setIsEditing(false)}
                                 className="px-6 py-2.5 text-slate-600 font-bold bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
@@ -420,7 +421,8 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch, userRole
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

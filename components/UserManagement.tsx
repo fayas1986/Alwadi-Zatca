@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { UserRole } from '../types';
 import { User, Plus, Key, Search, Mail, Building, Loader2, Trash2, Eye, EyeOff, X } from 'lucide-react';
 import { useToast } from './Toast';
@@ -268,10 +269,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ userRole, userNa
       </div>
 
       {/* Create User Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 relative">
-            <div className="h-1.5 w-full bg-slate-900 absolute top-0 left-0"></div>
+      {isCreateModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 relative my-auto">
+            <div className="h-1.5 w-full bg-slate-900 absolute top-0 left-0 z-10"></div>
             <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white">
               <h3 className="font-bold text-2xl text-slate-900">Create New User</h3>
               <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-full transition-colors font-bold text-xl">
@@ -361,14 +362,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({ userRole, userNa
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Reset Password Modal */}
-      {isResetModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 relative">
-            <div className="h-1.5 w-full bg-rose-600 absolute top-0 left-0"></div>
+      {isResetModalOpen && selectedUser && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 relative my-auto">
+            <div className="h-1.5 w-full bg-rose-600 absolute top-0 left-0 z-10"></div>
             <div className="px-8 py-6 border-b border-slate-100 bg-white">
               <h3 className="font-bold text-2xl text-slate-900">Reset Password</h3>
               <p className="text-xs text-slate-500 mt-1">For {selectedUser.email}</p>
@@ -412,7 +414,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({ userRole, userNa
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
