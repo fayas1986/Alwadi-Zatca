@@ -78,6 +78,7 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({ selected
     // Keep form in sync with selected branch
     useEffect(() => {
         if (selectedBranch && organizations.length > 0) {
+            const org = organizations.find(o => o.id === selectedBranch.organizationId);
             const rawName = selectedBranch.name || 'HQ';
             const cleanName = rawName.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1').replace(/(HQ\s*)+/gi, 'HQ').trim();
             const unitName = (cleanName.includes('Branch') || cleanName.includes('HQ')) ? cleanName : `${cleanName} HQ`;
