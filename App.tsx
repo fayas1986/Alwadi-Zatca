@@ -23,15 +23,15 @@ import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('userEmail'));
   const [currentRoute, setCurrentRoute] = useState<string>('dashboard');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   
   // Auth State
-  const [userRole, setUserRole] = useState<UserRole>('IT_ADMIN');
-  const [userName, setUserName] = useState<string>('');
-  const [userEmail, setUserEmail] = useState<string>('');
-  const [companyId, setCompanyId] = useState<number | null>(null);
+  const [userRole, setUserRole] = useState<UserRole>(() => (localStorage.getItem('userRole') as UserRole) || 'IT_ADMIN');
+  const [userName, setUserName] = useState<string>(() => localStorage.getItem('userName') || '');
+  const [userEmail, setUserEmail] = useState<string>(() => localStorage.getItem('userEmail') || '');
+  const [companyId, setCompanyId] = useState<number | null>(() => localStorage.getItem('companyId') ? parseInt(localStorage.getItem('companyId')!) : null);
 
   // Multi-Tenancy State
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -143,12 +143,22 @@ const App: React.FC = () => {
       setUserRole(role);
       setUserName(name);
       setUserEmail(email);
-      if (cid) setCompanyId(cid);
+      localStorage.setItem('userRole', role);
+      localStorage.setItem('userName', name);
+      localStorage.setItem('userEmail', email);
+      if (cid) {
+          setCompanyId(cid);
+          localStorage.setItem('companyId', cid.toString());
+      }
       setIsAuthenticated(true);
       setCurrentRoute('dashboard');
   };
 
   const handleLogout = () => {
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('companyId');
       setIsAuthenticated(false);
       setUserRole('IT_ADMIN'); 
       setUserName('');

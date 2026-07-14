@@ -31,8 +31,14 @@ export const clearInvoice = async (invoice: any, vat: string) => {
     return reportInvoice(invoice, vat); // Same endpoint, logic handled on backend
 };
 
-export const getCertificates = async (companyId: string) => {
-    const response = await fetch(`${API_BASE_URL}/certificates?companyId=${companyId}`);
+export const getCertificates = async (companyId: string, headers: any = {}) => {
+    const response = await fetch(`${API_BASE_URL}/certificates?companyId=${companyId}`, {
+        headers: {
+            'x-user-role': headers.role || localStorage.getItem('userRole') || '',
+            'x-user-email': headers.email || localStorage.getItem('userEmail') || '',
+            ...headers
+        }
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch certificates');
     }
@@ -42,8 +48,8 @@ export const getCertificates = async (companyId: string) => {
 export const getInvoices = async (companyId: string, headers: any = {}) => {
     const response = await fetch(`${API_BASE_URL}/invoices?companyId=${companyId}`, {
         headers: {
-            'x-user-role': headers.role || '',
-            'x-user-email': headers.email || '',
+            'x-user-role': headers.role || localStorage.getItem('userRole') || '',
+            'x-user-email': headers.email || localStorage.getItem('userEmail') || '',
             ...headers
         }
     });

@@ -144,8 +144,13 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
   };
 
   const filteredInvoices = localInvoices.filter((inv, index) => {
-    // Branch Filter
-    const matchesBranch = !selectedBranch || inv.branchId === selectedBranch.id;
+    // Branch Filter (resilient against string/number and `br-` prefix format differences)
+    const matchesBranch = !selectedBranch || 
+      inv.branchId === selectedBranch.id || 
+      inv.branchId === `br-${selectedBranch.organizationId || selectedBranch.id}` ||
+      inv.branchId === `br-${selectedBranch.id}` ||
+      inv.branchId?.toString().replace('br-', '') === selectedBranch.id?.toString().replace('br-', '') ||
+      inv.branchId?.toString().replace('br-', '') === selectedBranch.organizationId?.toString().replace('br-', '');
 
     // Search Filter
     const matchesSearch = !searchTerm || 

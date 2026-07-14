@@ -7,6 +7,7 @@ const router = Router();
 console.log('[Admin] Admin routes initializing...');
 import prisma from '../lib/prisma.js';
 import { encrypt } from '../utils/crypto.js';
+import { FALLBACK_USERS } from './auth.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -134,7 +135,7 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
     try {
         const rawRole = req.headers['x-user-role'] as string;
         const userRole = rawRole?.toUpperCase();
-        const userEmail = req.headers['x-user-email'] as string;
+        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
 
         logAdmin(`>> [ISOLATION] Fetch Request - Role: ${userRole}, Email: ${userEmail}`);
 
@@ -145,7 +146,7 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
 
         if (userRole !== 'SUPER_ADMIN') {
             // Find the user by email to get their canonical ID and organization name
-            const user = await prisma.user.findUnique({ where: { email: userEmail } });
+            const user = (await prisma.user.findUnique({ where: { email: userEmail } })) || FALLBACK_USERS[userEmail];
             if (user) {
                 const conditions: any[] = [{ user_id: user.id }];
                 if (user.company_name) {

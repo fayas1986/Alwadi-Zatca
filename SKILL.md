@@ -1,287 +1,167 @@
-    This document defines the technical design, interfaces, and processing logic required to integrate the EGS application with ZATCA (Saudi Tax Authority) Phase-2 e-invoicing platform for:
+# Comprehensive Development Skills Reference (Skill.md)
+
+This reference document catalogs the specialized AI agent skills available for software development, architecture, code quality, multi-agent orchestration, and continuous learning.
+
+You can invoke any skill directly in your prompt using the `$skill-name` syntax (e.g., `Use $agent-coder and $tdd-workflow to implement the feature`).
+
+---
+
+## Quick Reference Master Table
+
+| Category | Skill Name | Invoke Syntax | Core Purpose |
+| :--- | :--- | :--- | :--- |
+| **Swarm & Agents** | Swarm Orchestration | `$swarm-orchestration` | Multi-agent coordination for complex multi-file tasks |
+| **Swarm & Agents** | Agent Coder | `$agent-coder` | Dedicated implementation worker for writing clean, tested code |
+| **Swarm & Agents** | Agent Tester | `$agent-tester` | Automated test suite creation (Unit, Integration, E2E) |
+| **Swarm & Agents** | Agent Reviewer | `$agent-reviewer` | Deep architectural, security, and maintainability code reviews |
+| **Swarm & Agents** | Agent Architect | `$agent-architect` | High-level system design, data modeling, and boundary definition |
+| **Methodologies** | SPARC Methodology | `$sparc-methodology` | 5-phase structured development (`Specification` → `Completion`) |
+| **Methodologies** | TDD Workflow | `$tdd-workflow` | Enforces Red → Green → Refactor test-driven cycle |
+| **Methodologies** | Get Shit Done (GSD) | `$gsd-next` | Milestone-driven autonomous planning and execution phases |
+| **Fullstack / UI** | Senior Fullstack | `$senior-fullstack` | Comprehensive fullstack patterns (React, Next.js, APIs, DBs) |
+| **Fullstack / UI** | React Best Practices | `$react-best-practices` | Component optimization, clean hooks, state management |
+| **Fullstack / UI** | UI Skills | `$ui-skills` | Premium visual aesthetics, typography, animations, responsiveness |
+| **Fullstack / UI** | API Design Principles | `$api-design-principles` | REST/GraphQL API contracts, validation, error handling |
+| **Quality & Security**| Code Reviewer | `$code-reviewer` | Comprehensive peer code review against best practices |
+| **Quality & Security**| Security Audit | `$security-audit` | OWASP Top 10 vulnerability scanning and remediation |
+| **Quality & Security**| Debugging Toolkit | `$debugging-toolkit` | Systematic root-cause tracing and error resolution |
+| **Memory & Learning** | Memory Management | `$memory-management` | Store and retrieve reusable engineering patterns via vector DB |
+| **Memory & Learning** | Neural Training | `$neural-training` | Self-learning optimization from historical task trajectories |
+
+---
+
+## 1. Swarm & Multi-Agent Orchestration Skills
+
+### `$swarm-orchestration`
+- **When to use:** Multi-file refactorings, major feature implementations, or tasks requiring parallel execution.
+- **Description:** Coordinates a hierarchical or mesh team of specialized subagents (`coordinator`, `coder`, `tester`, `reviewer`).
+- **Example Usage:**
+  ```text
+  Use $swarm-orchestration to design and implement the new billing system across backend API routes and frontend dashboard.
+  ```
+
+### `$agent-coder`
+- **When to use:** Direct code generation, feature implementation, or bug fixes.
+- **Description:** Focuses strictly on writing production-grade, idiomatic code adhering to existing project standards.
+- **Example Usage:**
+  ```text
+  Use $agent-coder to build the JWT token rotation utility in src/auth/jwt.ts.
+  ```
+
+### `$agent-tester`
+- **When to use:** Creating unit tests, integration tests, E2E tests, or filling test coverage gaps.
+- **Description:** Analyzes implementation contracts and generates thorough tests covering happy paths, edge cases, and failure modes.
+- **Example Usage:**
+  ```text
+  Use $agent-tester to write comprehensive Vitest unit tests for the invoice calculation service.
+  ```
+
+### `$agent-reviewer`
+- **When to use:** Pre-merge inspections, pull request reviews, and auditing complex logic.
+- **Description:** Evaluates code against performance, security, architecture, and maintainability standards.
+- **Example Usage:**
+  ```text
+  Use $agent-reviewer to review the changes in src/services/user-service.ts before committing.
+  ```
+
+---
+
+## 2. Structured Development Methodologies
+
+### `$sparc-methodology`
+- **When to use:** Starting a new feature, module, or service from scratch.
+- **Description:** Enforces the 5-phase SPARC lifecycle:
+  1. **Specification:** Define exact requirements and constraints.
+  2. **Pseudocode:** Outline algorithms and data flow.
+  3. **Architecture:** Design interfaces, types, and module boundaries.
+  4. **Refinement:** Iterate and optimize design.
+  5. **Completion:** Execute implementation and verification.
+- **Example Usage:**
+  ```text
+  Follow $sparc-methodology to design and implement the multi-tenant organization switching feature.
+  ```
+
+### `$tdd-workflow`
+- **When to use:** Implementing business logic, utilities, calculations, or critical backend services.
+- **Description:** Strictly enforces the **RED-GREEN-REFACTOR** cycle:
+  1. **Red:** Write a failing test defining expected behavior.
+  2. **Green:** Write the minimal implementation required to make the test pass.
+  3. **Refactor:** Clean up code while keeping tests green.
+- **Example Usage:**
+  ```text
+  Use $tdd-workflow to build the tax calculation pipeline.
+  ```
+
+### `$gsd-next`
+- **When to use:** Managing multi-step projects with milestone tracking and autonomous execution guarantees.
+- **Description:** Advances the current workspace through structured planning (`PLAN.md`), execution waves, and verification checkpoints.
+- **Example Usage:**
+  ```text
+  Run $gsd-next to inspect the current project plan and advance the next implementation phase.
+  ```
 
-CSID onboarding
+---
 
-Invoice reporting
+## 3. Fullstack & Frontend Engineering Skills
 
-Invoice clearance
+### `$senior-fullstack`
+- **When to use:** End-to-end web app development spanning database models, server actions/APIs, and frontend UI.
+- **Description:** Applies enterprise-grade fullstack patterns, proper data mutation handling, caching, and clean separation of concerns.
 
-Cryptographic stamping
+### `$react-best-practices`
+- **When to use:** Creating or refactoring React / Next.js components.
+- **Description:** Enforces modern functional React patterns, memoization rules, hook modularity, and accessibility (a11y).
 
-QR code compliance
+### `$ui-skills`
+- **When to use:** Designing user interfaces, dashboards, modals, or user-facing workflows.
+- **Description:** Enforces high-aesthetic design tokens, proper visual hierarchy, curated color palettes, micro-interactions, and responsive layouts.
 
-3. References
+### `$api-design-principles`
+- **When to use:** Creating REST endpoints, GraphQL resolvers, or API SDKs.
+- **Description:** Ensures structured request/response schemas (Zod validation), standard HTTP status codes, pagination, and clear error contracts.
 
-ZATCA XML Implementation Standard
+---
 
-ZATCA Security Features & Implementation Standard
+## 4. Code Quality, Security & Debugging
 
-ZATCA Integration Sandbox Swagger APIs
+### `$security-audit`
+- **When to use:** Reviewing authentication flows, data inputs, API endpoints, or database queries.
+- **Description:** Scans for OWASP Top 10 vulnerabilities (SQL injection, XSS, CSRF, broken access control, insecure direct object references).
 
-4. System Architecture
-4.1 Logical Components
-Component	Responsibility
-CSR Service	Generates EC keypair and CSR
-Credential Store	Stores CSID, Secret, Private Key (encrypted)
-XML Generator	Generates compliant UBL XML
-Hash Service	SHA256 + Base64 encoding
-ZATCA API Client	Handles Reporting & Clearance
-Audit Logger	Logs all ZATCA transactions
-5. Environments
-Environment	Purpose
-Sandbox	Development & testing
-Production	Live invoice submission
+### `$debugging-toolkit`
+- **When to use:** Diagnosing intermittent bugs, stack traces, unhandled rejections, or unexpected state mutations.
+- **Description:** Uses systematic hypothesis-driven debugging, tracing variables, isolating state transitions, and verifying root causes.
 
-Each environment shall have:
+---
 
-Separate CSID
+## 5. Memory & Continuous Learning
 
-Separate Secret
+### `$memory-management`
+- **When to use:** Before starting a task to learn from past solutions, or after completing a task to store successful patterns.
+- **Description:** Interfaces with vector database storage (`AgentDB` / Ruflo memory) to retrieve similar past patterns or save proven engineering solutions.
+- **CLI Commands:**
+  ```powershell
+  # Search memory before starting work
+  claude-flow memory search --query "authentication middleware pattern"
 
-Separate base URL
+  # Store a pattern after success
+  claude-flow memory store --key "pattern-auth-jwt" --value "Detailed solution notes"
+  ```
 
-6. Cryptographic Requirements
-Item	Requirement
-Algorithm	secp256k1
-Hash	SHA-256
-Encoding	Base64
-Key Storage	Encrypted at rest
-Transmission	HTTPS only
-7. CSID Onboarding Flow
-7.1 CSR Generation
+---
 
-System shall:
+## 6. Standard Development Workflow Recipes
 
-Generate EC keypair (secp256k1)
+### Recipe A: New Feature Implementation
+1. **Search Memory:** Check if a similar feature was built before (`$memory-management`).
+2. **Design Plan:** Define specification and architecture (`$sparc-methodology`).
+3. **Write Tests First:** Create failing specs (`$tdd-workflow`, `$agent-tester`).
+4. **Implement Logic:** Write production code (`$agent-coder`, `$react-best-practices`).
+5. **Peer Review:** Conduct architectural and security review (`$code-reviewer`, `$security-audit`).
+6. **Store Pattern:** Save successful implementation insights (`$memory-management`).
 
-Create CSR containing:
-
-VAT Number
-
-Company Name
-
-Device/Solution ID
-
-Output:
-
-Base64 CSR
-
-Private Key Reference
-
-7.2 Compliance CSID Request
-
-API Call:
-
-POST /csid/compliance
-
-
-Request Body:
-
-{
-  "csr": "BASE64_CSR",
-  "otp": "123456"
-}
-
-
-Response:
-
-{
-  "complianceCSID": "CSID",
-  "requestId": "REQ123"
-}
-
-
-System shall store:
-
-complianceCSID
-
-requestId
-
-7.3 Production CSID Request
-
-API Call:
-
-POST /csid/production
-
-
-Request Body:
-
-{
-  "requestId": "REQ123"
-}
-
-
-Response:
-
-{
-  "productionCSID": "CSID",
-  "secret": "SECRET"
-}
-
-
-System shall:
-
-Encrypt and store CSID & Secret
-
-Associate with VAT number
-
-8. Invoice Processing
-8.1 XML Generation
-
-System shall generate:
-
-Simplified invoice XML (B2C)
-
-Standard invoice XML (B2B)
-
-XML must include:
-
-Seller VAT
-
-Buyer VAT (if B2B)
-
-Line items
-
-VAT totals
-
-Previous invoice hash
-
-8.2 Hash Generation
-hash = Base64(SHA256(XML))
-
-8.3 Encoding
-encodedXML = Base64(XML)
-
-9. Reporting API (Simplified Invoices)
-
-Endpoint:
-
-POST /invoices/reporting/single
-
-
-Headers:
-
-Authorization: Basic base64(CSID:SECRET)
-Accept-Version: v2
-
-
-Body:
-
-{
-  "invoiceHash": "BASE64_HASH",
-  "invoice": "BASE64_XML"
-}
-
-
-Success Response:
-
-{
-  "status": "Reported",
-  "warnings": null,
-  "errors": null
-}
-
-
-System shall:
-
-Update invoice status = REPORTED
-
-Persist response
-
-10. Clearance API (Standard Invoices)
-
-Endpoint:
-
-POST /invoices/clearance/single
-
-
-Success Response:
-
-{
-  "status": "Cleared",
-  "clearedInvoice": "BASE64_XML",
-  "qrCode": "BASE64_QR"
-}
-
-
-System shall:
-
-Prevent invoice issue before clearance
-
-Store cleared XML
-
-Store QR code
-
-11. Error Handling
-11.1 Validation Errors
-
-System shall:
-
-Reject invoice issuance
-
-Display ZATCA error message
-
-Log transaction
-
-11.2 Retry Logic
-Condition	Action
-Network error	Retry (max 3)
-ZATCA 5xx	Retry
-ZATCA 4xx	Do not retry
-12. Data Model (Simplified)
-Invoice Table
-Field	Description
-id	Invoice ID
-xml	Generated XML
-hash	SHA256 hash
-status	Draft / Reported / Cleared / Failed
-zatcaResponse	Raw JSON
-qrCode	QR if available
-Credential Table
-Field	Description
-vatNumber	VAT
-csid	Encrypted
-secret	Encrypted
-privateKey	Encrypted
-environment	Sandbox/Prod
-13. Security Controls
-Control	Requirement
-Secret Storage	Encrypted
-Access	Backend only
-Logging	No secrets
-TLS	Mandatory
-14. Acceptance Criteria
-
-CSID onboarding successful
-
-Invoice reported successfully
-
-Invoice cleared successfully
-
-QR code generated
-
-Errors handled correctly
-
-15. Risks
-Risk	Mitigation
-XML non-compliance	SDK validation
-Wrong hash	Unit tests
-API downtime	Retry queue
-Credential leak	Encryption
-16. Deliverables (Antigravity)
-
-CSR Generator
-
-ZATCA Client
-
-XML Generator
-
-Secure storage
-
-API endpoints
-
-Logging
-
-Postman collection
-
-Test cases
+### Recipe B: Complex Bug Fix
+1. **Trace & Diagnose:** Use `$debugging-toolkit` to isolate root cause.
+2. **Write Reproduction Test:** Add a failing regression test (`$tdd-workflow`).
+3. **Fix & Verify:** Implement the fix (`$agent-coder`) and verify all tests pass.
+4. **Review:** Audit fix for edge cases (`$agent-reviewer`).

@@ -4,6 +4,7 @@ import { onboardCompliance, requestProductionCSID, reportInvoice, clearInvoice, 
 import { generateInvoiceXML } from '../services/xmlService.js';
 import { reflectStatusToERP } from '../services/integrationService.js';
 import reportsRouter from './reports.js';
+import { FALLBACK_USERS } from './auth.js';
 import QueueService from '../services/queueService.js';
 import { NotificationService } from '../services/notificationService.js';
 import prisma from '../lib/prisma.js';
@@ -216,23 +217,22 @@ router.get('/ping/:env', async (req, res) => {
  */
 router.get('/certificates', async (req, res) => {
     try {
-        const { companyId } = req.query;
-        if (!companyId) {
+        const rawCompanyId = req.query.companyId || req.query.branchId;
+        if (!rawCompanyId) {
             return res.status(400).json({ error: 'companyId is required' });
         }
 
         const userRole = req.headers['x-user-role'];
-        const userEmail = req.headers['x-user-email'] as string;
+        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
 
-        let cleanCompanyId = getSafeString(companyId);
+        let cleanCompanyId = getSafeString(rawCompanyId);
         if (cleanCompanyId.startsWith('br-')) {
             cleanCompanyId = cleanCompanyId.replace('br-', '');
         }
         const where: any = { company_id: parseInt(cleanCompanyId) };
 
-        // If not SUPER_ADMIN, verify ownership OR membership
-        if (userRole !== 'SUPER_ADMIN' && userEmail) {
-            const user = await prisma.user.findUnique({ where: { email: userEmail } });
+        if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail !== 'undefined') {
+            const user = (await prisma.user.findUnique({ where: { email: userEmail } })) || FALLBACK_USERS[userEmail];
             if (!user) return res.status(403).json({ error: 'User not found' });
 
             where.company = {
@@ -372,17 +372,17 @@ const mapInvoiceToFrontend = (inv: any) => {
  */
 router.get('/invoices', async (req, res) => {
     try {
-        const { companyId } = req.query;
+        const rawCompanyId = req.query.companyId || req.query.branchId;
         const userRole = req.headers['x-user-role'];
-        const userEmail = req.headers['x-user-email'] as string;
+        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
 
-        console.log(`[ZATCA API] Fetching invoices. CompanyID: ${companyId}, Role: ${userRole}, Email: ${userEmail}`);
+        console.log(`[ZATCA API] Fetching invoices. CompanyID: ${rawCompanyId}, Role: ${userRole}, Email: ${userEmail}`);
 
-        if (!companyId) {
+        if (!rawCompanyId) {
             return res.status(400).json({ error: 'companyId is required' });
         }
 
-        let cleanCompanyId = getSafeString(companyId);
+        let cleanCompanyId = getSafeString(rawCompanyId);
         if (cleanCompanyId.startsWith('br-')) {
             cleanCompanyId = cleanCompanyId.replace('br-', '');
         }
@@ -394,7 +394,7 @@ router.get('/invoices', async (req, res) => {
         // If not SUPER_ADMIN, verify ownership OR membership
         if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail.trim() !== '' && userEmail !== 'undefined') {
             console.log(`[ZATCA API] Applying membership-aware filter for user`);
-            const user = await prisma.user.findUnique({ where: { email: userEmail } });
+            const user = (await prisma.user.findUnique({ where: { email: userEmail } })) || FALLBACK_USERS[userEmail];
             if (!user) {
                 console.warn(`[ZATCA API] User not found. Returning 403.`);
                 return res.status(403).json({ error: 'User not found' });
@@ -407,7 +407,7 @@ router.get('/invoices', async (req, res) => {
                 ]
             };
         } else {
-            console.log(`[ZATCA API] NO ownership filter applied (Role: ${userRole}, Email: ${userEmail}) - Full access enabled for ${companyId}`);
+            console.log(`[ZATCA API] NO ownership filter applied (Role: ${userRole}, Email: ${userEmail}) - Full access enabled for ${rawCompanyId}`);
         }
 
         const invoices = await prisma.invoice.findMany({
@@ -423,9 +423,9 @@ router.get('/invoices', async (req, res) => {
 
         const mappedInvoices = invoices.map(mapInvoiceToFrontend);
 
-        console.log(`[ZATCA API] Returning ${mappedInvoices.length} invoices for company ${companyId}. (Total DB count for company: ${invoices.length})`);
+        console.log(`[ZATCA API] Returning ${mappedInvoices.length} invoices for company ${rawCompanyId}. (Total DB count for company: ${invoices.length})`);
         if (mappedInvoices.length === 0) {
-            console.log(`[ZATCA API] No invoices found for CompanyID: ${companyId}. Query details: ${JSON.stringify(where)}`);
+            console.log(`[ZATCA API] No invoices found for CompanyID: ${rawCompanyId}. Query details: ${JSON.stringify(where)}`);
         }
         res.json(mappedInvoices);
     } catch (error: any) {
@@ -460,14 +460,13 @@ router.get('/invoices/:id', async (req, res) => {
         console.log(`[ZATCA API] Detected as UUID: ${!!isUuid}`);
 
         const userRole = req.headers['x-user-role'];
-        const userEmail = req.headers['x-user-email'] as string;
+        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
 
         const where: any = isUuid ? { uuid: id } : { id: parseInt(id) };
         where.is_deleted = false;
 
-        // If not SUPER_ADMIN, verify ownership OR membership
-        if (userRole !== 'SUPER_ADMIN' && userEmail) {
-            const user = await prisma.user.findUnique({ where: { email: userEmail } });
+        if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail !== 'undefined') {
+            const user = (await prisma.user.findUnique({ where: { email: userEmail } })) || FALLBACK_USERS[userEmail];
             if (!user) return res.status(403).json({ error: 'User not found' });
 
             where.company = {
@@ -664,11 +663,11 @@ csr.industry.business.category=${industry || 'IT'}`;
             }
         }
 
-        const userEmail = req.headers['x-user-email'] as string;
+        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
         let user: any = null;
 
         if (userEmail) {
-            user = await prisma.user.findUnique({ where: { email: userEmail } });
+            user = (await prisma.user.findUnique({ where: { email: userEmail } })) || FALLBACK_USERS[userEmail];
         }
 
         if (!user) {

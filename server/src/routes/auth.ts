@@ -8,7 +8,7 @@ import { decrypt } from '../utils/crypto.js';
 
 // ─── Fallback users (mirrors actual Neon DB accounts — used when DB sleeps) ──
 // These match the real DB users. Password for all: password123
-const FALLBACK_USERS: Record<string, { id: string; email: string; password: string; name: string; role: string; company_name: string; company_id?: number }> = {
+export const FALLBACK_USERS: Record<string, { id: string; email: string; password: string; name: string; role: string; company_name: string; company_id?: number }> = {
     'superadmin@tech-solutions.sa': {
         id: 'u-001', email: 'superadmin@tech-solutions.sa', password: 'Zatca#Secure!2026@Connect',
         name: 'Super Admin', role: 'SUPER_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
