@@ -77,9 +77,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
     return () => clearInterval(interval);
   }, [selectedBranch]);
 
-  // 1. Filter Invoices based on Time Range
+  // 1. Filter Invoices based on Time Range and Branch
   const filteredInvoices = useMemo(() => {
     let relevantInvoices = invoices;
+
+    if (selectedBranch) {
+      relevantInvoices = relevantInvoices.filter(inv => 
+        !selectedBranch || 
+        inv.branchId === selectedBranch.id || 
+        inv.branchId === `br-${selectedBranch.organizationId || selectedBranch.id}` ||
+        inv.branchId === `br-${selectedBranch.id}` ||
+        inv.branchId?.toString().replace('br-', '') === selectedBranch.id?.toString().replace('br-', '') ||
+        inv.branchId?.toString().replace('br-', '') === selectedBranch.organizationId?.toString().replace('br-', '')
+      );
+    }
 
     const now = new Date();
     if (timeRange === 'All Time') return relevantInvoices;
@@ -118,7 +129,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
       }
       return invDate >= startDate;
     });
-  }, [timeRange, customStart, customEnd, selectedBranch]);
+  }, [invoices, timeRange, customStart, customEnd, selectedBranch]);
 
   // 2. Calculate Stats based on Filtered Data
   const stats = useMemo(() => {
