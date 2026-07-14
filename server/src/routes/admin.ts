@@ -19,6 +19,12 @@ function logAdmin(msg: string) {
     } catch(e) {}
 }
 
+const cleanBranchName = (name: string | null | undefined): string => {
+    if (!name) return 'HQ';
+    const cleaned = name.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1').replace(/(HQ\s*)+/gi, 'HQ').trim();
+    return cleaned || 'HQ';
+};
+
 const requireSuperAdmin = (req: any, res: any, next: any) => {
     const userRole = req.headers['x-user-role'];
     if (userRole !== 'SUPER_ADMIN') {
@@ -196,7 +202,7 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
             branches: [{
                 id: `br-${c.id}`,
                 organizationId: c.id.toString(),
-                name: c.branch_name || 'Main Branch',
+                name: cleanBranchName(c.branch_name),
                 type: 'HQ',
                 environment: c.environment,
                 settings: c.settings || {},
@@ -292,7 +298,7 @@ router.post('/companies', requireSuperAdmin, async (req, res) => {
                 registered_name: name,
                 vat_number: vatNumber,
                 cr_number: crNumber,
-                branch_name: branchName || 'HQ',
+                branch_name: cleanBranchName(branchName),
                 address: address || '',
                 city: city || '',
                 country: country || 'SA',
@@ -312,7 +318,7 @@ router.post('/companies', requireSuperAdmin, async (req, res) => {
             branches: [{
                 id: `br-${newCompany.id}`,
                 organizationId: newCompany.id.toString(),
-                name: newCompany.branch_name || 'Main Branch',
+                name: cleanBranchName(newCompany.branch_name),
                 type: 'HQ',
                 environment: newCompany.environment,
                 settings: newCompany.settings || {},
@@ -348,7 +354,7 @@ router.put('/companies/:id', requireAnyAdmin, async (req, res) => {
             address: address || '',
             city: city || '',
             country: country || 'SA',
-            branch_name: branchName || 'HQ'
+            branch_name: cleanBranchName(branchName)
         };
 
         if (environment) {

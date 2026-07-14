@@ -514,7 +514,9 @@ router.post('/onboard', async (req, res) => {
     const userRole = (req.headers['x-user-role'] as string) || 'USER';
     const ipAddress = req.ip || 'unknown';
 
-    console.log(`[ZATCA Onboard] New request: Env=${environment}, VAT=${vat}, TIN=${tin}`);
+    const cleanedBranchName = (branchName || 'HQ').replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1').replace(/(HQ\s*)+/gi, 'HQ').trim() || 'HQ';
+
+    console.log(`[ZATCA Onboard] New request: Env=${environment}, VAT=${vat}, TIN=${tin}, Branch=${cleanedBranchName}`);
 
     // ENT: Basic Validation
 
@@ -548,7 +550,7 @@ router.post('/onboard', async (req, res) => {
         const orgIdentifier = (tin && /^\d+$/.test(tin)) ? tin : vat;
 
         // Organization Unit (OU) must be carefully formatted.
-        const orgUnit = branchName || companyName || 'Main';
+        const orgUnit = cleanedBranchName || companyName || 'Main';
 
         const formattedSerial = serialNumber?.includes('|')
             ? serialNumber
@@ -693,7 +695,7 @@ csr.industry.business.category=${industry || 'IT'}`;
             where: { vat_number: vat },
             update: {
                 registered_name: companyName,
-                branch_name: branchName,
+                branch_name: cleanedBranchName,
                 building_number: buildingNumber,
                 street_name: streetName,
                 city_subdivision: citySubdivision,
@@ -705,7 +707,7 @@ csr.industry.business.category=${industry || 'IT'}`;
             create: {
                 vat_number: vat,
                 registered_name: companyName,
-                branch_name: branchName,
+                branch_name: cleanedBranchName,
                 building_number: buildingNumber,
                 street_name: streetName,
                 city_subdivision: citySubdivision,
