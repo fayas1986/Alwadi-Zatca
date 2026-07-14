@@ -13,6 +13,7 @@ import SyncService from './services/syncService.js';
 import reportsRouter from './routes/reports.js';
 import prisma from './lib/prisma.js';
 import apiV1Router from './routes/api_v1.js';
+import KeepAliveService from './services/keepAliveService.js';
 
 import { swaggerSpec } from './utils/swagger.js';
 
@@ -40,6 +41,9 @@ if (!process.env.VERCEL) {
 } else {
     console.log('[Server] Running on Vercel: Background Sync Service is inactive.');
 }
+
+// Start Database Keep-Alive Heartbeat (Runs on both local server and Vercel warmup to prevent DB sleep)
+KeepAliveService.start();
 // Harden security headers with Helmet
 app.use(helmet({
     contentSecurityPolicy: {
@@ -94,13 +98,20 @@ app.get('/api/db-test', async (req, res) => {
         const count = await prisma.user.count();
         res.json({ status: 'connected', userCount: count });
     } catch (err: any) {
-        console.error('DB Test Error:', err);
-        res.status(500).json({ 
-            error: 'Database connection failed', 
-            message: err.message,
-            code: err.code,
-            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-        });
+        console.warn('[DB Test] Initial count check failed, attempting KeepAlive recovery ping...');
+        try {
+            await KeepAliveService.pingDatabase();
+            const count = await prisma.user.count();
+            res.json({ status: 'connected_after_recovery', userCount: count });
+        } catch (retryErr: any) {
+            console.error('DB Test Error after retry:', retryErr);
+            res.status(500).json({ 
+                error: 'Database connection failed after recovery attempt', 
+                message: retryErr.message,
+                code: retryErr.code,
+                stack: process.env.NODE_ENV === 'development' ? retryErr.stack : undefined
+            });
+        }
     }
 });
  

@@ -11,20 +11,56 @@ const prismaClientSingleton = () => {
     url = url.replace('?pgbouncer=true', '');
     url = url.replace('&pgbouncer=true', '');
     
-    // Add connection timeout for cold starts
+    // Add connection timeout and pool parameters for cold starts
     if (!url.includes('connect_timeout=')) {
       const separator = url.includes('?') ? '&' : '?';
-      url = `${url}${separator}connect_timeout=30`;
+      url = `${url}${separator}connect_timeout=30&pool_timeout=30&connection_limit=15`;
     }
   }
 
   console.log('[Prisma] Initializing with DB URL:', url ? (url.substring(0, 20) + '...') : 'MISSING');
   
-  return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  const basePrisma = new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     errorFormat: 'pretty',
     datasourceUrl: url,
   });
+
+  // Automatically catch transient connection drops or Neon sleep errors and retry once
+  return basePrisma.$extends({
+    query: {
+      $allModels: {
+        async $allOperations({ operation, model, args, query }) {
+          try {
+            return await query(args);
+          } catch (error: any) {
+            const errorMsg = error?.message || '';
+            const errorCode = error?.code;
+            if (
+              errorCode === 'P1001' ||
+              errorCode === 'P2024' ||
+              errorMsg.includes('Connection terminated') ||
+              errorMsg.includes('Closed connection') ||
+              errorMsg.includes('Can\'t reach database server') ||
+              errorMsg.includes('timeout expired') ||
+              errorMsg.includes('socket disconnected')
+            ) {
+              console.warn(`[Prisma Retry] Connection error (${errorCode || 'drop'}) on ${model}.${operation}. Reconnecting and retrying...`);
+              try {
+                await basePrisma.$disconnect();
+                await basePrisma.$connect();
+                return await query(args);
+              } catch (retryError: any) {
+                console.error(`[Prisma Retry] Second attempt failed on ${model}.${operation}:`, retryError?.message?.split('\n')[0]);
+                throw retryError;
+              }
+            }
+            throw error;
+          }
+        }
+      }
+    }
+  }) as unknown as PrismaClient;
 };
 
 
