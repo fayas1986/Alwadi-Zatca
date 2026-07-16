@@ -58,7 +58,7 @@ csr.industry.business.category=${industry || 'IT'}`;
         }
 
         // 2. Obtain Compliance CSID (OTP exchange)
-        const complianceResult = await client.onboardCompliance({
+        const complianceResult = await client.onboard({
             csr,
             otp
         });
@@ -136,7 +136,7 @@ csr.industry.business.category=${industry || 'IT'}`;
 
         // 4. Request Production CSID
         const prodResult = await client.requestProductionCSID({
-            complianceCsid: complianceCSID,
+            complianceCSID: complianceCSID,
             complianceSecret: complianceSecret,
             requestId: complianceResult.requestID
         });

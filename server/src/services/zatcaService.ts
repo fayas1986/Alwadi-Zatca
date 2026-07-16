@@ -1,4 +1,5 @@
 import axios from 'axios';
+import prisma from '../lib/prisma.js';
 
 const ZATCA_BASE_URL = {
     sandbox: 'https://sandbox.zatca.gov.sa/e-invoicing/sandbox',
@@ -200,5 +201,34 @@ export const clearInvoice = async (env: string, csid: string, secret: string, xm
     } catch (error: any) {
         if (error.response?.status >= 500) await FailoverManager.markFailure();
         throw error;
+    }
+};
+
+export const ZatcaService = {
+    onboardCompliance,
+    checkCompliance,
+    requestProductionCSID,
+    renewProductionCSID,
+    reportInvoice,
+    clearInvoice,
+    report: async (params: any) => {
+        const company = await prisma.company.findFirst({
+            where: params.companyId ? { id: params.companyId } : { vat_number: params.vat }
+        });
+        if (!company) throw new Error('Company not found');
+        const config = await prisma.erp_configuration.findFirst({ 
+            where: { company_id: company.id },
+            include: { certificate: true }
+        });
+        if (!config || !config.certificate?.csid || !config.certificate?.secret) throw new Error('ZATCA CSID/Secret not configured');
+        return await reportInvoice(config.environment || 'SANDBOX', config.certificate.csid, config.certificate.secret, params.invoiceData?.hash || '', params.invoiceData?.xmlBase64 || '', params.invoiceData?.uuid || '');
+    },
+    reprocessInvoice: async (invoiceId: number) => {
+        const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+        if (!invoice) throw new Error('Invoice not found');
+        return await prisma.invoice.update({
+            where: { id: invoiceId },
+            data: { status: 'PENDING', retry_count: 0, error_log: null }
+        });
     }
 };

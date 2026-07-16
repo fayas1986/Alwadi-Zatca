@@ -569,11 +569,6 @@ export const reflectStatusToERP = async (companyId: number, invoiceNumber: strin
             new Map(allConfigs.map(c => [c.base_url.toLowerCase().trim(), c])).values()
         );
 
-        if (erpConfigs.length === 0) {
-            console.log(`[ERP Status] No active ERP configurations for company ${companyId}.`);
-            return;
-        }
-
         // Map status to ERP friendly names (Requirement: rejected, pending, cleared, Reported)
         let erpStatus = status.toLowerCase();
         if (status === 'DLQ' || status === 'FAILED') erpStatus = 'rejected';
@@ -608,6 +603,11 @@ export const reflectStatusToERP = async (companyId: number, invoiceNumber: strin
                 status: erpStatus.toUpperCase(),
                 zatcaResponse
             }).catch(err => console.error('[Webhook] Service call failed:', err.message));
+        }
+
+        if (erpConfigs.length === 0) {
+            console.log(`[ERP Status] No active ERP configurations for company ${companyId}.`);
+            return;
         }
 
         // 3. Relay via Callback

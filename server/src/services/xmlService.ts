@@ -278,3 +278,10 @@ export const signInvoiceXML = async (xmlContent: string, certificate: string, pr
 }
 
 export const createInvoiceXml = generateInvoiceXML;
+
+export const XMLService = {
+    generateInvoiceXML,
+    computeXMLHash,
+    signInvoiceXML,
+    createInvoiceXml
+};

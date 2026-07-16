@@ -23,7 +23,7 @@ export class ProductionClient extends BaseZatcaClient implements IZatcaClient {
     }
 
     async requestProductionCSID(data: ProductionCSIDRequest): Promise<ProductionCSIDResponse> {
-        const auth = this.getAuthHeader(data.complianceCsid, data.complianceSecret);
+        const auth = this.getAuthHeader(data.complianceCSID, data.complianceSecret);
         return this.post<ProductionCSIDResponse>('/production/csids', {
             compliance_request_id: data.requestId
         }, { Authorization: auth });

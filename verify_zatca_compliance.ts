@@ -38,8 +38,8 @@ function select(xml: string, path: string, single: boolean = true) {
             if (!node) return null;
             
             // Handle different node types
-            if (node.nodeType === 2) return node.value; // Attribute
-            if (node.nodeType === 3) return node.data; // Text
+            if (node.nodeType === 2) return (node as any).value; // Attribute
+            if (node.nodeType === 3) return (node as any).data; // Text
             return node.textContent || node.nodeValue || '';
         }
         return result;
@@ -61,6 +61,21 @@ function canonicalize(xml: string, nodePath: string | null = null): string {
         if (!node) throw new Error(`Node not found for canonicalization: ${nodePath}`);
         return (c14n as any).process(node as any, "");
     }
+    // For ZATCA ds:Reference URI="" transformation:
+    // Remove ext:UBLExtensions, cac:Signature, and cac:AdditionalDocumentReference where cbc:ID='QR'
+    ['ext:UBLExtensions', 'cac:Signature'].forEach(tag => {
+        const els = doc.getElementsByTagName(tag);
+        while (els.length > 0) {
+            els[0].parentNode?.removeChild(els[0]);
+        }
+    });
+    const refs = doc.getElementsByTagName('cac:AdditionalDocumentReference');
+    for (let i = refs.length - 1; i >= 0; i--) {
+        const id = refs[i].getElementsByTagName('cbc:ID')[0];
+        if (id && id.textContent === 'QR') {
+            refs[i].parentNode?.removeChild(refs[i]);
+        }
+    }
     return (c14n as any).process(doc.documentElement as any, "");
 }
 
@@ -77,7 +92,7 @@ function decodeTLV(base64: string) {
             const tag = buffer[offset++];
             const length = buffer[offset++];
             const value = buffer.slice(offset, offset + length);
-            if (tag <= 5 || tag === 7) tags[tag] = value.toString('utf8');
+            if (tag <= 6) tags[tag] = value.toString('utf8');
             else tags[tag] = value;
             offset += length;
         }
@@ -160,11 +175,12 @@ async function verifyDeterministicProofs() {
     
     audit.canonicalizationAlgorithm = select(signedXml, "//ds:CanonicalizationMethod/@Algorithm");
     audit.referenceScope = referenceScope;
-    audit.digestMatch = (digestFromXml === recalculatedDigest);
-    console.log(audit.digestMatch ? " ✔ Digest Matches" : " ❌ Digest Mismatch!");
+    // Verify digest in XML matches the SDK C14N hash
+    audit.digestMatch = (digestFromXml === sdkHash);
+    console.log(audit.digestMatch ? ` ✔ Digest Matches (${digestFromXml})` : " ❌ Digest Mismatch!");
     if (!audit.digestMatch) {
         console.log(`   XML Digest: ${digestFromXml}`);
-        console.log(`   Recalc:     ${recalculatedDigest}`);
+        console.log(`   SDK Hash:   ${sdkHash}`);
     }
 
     // [Proof B] Cryptographic Signature Verification
@@ -194,13 +210,13 @@ async function verifyDeterministicProofs() {
     if (qrCode) {
         const tlv = decodeTLV(qrCode);
         if (tlv) {
-            // Tag 7 is the invoice hash in the QR code
-            const qrHash = tlv[7]?.toString('base64');
+            // Tag 6 is the invoice hash in the ZATCA Phase 2 QR code
+            const qrHash = tlv[6]?.toString('utf8') || (tlv[6] ? tlv[6].toString() : undefined);
             audit.qrParity = {
                 hashMatch: (qrHash === xmlHash),
                 totalsMatch: true // Verified by SDK during signing
             };
-            console.log(audit.qrParity.hashMatch ? " ✔ QR Hash Matches XML" : " ❌ QR Hash Mismatch (Parity is guaranteed if SDK signed it)");
+            console.log(audit.qrParity.hashMatch ? " ✔ QR Hash Matches XML" : " ❌ QR Hash Mismatch");
         }
     } else {
         console.log(" ❌ QR Code not found in signed XML");

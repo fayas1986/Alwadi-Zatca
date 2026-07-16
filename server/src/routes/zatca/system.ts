@@ -137,7 +137,7 @@ router.patch('/companies/:id/deactivate', async (req, res) => {
             where: { id: parseInt(id) },
             data: { is_active: false }
         });
-        await logZatcaActivity('Company Deactivated', 'Success', `Soft delete applied to company ID ${id}`, id);
+        await logZatcaActivity({ action: 'Company Deactivated', status: 'Success', details: `Soft delete applied to company ID ${id}`, resourceId: id });
         return ResponseHandler.success(res, { message: 'Company deactivated successfully' });
     } catch (error: any) {
         return ResponseHandler.error(res, error.message);

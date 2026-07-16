@@ -75,4 +75,29 @@ export class MonitoringService {
             metadata: { error }
         });
     }
+
+    /**
+     * Gets compliance health status for a company
+     */
+    static async getComplianceHealth(companyId: number) {
+        const total = await prisma.invoice.count({ where: { company_id: companyId } });
+        const cleared = await prisma.invoice.count({ where: { company_id: companyId, status: 'CLEARED' } });
+        const reported = await prisma.invoice.count({ where: { company_id: companyId, status: 'REPORTED' } });
+        const failed = await prisma.invoice.count({ where: { company_id: companyId, status: 'FAILED' } });
+        return {
+            status: failed > 5 ? 'DEGRADED' : 'HEALTHY',
+            companyId,
+            invoices: { total, cleared, reported, failed },
+            timestamp: new Date().toISOString()
+        };
+    }
+
+    /**
+     * Gets Prometheus-formatted metrics for a company
+     */
+    static async getPrometheusMetrics(companyId: number): Promise<string> {
+        const total = await prisma.invoice.count({ where: { company_id: companyId } });
+        const failed = await prisma.invoice.count({ where: { company_id: companyId, status: 'FAILED' } });
+        return `# HELP zatca_invoices_total Total invoices submitted\n# TYPE zatca_invoices_total counter\nzatca_invoices_total{company_id="${companyId}"} ${total}\n# HELP zatca_invoices_failed Total invoices failed\n# TYPE zatca_invoices_failed counter\nzatca_invoices_failed{company_id="${companyId}"} ${failed}\n`;
+    }
 }

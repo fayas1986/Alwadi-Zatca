@@ -10,12 +10,23 @@ async function testRelay() {
 
     // 1. Setup a dummy company with webhook settings
     const vatNumber = 'TEST-WEBHOOK-' + Date.now();
+    let user = await prisma.user.findFirst();
+    if (!user) {
+        user = await prisma.user.create({
+            data: {
+                id: 'test_user_' + Date.now(),
+                email: 'test_webhook@example.com',
+                name: 'Test Webhook User',
+                role: 'ADMIN'
+            }
+        });
+    }
     const company = await prisma.company.create({
         data: {
             registered_name: 'Webhook Test Corp',
             vat_number: vatNumber,
             cr_number: '1234567890',
-            user_id: 'user_2m1F6P1Z7l0XN0XN0XN0XN0XN0X', // Assuming a valid user ID
+            user_id: user.id,
             settings: {
                 webhookUrl: 'https://webhook.site/dummy-url',
                 webhookSecret: 'test-secret-123',
@@ -47,6 +58,9 @@ async function testRelay() {
             'CLEARED',
             { clearanceStatus: 'CLEARED', validationResults: { warningMessages: [] } }
         );
+
+        // Wait for async fire-and-forget WebhookService to finish query and dispatch
+        await new Promise(r => setTimeout(r, 1000));
 
         if (intercepted) {
             console.log('\n✨ VERIFICATION SUCCESS: WebhookService was triggered by reflectStatusToERP!');
