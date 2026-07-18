@@ -1,8 +1,8 @@
 {
 	"info": {
 		"_postman_id": "easylease-tax-filling-master-v4",
-		"name": "EasyLease Tax Filling - Master Suite",
-		"description": "Comprehensive Postman collection for EasyLease Tax Filling API covering ZATCA compliance, Enterprise ERP integration (V1/V2), Admin dashboard management, and Items catalog.",
+		"name": "Satguru Travels Tax Filling - Master Suite",
+		"description": "Comprehensive Postman collection for Satguru Travels Tax Filling API covering ZATCA compliance, Enterprise ERP integration (V1/V2), Admin dashboard management, and Items catalog.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -61,7 +61,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"invoiceNumber\": \"INV-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"388\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\",\n        \"address\": {\n            \"streetName\": \"Prince Sultan St\",\n            \"buildingNumber\": \"2345\",\n            \"cityName\": \"Riyadh\",\n            \"postalZone\": \"12222\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"customer\": {\n        \"name\": \"Client LLC\",\n        \"vatNumber\": \"311111111111113\",\n        \"address\": {\n            \"streetName\": \"Main St\",\n            \"buildingNumber\": \"1000\",\n            \"cityName\": \"Jeddah\",\n            \"postalZone\": \"21442\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Enterprise Service\",\n            \"quantity\": 1,\n            \"unitPrice\": 100.00,\n            \"taxAmount\": 15.00,\n            \"lineExtensionAmount\": 100.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 100.00,\n        \"taxInclusiveAmount\": 115.00,\n        \"payableAmount\": 115.00\n    }\n}",
+									"raw": "{\n    \"invoiceNumber\": \"INV-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"388\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"supplier\": {\n        \"name\": \"Satguru Travels Tourism\",\n        \"vatNumber\": \"300000000000003\",\n        \"address\": {\n            \"streetName\": \"Prince Sultan St\",\n            \"buildingNumber\": \"2345\",\n            \"cityName\": \"Riyadh\",\n            \"postalZone\": \"12222\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"customer\": {\n        \"name\": \"Client LLC\",\n        \"vatNumber\": \"311111111111113\",\n        \"address\": {\n            \"streetName\": \"Main St\",\n            \"buildingNumber\": \"1000\",\n            \"cityName\": \"Jeddah\",\n            \"postalZone\": \"21442\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Enterprise Service\",\n            \"quantity\": 1,\n            \"unitPrice\": 100.00,\n            \"taxAmount\": 15.00,\n            \"lineExtensionAmount\": 100.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 100.00,\n        \"taxInclusiveAmount\": 115.00,\n        \"payableAmount\": 115.00\n    }\n}",
 									"options": { "raw": { "language": "json" } }
 								},
 								"url": {
@@ -84,7 +84,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"invoiceNumber\": \"CN-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"381\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"billingReference\": \"INV-B2B-123\",\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"customer\": {\n        \"name\": \"Client LLC\",\n        \"vatNumber\": \"311111111111113\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Discount applied\",\n            \"quantity\": 1,\n            \"unitPrice\": 10.00,\n            \"taxAmount\": 1.50,\n            \"lineExtensionAmount\": 10.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 10.00,\n        \"taxInclusiveAmount\": 11.50,\n        \"payableAmount\": 11.50\n    }\n}",
+									"raw": "{\n    \"invoiceNumber\": \"CN-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"381\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"billingReference\": \"INV-B2B-123\",\n    \"supplier\": {\n        \"name\": \"Satguru Travels Tourism\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"customer\": {\n        \"name\": \"Client LLC\",\n        \"vatNumber\": \"311111111111113\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Discount applied\",\n            \"quantity\": 1,\n            \"unitPrice\": 10.00,\n            \"taxAmount\": 1.50,\n            \"lineExtensionAmount\": 10.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 10.00,\n        \"taxInclusiveAmount\": 11.50,\n        \"payableAmount\": 11.50\n    }\n}",
 									"options": { "raw": { "language": "json" } }
 								},
 								"url": {
@@ -107,7 +107,7 @@
 								],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"invoiceNumber\": \"DN-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"383\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"billingReference\": \"INV-B2B-123\",\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"customer\": {\n        \"name\": \"Client LLC\",\n        \"vatNumber\": \"311111111111113\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Additional fee\",\n            \"quantity\": 1,\n            \"unitPrice\": 20.00,\n            \"taxAmount\": 3.00,\n            \"lineExtensionAmount\": 20.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 20.00,\n        \"taxInclusiveAmount\": 23.00,\n        \"payableAmount\": 23.00\n    }\n}",
+									"raw": "{\n    \"invoiceNumber\": \"DN-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"383\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"billingReference\": \"INV-B2B-123\",\n    \"supplier\": {\n        \"name\": \"Satguru Travels Tourism\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"customer\": {\n        \"name\": \"Client LLC\",\n        \"vatNumber\": \"311111111111113\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Additional fee\",\n            \"quantity\": 1,\n            \"unitPrice\": 20.00,\n            \"taxAmount\": 3.00,\n            \"lineExtensionAmount\": 20.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 20.00,\n        \"taxInclusiveAmount\": 23.00,\n        \"payableAmount\": 23.00\n    }\n}",
 									"options": { "raw": { "language": "json" } }
 								},
 								"url": {
@@ -347,7 +347,7 @@
 	"variable": [
 		{ "key": "baseUrl", "value": "https://easylease.sakytek.com" },
 		{ "key": "apiKey", "value": "sk_sim_easylease_mock_v1" },
-		{ "key": "adminEmail", "value": "admin@easylease.com" },
+		{ "key": "adminEmail", "value": "alka.sharma@yiron.in" },
 		{ "key": "adminPassword", "value": "admin123" },
 		{ "key": "lastJobId", "value": "" }
 	]

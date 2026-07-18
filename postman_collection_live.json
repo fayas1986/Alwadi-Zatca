@@ -1,8 +1,8 @@
 {
 	"info": {
-		"_postman_id": "easylease-live-production-suite",
-		"name": "EasyLease Tax Filling - LIVE",
-		"description": "Production-ready Postman collection for EasyLease Tax Filling. Configured for high-reliability invoice clearance and reporting in the Live environment.\n\n### Authentication\n- **HMAC Signature**: Automatically generated for all ERP endpoints.\n- **Admin Access**: Uses production credentials from the 'EasyLease - Live' environment.",
+		"_postman_id": "satguru-live-production-suite",
+		"name": "Satguru Travels Tax Filling - LIVE",
+		"description": "Production-ready Postman collection for Satguru Travels Tax Filling. Configured for high-reliability invoice clearance and reporting in the Live environment.\n\n### Authentication\n- **HMAC Signature**: Automatically generated for all ERP endpoints.\n- **Admin Access**: Uses production credentials from the 'Satguru Travels - Live' environment.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -55,7 +55,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"invoiceNumber\": \"PROD-INV-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceTypeCode\": \"388\",\n    \"invoiceSubtype\": \"Standard\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"customer\": {\n        \"name\": \"Corporate Client\",\n        \"vatNumber\": \"311111111111113\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Monthly Lease Payment\",\n            \"quantity\": 1,\n            \"unitPrice\": 5000.00,\n            \"taxAmount\": 750.00,\n            \"lineExtensionAmount\": 5000.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 5000.00,\n        \"taxInclusiveAmount\": 5750.00,\n        \"payableAmount\": 5750.00\n    }\n}",
+							"raw": "{\n    \"invoiceNumber\": \"PROD-INV-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceTypeCode\": \"388\",\n    \"invoiceSubtype\": \"Standard\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"supplier\": {\n        \"name\": \"Satguru Travels Tourism\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"customer\": {\n        \"name\": \"Corporate Client\",\n        \"vatNumber\": \"311111111111113\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Monthly Lease Payment\",\n            \"quantity\": 1,\n            \"unitPrice\": 5000.00,\n            \"taxAmount\": 750.00,\n            \"lineExtensionAmount\": 5000.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 5000.00,\n        \"taxInclusiveAmount\": 5750.00,\n        \"payableAmount\": 5750.00\n    }\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
@@ -78,7 +78,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"invoiceNumber\": \"PROD-CN-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceTypeCode\": \"381\",\n    \"invoiceSubtype\": \"Standard\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"billingReference\": \"INV-ORIGINAL-123\",\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"customer\": {\n        \"name\": \"Corporate Client\",\n        \"vatNumber\": \"311111111111113\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Return: Service adjustment\",\n            \"quantity\": 1,\n            \"unitPrice\": 500.00,\n            \"taxAmount\": 75.00,\n            \"lineExtensionAmount\": 500.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 500.00,\n        \"taxInclusiveAmount\": 575.00,\n        \"payableAmount\": 575.00\n    }\n}",
+							"raw": "{\n    \"invoiceNumber\": \"PROD-CN-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceTypeCode\": \"381\",\n    \"invoiceSubtype\": \"Standard\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"billingReference\": \"INV-ORIGINAL-123\",\n    \"supplier\": {\n        \"name\": \"Satguru Travels Tourism\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"customer\": {\n        \"name\": \"Corporate Client\",\n        \"vatNumber\": \"311111111111113\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Return: Service adjustment\",\n            \"quantity\": 1,\n            \"unitPrice\": 500.00,\n            \"taxAmount\": 75.00,\n            \"lineExtensionAmount\": 500.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 500.00,\n        \"taxInclusiveAmount\": 575.00,\n        \"payableAmount\": 575.00\n    }\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
@@ -100,7 +100,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"invoiceNumber\": \"PROD-DN-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceTypeCode\": \"383\",\n    \"invoiceSubtype\": \"Standard\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"billingReference\": \"INV-ORIGINAL-123\",\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"customer\": {\n        \"name\": \"Corporate Client\",\n        \"vatNumber\": \"311111111111113\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Additional Service Charge\",\n            \"quantity\": 1,\n            \"unitPrice\": 200.00,\n            \"taxAmount\": 30.00,\n            \"lineExtensionAmount\": 200.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 200.00,\n        \"taxInclusiveAmount\": 230.00,\n        \"payableAmount\": 230.00\n    }\n}",
+							"raw": "{\n    \"invoiceNumber\": \"PROD-DN-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceTypeCode\": \"383\",\n    \"invoiceSubtype\": \"Standard\",\n    \"issueDate\": \"{{currentDate}}\",\n    \"issueTime\": \"{{currentTime}}\",\n    \"billingReference\": \"INV-ORIGINAL-123\",\n    \"supplier\": {\n        \"name\": \"Satguru Travels Tourism\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"customer\": {\n        \"name\": \"Corporate Client\",\n        \"vatNumber\": \"311111111111113\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Additional Service Charge\",\n            \"quantity\": 1,\n            \"unitPrice\": 200.00,\n            \"taxAmount\": 30.00,\n            \"lineExtensionAmount\": 200.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 200.00,\n        \"taxInclusiveAmount\": 230.00,\n        \"payableAmount\": 230.00\n    }\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
@@ -227,7 +227,7 @@
 	"variable": [
 		{ "key": "baseUrl", "value": "https://easylease.sakytek.com" },
 		{ "key": "apiKey", "value": "sk_live_zatcaconnect_prod_v1" },
-		{ "key": "adminEmail", "value": "kamila.banu@easylease.ae" },
+		{ "key": "adminEmail", "value": "alka.sharma@yiron.in" },
 		{ "key": "adminPassword", "value": "password123" },
 		{ "key": "lastJobId", "value": "" }
 	]
