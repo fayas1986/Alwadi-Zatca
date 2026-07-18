@@ -4,7 +4,7 @@
 | Metadata | Details |
 | :--- | :--- |
 | **Document Version** | 1.0.0-RC1 |
-| **Product Name** | ZatcaConnect (EasyLease Tax Application) |
+| **Product Name** | ZatcaConnect (Satguru Travels Tax Application) |
 | **Status** | Approved for QA Handover |
 | **Target Release** | Phase 2 Fatoora Integration Mandate |
 | **Author / Generator** | Antigravity (`prd-writer` skill) |

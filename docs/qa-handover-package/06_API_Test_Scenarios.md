@@ -4,7 +4,7 @@
 | Metadata | Details |
 | :--- | :--- |
 | **Document Version** | 1.0.0-RC1 |
-| **Target API Base URL** | `http://localhost:3001` / `https://gateway.easyleasetax.com` |
+| **Target API Base URL** | `http://localhost:3001` / `https://gateway.Satguru Travelstax.com` |
 | **Status** | Approved for QA Handover |
 | **Author / Generator** | Antigravity (`api-testing` skill) |
 
@@ -19,7 +19,7 @@ This document defines the REST API test scenarios for verifying the ZatcaConnect
 2. Import `postman_environment_simulation.json` for internal testing without ZATCA credentials.
 3. Configure environment variables:
    * `base_url`: `http://localhost:3001`
-   * `api_key`: `sk_sim_easylease_mock_v1`
+   * `api_key`: `sk_sim_Satguru Travels_mock_v1`
    * `jwt_token`: `<obtain_via_login_endpoint>`
 
 ---
@@ -62,8 +62,8 @@ pm.request.headers.add({ key: 'x-nonce', value: nonce });
 
 | Scenario ID | Endpoint | Method | Test Type | Required Headers | Payload / Params | Expected Status & Assertion Criteria |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **API-001** | `/api/auth/login` | `POST` | Positive | `Content-Type: application/json` | `{"email":"admin@easylease.com", "password":"password123"}` | **200 OK**. Assert response contains `token` (JWT) and `user.role == "IT_ADMIN"`. |
-| **API-002** | `/api/auth/login` | `POST` | Negative | `Content-Type: application/json` | `{"email":"admin@easylease.com", "password":"wrongpassword"}` | **401 Unauthorized**. Assert response error message indicates invalid credentials. |
+| **API-001** | `/api/auth/login` | `POST` | Positive | `Content-Type: application/json` | `{"email":"admin@Satguru Travels.com", "password":"password123"}` | **200 OK**. Assert response contains `token` (JWT) and `user.role == "IT_ADMIN"`. |
+| **API-002** | `/api/auth/login` | `POST` | Negative | `Content-Type: application/json` | `{"email":"admin@Satguru Travels.com", "password":"wrongpassword"}` | **401 Unauthorized**. Assert response error message indicates invalid credentials. |
 | **API-003** | `/api/erp/invoices/submit` | `POST` | Positive | `x-api-key`, `x-signature`, `x-timestamp`, `x-nonce` | B2B Standard Invoice JSON (`invoiceType: "388"`, `subtype: "Standard"`, valid `buyer.vatNumber`). | **200 OK**. Assert `status == "CLEARED"`, `qrCode` is non-empty, and `zatcaResponse` contains cryptographic stamp. |
 | **API-004** | `/api/erp/invoices/submit` | `POST` | Positive | `x-api-key`, `x-signature`, `x-timestamp`, `x-nonce` | B2C Simplified Invoice JSON (`invoiceType: "388"`, `subtype: "Simplified"`). | **200 OK**. Assert `status == "REPORTED"` (or `PENDING` if backgrounded), and `qrCode` contains valid Base64 TLV string. |
 | **API-005** | `/api/erp/invoices/submit` | `POST` | Security | `x-api-key`, `x-timestamp`, `x-nonce` (Missing `x-signature`) | Valid B2B Invoice JSON. | **401 Unauthorized**. Assert response indicates "Missing HMAC signature". |
@@ -99,7 +99,7 @@ Or execute directly via Node.js one-liner:
 node -e '
 const axios = require("axios");
 const crypto = require("crypto");
-const key = "sk_sim_easylease_mock_v1";
+const key = "sk_sim_Satguru Travels_mock_v1";
 const ts = new Date().toISOString();
 const nonce = "test_" + Date.now();
 const payload = {
@@ -109,7 +109,7 @@ const payload = {
   invoiceSubtype: "Simplified",
   totalAmount: 115.00,
   taxAmount: 15.00,
-  seller: { name: "EasyLease", vatNumber: "300000000000003" },
+  seller: { name: "Satguru Travels", vatNumber: "300000000000003" },
   items: [{ name: "Service", quantity: 1, unitPrice: 100, taxRate: 15, taxAmount: 15, totalAmount: 115 }]
 };
 const bodyStr = JSON.stringify(payload);

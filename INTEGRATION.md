@@ -1,6 +1,6 @@
 # ERP Integration Guide
 
-This document outlines the three stages of ERP integration for the EasyLease Tax application.
+This document outlines the three stages of ERP integration for the Satguru Travels Tax application.
 
 ## Integration Stages
 

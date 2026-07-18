@@ -88,4 +88,4 @@ To facilitate comprehensive testing, the engineering team has generated 10 speci
 
 * **QA Execution Window**: July 2, 2026 – July 10, 2026
 * **Target Production Release**: July 15, 2026
-* **Engineering Support Contact**: DevOps & Core Architecture Team (`support@easyleasetax.com` / Slack `#zatca-qa-support`)
+* **Engineering Support Contact**: DevOps & Core Architecture Team (`support@Satguru Travelstax.com` / Slack `#zatca-qa-support`)

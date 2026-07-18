@@ -93,7 +93,7 @@ const authFile = 'playwright/.auth/admin.json';
 setup('authenticate as IT Admin', async ({ page }) => {
   const loginPage = new LoginPage(page);
   await loginPage.goto();
-  await loginPage.login('admin@easylease.com', 'password123');
+  await loginPage.login('admin@Satguru Travels.com', 'password123');
   
   // Wait for URL redirect to dashboard
   await page.waitForURL('**/dashboard**');

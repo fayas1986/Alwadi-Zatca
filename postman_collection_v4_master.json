@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "easylease-tax-filling-master-v4",
+		"_postman_id": "Satguru Travels-tax-filling-master-v4",
 		"name": "Satguru Travels Tax Filling - Master Suite",
 		"description": "Comprehensive Postman collection for Satguru Travels Tax Filling API covering ZATCA compliance, Enterprise ERP integration (V1/V2), Admin dashboard management, and Items catalog.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -345,8 +345,8 @@
 		}
 	],
 	"variable": [
-		{ "key": "baseUrl", "value": "https://easylease.sakytek.com" },
-		{ "key": "apiKey", "value": "sk_sim_easylease_mock_v1" },
+		{ "key": "baseUrl", "value": "https://api.satguru.kezatca.in" },
+		{ "key": "apiKey", "value": "sk_sim_Satguru Travels_mock_v1" },
 		{ "key": "adminEmail", "value": "alka.sharma@yiron.in" },
 		{ "key": "adminPassword", "value": "admin123" },
 		{ "key": "lastJobId", "value": "" }

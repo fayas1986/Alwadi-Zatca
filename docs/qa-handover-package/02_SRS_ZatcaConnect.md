@@ -140,7 +140,7 @@ CREATE TABLE invoices (
   "totalAmount": 1150.00,
   "taxAmount": 150.00,
   "seller": {
-    "name": "EasyLease Transport Co.",
+    "name": "Satguru Travels Transport Co.",
     "vatNumber": "300000000000003",
     "address": { "street": "King Fahd Rd", "city": "Riyadh", "postalCode": "12211", "country": "SA" }
   },

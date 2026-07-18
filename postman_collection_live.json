@@ -225,7 +225,7 @@
 		}
 	],
 	"variable": [
-		{ "key": "baseUrl", "value": "https://easylease.sakytek.com" },
+		{ "key": "baseUrl", "value": "https://api.satguru.kezatca.in" },
 		{ "key": "apiKey", "value": "sk_live_zatcaconnect_prod_v1" },
 		{ "key": "adminEmail", "value": "alka.sharma@yiron.in" },
 		{ "key": "adminPassword", "value": "password123" },
