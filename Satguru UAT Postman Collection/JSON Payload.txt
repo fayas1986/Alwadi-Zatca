@@ -1,0 +1,168 @@
+1. Webhook
+
+{
+  "invoiceNumber": "INV-V1-102",
+  "invoiceSubtype": "Simplified",
+  "documentType": "Invoice",
+  "issueDate": "2024-05-01T10:00:00Z",
+  "totalAmount": 115.00,
+  "vatAmount": 15.00,
+  "customer": { "name": "Test Customer", "city": "Riyadh" },
+  "items": [{ "name": "Consulting", "quantity": 1, "unitPrice": 100.00, "vatRate": 0.15, "vatAmount": 15.00, "subtotal": 100.00 }]
+}
+
+
+2.Standard B2B Invoice
+
+
+{
+  "invoiceNumber": "INV-V1-102",
+  "invoiceSubtype": "Simplified",
+  "documentType": "Invoice",
+  "issueDate": "2024-05-01T10:00:00Z",
+  "totalAmount": 115.00,
+  "vatAmount": 15.00,
+  "customer": { "name": "Test Customer", "city": "Riyadh" },
+  "items": [{ "name": "Consulting", "quantity": 1, "unitPrice": 100.00, "vatRate": 0.15, "vatAmount": 15.00, "subtotal": 100.00 }]
+}
+
+3.Simplified B2C Invoice
+
+{
+  "invoiceNumber": "B2C-2026-005",
+  "invoiceSubtype": "Simplified",
+  "documentType": "Invoice",
+  "issueDate": "2026-05-10T14:30:00Z",
+  "items": [
+    {
+      "name": "Consumer Product",
+      "quantity": 2,
+      "unitPrice": 50.00,
+      "vatRate": 0.15,
+      "taxCategory": "S"
+    }
+  ],
+  "totalAmount": 115.00,
+  "vatAmount": 15.00
+}
+
+
+4.Credit Note
+
+{
+  "invoiceNumber": "CN-2026-003",
+  "invoiceSubtype": "Standard",
+  "documentType": "Credit Note",
+  "issueDate": "2026-05-10T14:30:00Z",
+  "currencyCode": "SAR",
+  "originalInvoice": {
+    "id": "INV-2026-001",
+    "issueDate": "2026-05-01"
+  },
+  "reason": {
+    "description": "Return of defective consulting equipment"
+  },
+  "customer": {
+    "name": "Customer Business Name",
+    "vatNumber": "312345678900003",
+    "crNumber": "1010123456",
+    "address": {
+      "streetName": "King Fahd Road",
+      "buildingNumber": "1234",
+      "citySubdivisionName": "Al Olaya District",
+      "cityName": "Riyadh",
+      "postalZone": "12211",
+      "countryCode": "SA"
+    }
+  },
+  "items": [
+    {
+      "name": "Returned Consulting Service",
+      "quantity": 1,
+      "unitPrice": 1000.00,
+      "vatRate": 15,
+      "taxCategory": "S"
+    }
+  ],
+  "totalAmount": 1150.00,
+  "vatAmount": 150.00
+}
+
+
+5.Debit Note 
+
+{
+  "invoiceNumber": "DBN-2026-003",
+  "invoiceSubtype": "Standard",
+  "documentType": "Debit Note",
+  "issueDate": "2026-05-10T15:00:00Z",
+  "billingReference": {
+    "id": "INV-2026-001",
+    "issueDate": "2026-05-10"
+  },
+  "instructionNote": "Correction of unit price undercharge",
+  "items": [
+    {
+      "name": "Price Adjustment",
+      "quantity": 1,
+      "unitPrice": 200.00,
+      "vatRate": 0.15,
+      "taxCategory": "S"
+    }
+  ],
+  "totalAmount": 230.00,
+  "vatAmount": 30.00
+}
+
+
+6.Simple Submit(Post)
+
+{
+  "invoiceNumber": "SAT-TEST-009",
+  "invoiceSubtype": "Simplified",
+  "documentType": "Invoice",
+  "issueDate": "2024-04-30T12:00:00Z",
+  "totalAmount": 115.00,
+  "vatAmount": 15.00,
+  "customer": {
+    "name": "Walk-in Customer",
+    "city": "Riyadh"
+  },
+  "items": [
+    {
+      "name": "General Services",
+      "quantity": 1,
+      "unitPrice": 100.00,
+      "vatRate": 0.15,
+      "vatAmount": 15.00,
+      "subtotal": 100.00
+    }
+  ]
+}
+
+
+7. Simple Submit(GET)
+
+{
+  "invoiceNumber": "SAT-TEST-001",
+  "invoiceSubtype": "Simplified",
+  "documentType": "Invoice",
+  "issueDate": "2024-04-30T12:00:00Z",
+  "totalAmount": 115.00,
+  "vatAmount": 15.00,
+  "customer": {
+    "name": "Walk-in Customer",
+    "city": "Riyadh"
+  },
+  "items": [
+    {
+      "name": "General Services",
+      "quantity": 1,
+      "unitPrice": 100.00,
+      "vatRate": 0.15,
+      "vatAmount": 15.00,
+      "subtotal": 100.00
+    }
+  ]
+}
+
