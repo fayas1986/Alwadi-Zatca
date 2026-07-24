@@ -31,7 +31,6 @@ export class SubmissionQueueService {
         await prisma.invoice.create({
             data: {
                 company_id: companyId,
-                device_id: deviceId,
                 submission_id: jobId,
                 status: 'PENDING',
                 invoice_number: payload.invoiceNumber,
