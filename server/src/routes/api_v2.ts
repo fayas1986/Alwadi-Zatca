@@ -323,9 +323,8 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
         }
 
         // --- 3. Absolute Idempotency ---
-        const idempotencyKey = req.headers['idempotency-key'] || (payload as any).idempotencyKey || payload.invoiceNumber;
         const existing = await prisma.invoice.findFirst({
-            where: { company_id: company.id, submission_id: idempotencyKey, status: { not: 'FAILED' } }
+            where: { company_id: company.id, invoice_number: payload.invoiceNumber, status: { not: 'FAILED' } }
         });
 
         if (existing) {
