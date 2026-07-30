@@ -236,9 +236,21 @@ export class D365Service {
         // We use common variants found in SalesInvoiceHeaders and SalesInvoiceHeadersV2
         const invoiceLines = Array.isArray(raw.SalesInvoiceLines) ? raw.SalesInvoiceLines : [];
 
+        let parsedIssueDate = new Date().toISOString();
+        const rawDate = raw.InvoiceDate || raw.TransDate;
+        if (rawDate) {
+            const d = new Date(rawDate);
+            // If ERP provides only a date (midnight UTC), append the current time
+            if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) {
+                const now = new Date();
+                d.setUTCHours(now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds());
+            }
+            parsedIssueDate = d.toISOString();
+        }
+
         return {
             invoiceNumber: raw.InvoiceNumber || raw.SalesInvoiceNumber || raw.SalesOrderNumber || 'INV-UNKNOWN',
-            issueDate: raw.InvoiceDate || raw.TransDate || new Date().toISOString(),
+            issueDate: parsedIssueDate,
             invoiceSubtype: (raw.InvoiceType === 'Standard' || (raw.CustomerAccount && raw.CustomerAccount.startsWith('B2B'))) ? 'Standard' : 'Simplified',
             totalAmount: Number(raw.InvoiceAmount || raw.TotalInvoiceAmount || 0),
             vatAmount: Number(raw.TotalTaxAmount || raw.InvoiceAmountVAT || 0),
