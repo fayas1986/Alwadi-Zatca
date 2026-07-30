@@ -348,7 +348,7 @@ export const fetchAndProcessInvoices = async (
                     results.push({ invoiceNumber: inv.invoiceNumber, status: 'skipped', reason: 'Already exists' });
                     continue;
                 }
-                const parsedDate = parseInvoiceDate(inv.issueDate);
+                const parsedDate = parseInvoiceDate(inv.issueDate, inv.invoiceNumber);
 
                 console.log(`[Integration] Processing invoice ${inv.invoiceNumber} for company ${company.id} (Date: ${parsedDate.toISOString()})`);
 

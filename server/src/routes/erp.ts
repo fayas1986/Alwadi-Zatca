@@ -276,7 +276,7 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
 
         const invoice = calculateInvoiceTotals(req.body);
         console.log('[DEBUG] Invoice after calculateInvoiceTotals:', JSON.stringify(invoice, null, 2));
-        const parsedDate = parseInvoiceDate(invoice.issueDate);
+        const parsedDate = parseInvoiceDate(invoice.issueDate, invoice.invoiceNumber);
         
         // ── Idempotency Check ──
         if (idempotencyKey) {

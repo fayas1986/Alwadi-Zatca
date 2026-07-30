@@ -225,7 +225,6 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         )) {
             secret = erpConfig.api_key || (trimmedClientId.includes('zatcaconnect_prod') ? 'sk_live_zatcaconnect_prod_v1' : trimmedClientId);
         }
-        }
 
         if (!secret) {
             console.error(`[V2 HMAC] Security Gap: No secret configured for Client ${trimmedClientId}`);
