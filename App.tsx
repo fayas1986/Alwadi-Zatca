@@ -22,8 +22,29 @@ import { WifiOff, RefreshCw } from 'lucide-react';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('userEmail'));
+  const checkInitialAuth = () => {
+    const email = localStorage.getItem('userEmail');
+    const lastActivity = localStorage.getItem('lastActivity');
+    
+    if (email && lastActivity) {
+      if (Date.now() - parseInt(lastActivity) > SESSION_TIMEOUT_MS) {
+        // Session expired
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('companyId');
+        localStorage.removeItem('lastActivity');
+        return false;
+      }
+      return true;
+    }
+    return false;
+  };
+
+  const [isAuthenticated, setIsAuthenticated] = useState(() => checkInitialAuth());
   const [currentRoute, setCurrentRoute] = useState<string>('dashboard');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   
@@ -146,6 +167,7 @@ const App: React.FC = () => {
       localStorage.setItem('userRole', role);
       localStorage.setItem('userName', name);
       localStorage.setItem('userEmail', email);
+      localStorage.setItem('lastActivity', Date.now().toString());
       if (cid) {
           setCompanyId(cid);
           localStorage.setItem('companyId', cid.toString());
@@ -159,6 +181,7 @@ const App: React.FC = () => {
       localStorage.removeItem('userName');
       localStorage.removeItem('userEmail');
       localStorage.removeItem('companyId');
+      localStorage.removeItem('lastActivity');
       setIsAuthenticated(false);
       setUserRole('IT_ADMIN'); 
       setUserName('');
@@ -167,6 +190,35 @@ const App: React.FC = () => {
       setCurrentBranch(null);
       setCurrentRoute('dashboard');
   };
+
+  // Setup session timeout tracking
+  useEffect(() => {
+      if (!isAuthenticated) return;
+
+      const updateActivity = () => {
+          localStorage.setItem('lastActivity', Date.now().toString());
+      };
+
+      const checkSession = () => {
+          const lastActivity = localStorage.getItem('lastActivity');
+          if (lastActivity && Date.now() - parseInt(lastActivity) > SESSION_TIMEOUT_MS) {
+              handleLogout();
+              alert("Your session has expired due to inactivity. Please log in again.");
+          }
+      };
+
+      // Events that count as activity
+      const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+      events.forEach(event => window.addEventListener(event, updateActivity, { passive: true }));
+
+      // Check session every minute
+      const interval = setInterval(checkSession, 60000);
+
+      return () => {
+          events.forEach(event => window.removeEventListener(event, updateActivity));
+          clearInterval(interval);
+      };
+  }, [isAuthenticated]);
 
   const handleCreateOrganization = async (orgData: any) => {
       if (userRole !== 'SUPER_ADMIN') return;
