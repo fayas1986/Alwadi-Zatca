@@ -216,7 +216,7 @@ const authenticateFlexible = async (req: Request, res: Response, next: any) => {
                 id: trimmedClientId,
                 api_key: trimmedClientId,
                 is_active: true,
-                company: fallbackCompany || { id: '00000000-0000-0000-0000-000000000000', registered_name: 'Satguru Travels Tourism' } as any
+                company: fallbackCompany || ({ id: '00000000-0000-0000-0000-000000000000', registered_name: 'EasyLease Virtual' } as any)
             };
         }
 

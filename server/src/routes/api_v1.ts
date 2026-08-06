@@ -174,7 +174,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
             include: { company: true }
         });
 
-        // PRODUCTION / POSTMAN BYPASS: Create a virtual config if it's a known placeholder or API key
+        // SIMULATION / SANDBOX / PRODUCTION BYPASS: Create a virtual config if it's a standard key
         if (!erpConfig && (
             trimmedClientId === 'sk_sim_easylease_mock_v1' ||
             trimmedClientId === 'sk_sbox_zatcaconnect_uat_v1' ||
@@ -183,7 +183,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
             trimmedClientId === 'zatcaconnect_prod' ||
             trimmedClientId.startsWith('sk_')
         )) {
-            console.log(`[V2 HMAC] Attempting to find a real company for virtual/testing config...`);
+            console.log(`[V2 HMAC] Attempting to find a real company for virtual config (${trimmedClientId})...`);
             const fallbackCompany = await prisma.company.findFirst({
                 where: { is_active: true }
             });
@@ -215,7 +215,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         // --- 4. Cryptographic Verification ---
         let secret = erpConfig.api_key || process.env.V2_FALLBACK_SECRET;
 
-        // FLEXIBLE BYPASS FOR PRODUCTION / POSTMAN SYNC
+        // FLEXIBLE BYPASS FOR STANDARD KEYS
         if (trimmedClientId && (
             trimmedClientId === 'sk_sim_easylease_mock_v1' ||
             trimmedClientId === 'sk_sbox_zatcaconnect_uat_v1' ||
