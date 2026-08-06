@@ -26,7 +26,7 @@ const generateUUID = () => {
 const initialOrganizations: Organization[] = [
   {
     id: 'org-001',
-    name: 'Satguru Travels Tourism',
+    name: 'EasyLease',
     vatNumber: '300000000000003',
     crNumber: '1010101010',
     branches: [
@@ -275,7 +275,7 @@ const staticInvoices: Invoice[] = [
     invoiceHash: 'sha256_hash_mock_1',
     previousInvoiceHash: 'NWZlYTY...',
     signature: 'ecdsa_sig_mock_1',
-    qrCode: 'AR1TYXRndXJ1IFRyYXZlbHMgVG91cmlzbQEzMzAwMDAwMDAwMDAwMDAzDAMyMDIzLTEwLTI1VDE0OjMwOjAwBABANTc1MC4wMAUANzUwLjAwBghzaGEyNTZfMQcOZWNkc2Ffc2lnX21vY2s_CAA...',
+    qrCode: 'AR1FYXN5TGVhc2UBMzMwMDAwMDAwMDAwMDAzDAMyMDIzLTEwLTI1VDE0OjMwOjAwBABANTc1MC4wMAUANzUwLjAwBghzaGEyNTZfMQcOZWNkc2Ffc2lnX21vY2s_CAA...',
     zatcaResponse: {
         status: 'PASS',
         validationResults: [{ type: 'WARNING', code: 'BR-KSA-01', message: 'Address slightly incomplete' }]
