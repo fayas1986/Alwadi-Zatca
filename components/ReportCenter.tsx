@@ -22,10 +22,31 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({ userRole, userEmail 
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState<number | null>(null);
+  const [preset, setPreset] = useState('monthly');
   const [dateRange, setDateRange] = useState({
     start: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
   });
+
+  const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setPreset(value);
+    
+    if (value === 'custom') return;
+
+    const end = new Date();
+    const start = new Date();
+    
+    if (value === 'weekly') start.setDate(end.getDate() - 7);
+    else if (value === 'monthly') start.setDate(end.getDate() - 30);
+    else if (value === 'quarterly') start.setDate(end.getDate() - 90);
+    else if (value === 'yearly') start.setDate(end.getDate() - 365);
+    
+    setDateRange({
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    });
+  };
 
   useEffect(() => {
     fetchTemplates();
@@ -171,13 +192,27 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({ userRole, userEmail 
           <p className="text-slate-500 mt-2 text-lg">Generate and download audit reports for your organization.</p>
         </div>
         
-        <div className="flex gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <div className="flex items-end gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block ml-1">Quick Period</label>
+            <select 
+              value={preset}
+              onChange={handlePresetChange}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium text-slate-700 outline-none"
+            >
+              <option value="weekly">Weekly (Last 7 Days)</option>
+              <option value="monthly">Monthly (Last 30 Days)</option>
+              <option value="quarterly">Quarterly (Last 90 Days)</option>
+              <option value="yearly">Yearly (Last 365 Days)</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block ml-1">Start Date</label>
             <input 
               type="date" 
               value={dateRange.start}
-              onChange={e => setDateRange({...dateRange, start: e.target.value})}
+              onChange={e => { setPreset('custom'); setDateRange({...dateRange, start: e.target.value}); }}
               className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm"
             />
           </div>
@@ -186,7 +221,7 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({ userRole, userEmail 
             <input 
               type="date" 
               value={dateRange.end}
-              onChange={e => setDateRange({...dateRange, end: e.target.value})}
+              onChange={e => { setPreset('custom'); setDateRange({...dateRange, end: e.target.value}); }}
               className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm"
             />
           </div>

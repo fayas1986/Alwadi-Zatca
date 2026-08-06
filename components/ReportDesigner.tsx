@@ -331,7 +331,7 @@ export const ReportDesigner: React.FC<ReportDesignerProps> = ({ userRole }) => {
                </button>
             </div>
 
-            <div className="flex-1 overflow-hidden flex">
+            <div className="flex-1 overflow-hidden flex min-h-0">
               {/* Configuration Section */}
               <div className="w-1/2 overflow-y-auto p-8 space-y-8 border-r border-slate-100">
                  <div className="grid grid-cols-1 gap-6">
@@ -523,7 +523,7 @@ export const ReportDesigner: React.FC<ReportDesignerProps> = ({ userRole }) => {
               </div>
             </div>
 
-            <div className="p-6 border-t border-slate-100 flex justify-end gap-3 shrink-0 bg-white">
+            <div className="p-6 border-t border-slate-100 flex justify-end gap-3 shrink-0 bg-white relative z-10">
                <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 font-bold text-slate-600 hover:text-slate-800">
                  Cancel
                </button>
