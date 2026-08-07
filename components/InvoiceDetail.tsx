@@ -647,10 +647,10 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                         </div>
                         
                         <div className="space-y-1">
-                            <h1 className="text-2xl font-bold text-slate-900 uppercase tracking-tight">
+                            <h1 className="text-2xl font-bold text-slate-900 uppercase tracking-tight text-center">
                                 {getDocTitle().en}
                             </h1>
-                            <h2 className="text-xl font-medium text-slate-500 font-arabic text-right w-full block text-left">
+                            <h2 className="text-xl font-medium text-slate-500 font-arabic text-center">
                                 {getDocTitle().ar}
                             </h2>
                             <div className="pt-2 flex flex-col gap-1">
@@ -679,13 +679,15 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                     </div>
 
                     <div className="text-right">
-                        <div className="w-24 h-24 bg-slate-900 rounded-lg flex items-center justify-center text-white mb-4 ml-auto">
-                            <span className="font-bold text-xl">LOGO</span>
+                        <div className="flex items-center justify-end ml-auto h-16">
+                            <span className="font-black tracking-tighter" style={{ fontSize: '2.5rem', color: '#FDD54F', letterSpacing: '-0.05em' }}>easy</span>
+                            <span className="font-black tracking-tighter" style={{ fontSize: '2.5rem', color: '#005CA9', letterSpacing: '-0.05em' }}>lease</span>
+                            <svg className="ml-1" style={{ height: '2.5rem', width: '2.5rem', fill: '#FDD54F' }} viewBox="0 0 24 24">
+                                <path d="M7 3l13 9-13 9V3z" />
+                            </svg>
                         </div>
-                        <p className="text-sm font-bold">{invoice.supplier.name}</p>
-                        <p className="text-xs text-slate-500">{invoice.supplier.address.citySubdivisionName}, {invoice.supplier.address.cityName}</p>
-                        <p className="text-xs text-slate-500">{invoice.supplier.address.countryCode}</p>
                     </div>
+
                 </div>
 
                 {/* Parties */}
