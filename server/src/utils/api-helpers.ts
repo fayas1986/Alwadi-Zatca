@@ -149,6 +149,7 @@ export const calculateInvoiceTotals = (payload: any) => {
     updated.taxExclusiveAmount = fromHalala(totalTaxExclusiveHalala);
     updated.taxInclusiveAmount = fromHalala(totalTaxInclusiveHalala);
     updated.totalAmount = fromHalala(totalTaxInclusiveHalala);
+    updated.totalAmount = updated.taxInclusiveAmount;
     
     // ZATCA Full Breakdown Support
     updated.allowanceTotalAmount = Number((payload.allowanceTotalAmount || 0).toFixed(2));

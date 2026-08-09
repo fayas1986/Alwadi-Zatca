@@ -407,15 +407,26 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
                     countryCode: 'SA'
                 }
             };
-        } else if (!payload.customer.address && payload.invoiceSubtype === 'STANDARD') {
-            // Requirement: Standard invoices MUST have a customer address
-            payload.customer.address = {
-                streetName: 'Client Street',
-                buildingNumber: '0000',
-                cityName: 'Riyadh',
-                postalZone: '00000',
-                countryCode: 'SA'
-            };
+        } else if (!payload.customer.address) {
+            // Map flat address fields if provided directly on the customer object (e.g. from ERP/Postman)
+            if (payload.customer.streetName || payload.customer.city || payload.customer.cityName) {
+                payload.customer.address = {
+                    streetName: payload.customer.streetName || 'Unknown',
+                    buildingNumber: payload.customer.buildingNumber || '0000',
+                    cityName: payload.customer.city || payload.customer.cityName || 'Riyadh',
+                    postalZone: payload.customer.postalZone || '00000',
+                    countryCode: payload.customer.countryCode || 'SA'
+                };
+            } else if (payload.invoiceSubtype === 'STANDARD') {
+                // Requirement: Standard invoices MUST have a customer address
+                payload.customer.address = {
+                    streetName: 'Client Street',
+                    buildingNumber: '0000',
+                    cityName: 'Riyadh',
+                    postalZone: '00000',
+                    countryCode: 'SA'
+                };
+            }
         }
 
         // --- 0.2 Map ERP field names (Dynamics F&O compatibility) ---

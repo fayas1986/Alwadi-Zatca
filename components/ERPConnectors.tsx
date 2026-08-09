@@ -63,8 +63,19 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
   
   // Simulator State
   const [simApiKey, setSimApiKey] = useState('sap_prod_8x7d6f5e4w3q2a1s');
+  
+  // Update sim API key when erps load
+  useEffect(() => {
+     if (erps.length > 0) {
+        const activeConfig = erps.find(c => c.status === 'Connected') || erps[0];
+        if (activeConfig.apiKey && activeConfig.apiKey !== '••••••••') {
+            setSimApiKey(activeConfig.apiKey);
+        }
+     }
+  }, [erps]);
+
   const [simPayload, setSimPayload] = useState(JSON.stringify({
-    "invoiceNumber": "API-INV-999",
+    "invoiceNumber": `API-INV-${Math.floor(Math.random() * 10000)}`,
     "invoiceSubtype": "Standard",
     "issueDate": new Date().toISOString(),
     "currencyCode": "SAR",
@@ -92,17 +103,6 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
             "cityName": "Jeddah",
             "postalZone": "21111",
             "countryCode": "SA"
-        }
-    },
-    "supplier": {
-        "name": "Tech Solutions Ltd",
-        "vatNumber": "300000000000003",
-        "address": { 
-            "streetName": "Olaya", 
-            "buildingNumber": "1234", 
-            "cityName": "Riyadh", 
-            "postalZone": "12211", 
-            "countryCode": "SA" 
         }
     }
   }, null, 4));

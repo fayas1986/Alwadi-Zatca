@@ -245,7 +245,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
       element.style.top = '-9999px';
       element.style.left = '-9999px';
       
-      if (invoice.invoiceSubtype === 'Standard') {
+      if (invoice.invoiceSubtype?.toUpperCase() === 'STANDARD') {
           // Force A4-like width and padding for Standard invoices
           element.style.width = '1024px'; 
           element.style.padding = '48px'; // p-12 equivalent
@@ -258,16 +258,62 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
 
       // 1. Temporarily hide the DOM QR code in the clone for Standard invoices to prevent ghosting
       const qrContainer = element.querySelector('#qr-code-container') as HTMLElement;
-      if (qrContainer && invoice.invoiceSubtype === 'Standard') {
-          qrContainer.style.opacity = '0';
+      const isStandard = invoice.invoiceSubtype?.toUpperCase() === 'STANDARD';
+      if (qrContainer && isStandard) {
+          qrContainer.style.visibility = 'hidden';
       }
+
+      // --- PAGE BREAK LOGIC ---
+      if (isStandard) {
+          const pageHeightPx = 1024 * (297 / 210);
+          const marginPx = 1024 * (15 / 210);
+          let currentPage = 1;
+
+          // Find all items that shouldn't be split (rows, totals, footers)
+          const pdfItems = Array.from(element.querySelectorAll('.pdf-item')) as HTMLElement[];
+          
+          for (let i = 0; i < pdfItems.length; i++) {
+              const item = pdfItems[i];
+              const rect = item.getBoundingClientRect();
+              const elementRect = element.getBoundingClientRect();
+              
+              const itemTop = rect.top - elementRect.top;
+              const itemBottom = itemTop + rect.height;
+              
+              const pageBottom = (currentPage * pageHeightPx) - marginPx;
+              
+              if (itemBottom > pageBottom) {
+                  // Item crosses the page boundary! Push it to the top margin of the next page.
+                  const nextPageTop = (currentPage * pageHeightPx) + marginPx;
+                  const pushAmount = nextPageTop - itemTop;
+                  
+                  if (pushAmount > 0) {
+                      const spacer = document.createElement(item.tagName.toLowerCase() === 'tr' ? 'tr' : 'div');
+                      spacer.style.height = `${pushAmount}px`;
+                      
+                      if (item.tagName.toLowerCase() === 'tr') {
+                          const td = document.createElement('td');
+                          td.colSpan = 100; // span across all possible table columns
+                          spacer.appendChild(td);
+                      } else {
+                          spacer.style.width = '100%';
+                      }
+                      
+                      item.parentNode?.insertBefore(spacer, item);
+                  }
+                  currentPage++;
+              }
+          }
+      }
+      // --- END PAGE BREAK LOGIC ---
 
       // 2. High-quality capture
       const canvas = await html2canvas(element, { 
-          scale: 2, 
+          scale: 3, 
           useCORS: true, 
           logging: false, 
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          windowWidth: isStandard ? 1024 : 400
       });
       
       // Cleanup clone
@@ -277,27 +323,41 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
       
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgHeight = canvas.height * (pdfWidth / canvas.width);
       
-      // Add the main document image
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+      let heightLeft = imgHeight;
+      let position = 0;
 
-      // 4. Explicitly add High-Res QR Code overlay for all Invoices with QR
+      // Add the first page
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      // 4. Explicitly add High-Res QR Code overlay for all Invoices with QR on the FIRST page
       if (invoice.qrCode) {
           try {
               // Get the already-rendered QR canvas element from the DOM
               const qrCanvas = document.querySelector('#qr-canvas-export') as HTMLCanvasElement;
               if (qrCanvas) {
                   const base64QR = qrCanvas.toDataURL('image/png');
-                  if (invoice.invoiceSubtype === 'Standard') {
-                      // Position in top-left corner of A4 Standard invoice
-                      pdf.addImage(base64QR, 'PNG', 13, 13, 34, 34);
+                  if (isStandard) {
+                      // Position in top-left corner perfectly over the hidden container
+                      // Container padding = 48px, QR offset in container = 9px -> x,y = 11.7mm
+                      // QR size = 112px -> 23mm
+                      pdf.addImage(base64QR, 'PNG', 11.7, 11.7, 23, 23);
                   }
-                  // For Simplified receipts, the QR is already captured from the html2canvas pass
               }
           } catch (err) {
               console.warn('Failed to overlay crisp QR code, using captured version.', err);
           }
+      }
+
+      // Add subsequent pages if the invoice is long
+      while (heightLeft > 0) {
+          position -= pdfHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+          heightLeft -= pdfHeight;
       }
 
       pdf.save(`ZATCA_Invoice_${invoice.invoiceNumber}.pdf`);
@@ -531,7 +591,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
         <div className="lg:col-span-2 space-y-8">
           
           {/* Main Document Paper Container */}
-          {invoice.invoiceSubtype === 'Simplified' ? (
+          {invoice.invoiceSubtype?.toUpperCase() === 'SIMPLIFIED' ? (
               // ================= SIMPLIFIED RECEIPT LAYOUT (B2C) =================
               <div id="zatca-invoice-paper" className="bg-white mx-auto max-w-[400px] shadow-lg border border-slate-200 p-6 relative text-slate-900 font-mono text-sm leading-relaxed">
                 {/* Receipt Header */}
@@ -705,8 +765,9 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                             <div>
                                 <Label en="Address" ar="العنوان" />
                                 <p className="text-slate-600">
-                                    {invoice.supplier.address.buildingNumber} {invoice.supplier.address.streetName}<br/>
-                                    {invoice.supplier.address.citySubdivisionName}, {invoice.supplier.address.cityName} {invoice.supplier.address.postalZone}
+                                    {[invoice.supplier.address.buildingNumber, invoice.supplier.address.streetName].filter(Boolean).join(' ')}
+                                    {invoice.supplier.address.additionalNumber ? `, ${invoice.supplier.address.additionalNumber}` : ''}<br/>
+                                    {[invoice.supplier.address.citySubdivisionName, invoice.supplier.address.cityName].filter(Boolean).join(', ')} {invoice.supplier.address.postalZone} {invoice.supplier.address.countryCode}
                                 </p>
                             </div>
                             <div>
@@ -735,8 +796,9 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                             <div>
                                 <Label en="Address" ar="العنوان" />
                                 <p className="text-slate-600">
-                                    {invoice.customer.address.buildingNumber} {invoice.customer.address.streetName}<br/>
-                                    {invoice.customer.address.cityName} {invoice.customer.address.postalZone} {invoice.customer.address.countryCode}
+                                    {[invoice.customer.address.buildingNumber, invoice.customer.address.streetName].filter(Boolean).join(' ')}
+                                    {invoice.customer.address.additionalNumber ? `, ${invoice.customer.address.additionalNumber}` : ''}<br/>
+                                    {[invoice.customer.address.citySubdivisionName, invoice.customer.address.cityName].filter(Boolean).join(', ')} {invoice.customer.address.postalZone} {invoice.customer.address.countryCode}
                                 </p>
                             </div>
                             {invoice.customer.vatNumber && (
@@ -780,38 +842,52 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                                     <div className="flex flex-col"><span className="text-xs text-slate-500 uppercase">VAT Amount</span><span>الضريبة</span></div>
                                 </th>
                                 <th className="p-3 border-b border-slate-200 text-right">
-                                    <div className="flex flex-col"><span className="text-xs text-slate-500 uppercase">Item Subtotal</span><span>المجموع</span></div>
+                                    <div className="flex flex-col"><span className="text-xs text-slate-500 uppercase">Item Total</span><span>المجموع</span></div>
                                 </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
                             {invoice.items && invoice.items.length > 0 ? (
-                                invoice.items.map((item, idx) => (
-                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors text-slate-700">
-                                    <td className="p-3">
-                                        <div className="font-medium text-slate-900">{item.name}</div>
-                                        {item.nameAr && <div className="text-xs text-slate-500 font-arabic mt-0.5">{item.nameAr}</div>}
-                                        {item.description && !item.nameAr?.includes(item.description) && (
-                                            <div className="text-[10px] text-slate-400 mt-0.5 italic">{item.description}</div>
-                                        )}
-                                    </td>
-                                    <td className="p-3 text-center">{item.quantity}</td>
-                                    <td className="p-3 text-right">{Number(item.unitPrice).toFixed(2)}</td>
-                                    <td className="p-3 text-center">
-                                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                                            item.taxCategory === 'Z' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
-                                            item.taxCategory === 'E' ? 'bg-slate-100 text-slate-600 border-slate-200' :
-                                            item.taxCategory === 'O' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                            'bg-emerald-50 text-emerald-700 border-emerald-100' // Standard
-                                        }`}>
-                                            {item.taxCategory || 'S'}
-                                        </span>
-                                    </td>
-                                    <td className="p-3 text-right">{Number(item.subtotal).toFixed(2)}</td>
-                                    <td className="p-3 text-right text-slate-500">{Number(item.vatAmount).toFixed(2)}</td>
-                                    <td className="p-3 text-right font-bold text-slate-900">{Number(item.total).toFixed(2)}</td>
-                                </tr>
-                            ))
+                                invoice.items.map((item, idx) => {
+                                    const qty = Number(item.quantity || 1);
+                                    const price = Number(item.unitPrice || 0);
+                                    const discount = Number(item.discount || 0);
+                                    
+                                    const fallbackSubtotal = (qty * price) - discount;
+                                    const itemSubtotal = item.subtotal !== undefined ? Number(item.subtotal) : fallbackSubtotal;
+                                    
+                                    const fallbackVat = fallbackSubtotal * (item.vatRate !== undefined ? Number(item.vatRate) : 0.15);
+                                    const itemVat = item.vatAmount !== undefined ? Number(item.vatAmount) : fallbackVat;
+                                    
+                                    const itemTotal = item.total !== undefined ? Number(item.total) : (itemSubtotal + itemVat);
+
+                                    return (
+                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors text-slate-700 pdf-item">
+                                            <td className="p-3">
+                                                <div className="font-medium text-slate-900">{item.name}</div>
+                                                {item.nameAr && <div className="text-xs text-slate-500 font-arabic mt-0.5">{item.nameAr}</div>}
+                                                {item.description && !item.nameAr?.includes(item.description) && (
+                                                    <div className="text-[10px] text-slate-400 mt-0.5 italic">{item.description}</div>
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-center">{qty}</td>
+                                            <td className="p-3 text-right">{price.toFixed(2)}</td>
+                                            <td className="p-3 text-center">
+                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                                                    item.taxCategory === 'Z' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+                                                    item.taxCategory === 'E' ? 'bg-slate-100 text-slate-600 border-slate-200' :
+                                                    item.taxCategory === 'O' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                                    'bg-emerald-50 text-emerald-700 border-emerald-100' // Standard
+                                                }`}>
+                                                    {item.taxCategory || 'S'}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-right">{itemSubtotal.toFixed(2)}</td>
+                                            <td className="p-3 text-right text-slate-500">{itemVat.toFixed(2)}</td>
+                                            <td className="p-3 text-right font-bold text-slate-900">{itemTotal.toFixed(2)}</td>
+                                        </tr>
+                                    );
+                                })
                             ) : (
                                 <tr>
                                     <td colSpan={7} className="p-8 text-center text-slate-400">
@@ -824,7 +900,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                 </div>
 
                 {/* Totals */}
-                <div className="flex justify-end">
+                <div className="flex justify-end pdf-item">
                     <div className="w-1/2 bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3">
                         <div className="flex justify-between items-center text-sm">
                             <div className="flex flex-col text-slate-600">
@@ -852,7 +928,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                 </div>
 
                 {/* Footer */}
-                <div className="mt-12 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
+                <div className="mt-12 pt-6 border-t border-slate-100 text-center text-xs text-slate-400 pdf-item">
                     <p>Generated by ZATCA Connect - Compliant E-Invoicing Solution</p>
                     <p className="mt-1 font-mono">{invoice.uuid}</p>
                 </div>

@@ -367,18 +367,21 @@ export const generateInvoiceXML = (invoice: Invoice): string => {
   const currency = invoice.currencyCode || 'SAR';
   const paymentCode = invoice.paymentMeansCode || '30';
 
-  const renderAddress = (addr: any) => `
+  const renderAddress = (addr: any) => {
+    if (!addr) return '';
+    return `
     <cac:PostalAddress>
-        <cbc:StreetName>${addr.streetName}</cbc:StreetName>
-        <cbc:BuildingNumber>${addr.buildingNumber}</cbc:BuildingNumber>
+        ${addr.streetName ? `<cbc:StreetName>${addr.streetName}</cbc:StreetName>` : ''}
+        ${addr.buildingNumber ? `<cbc:BuildingNumber>${addr.buildingNumber}</cbc:BuildingNumber>` : ''}
         ${addr.additionalNumber ? `<cbc:PlotIdentification>${addr.additionalNumber}</cbc:PlotIdentification>` : ''}
-        <cbc:CitySubdivisionName>${addr.citySubdivisionName}</cbc:CitySubdivisionName>
-        <cbc:CityName>${addr.cityName}</cbc:CityName>
-        <cbc:PostalZone>${addr.postalZone}</cbc:PostalZone>
+        ${addr.citySubdivisionName ? `<cbc:CitySubdivisionName>${addr.citySubdivisionName}</cbc:CitySubdivisionName>` : ''}
+        ${addr.cityName ? `<cbc:CityName>${addr.cityName}</cbc:CityName>` : ''}
+        ${addr.postalZone ? `<cbc:PostalZone>${addr.postalZone}</cbc:PostalZone>` : ''}
         <cac:Country>
-            <cbc:IdentificationCode>${addr.countryCode}</cbc:IdentificationCode>
+            <cbc:IdentificationCode>${addr.countryCode || 'SA'}</cbc:IdentificationCode>
         </cac:Country>
     </cac:PostalAddress>`;
+  };
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" 

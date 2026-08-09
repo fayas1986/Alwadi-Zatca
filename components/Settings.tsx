@@ -207,6 +207,35 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
       rejectionAlerts: true
   });
 
+  const [lastAuditMessage, setLastAuditMessage] = useState<string>("Loading last access log...");
+
+  useEffect(() => {
+      const fetchLastAudit = async () => {
+          try {
+              const res = await fetch(`/api/audit-logs?category=SECURITY&limit=1`, {
+                  headers: { 'x-user-role': userRole }
+              });
+              if (res.ok) {
+                  const data = await res.json();
+                  if (data.logs && data.logs.length > 0) {
+                      const log = data.logs[0];
+                      // Calculate relative time (e.g. "2 hours ago") or just use local date string
+                      const date = new Date(log.timestamp).toLocaleString();
+                      setLastAuditMessage(`Last sensitive key access detected from IP ${log.ip_address} on ${date}.`);
+                  } else {
+                      setLastAuditMessage("No recent API access logs found.");
+                  }
+              }
+          } catch (e) {
+              setLastAuditMessage("Unable to fetch latest access logs.");
+          }
+      };
+      
+      if (userRole === 'SUPER_ADMIN' || userRole === 'IT_ADMIN') {
+          fetchLastAudit();
+      }
+  }, [userRole]);
+
   const handleSave = async () => {
       if (!selectedBranch) {
           addToast('error', 'No organization selected');
@@ -226,9 +255,13 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
                     name: orgDetails.name,
                     vatNumber: orgDetails.vatNumber,
                     crNumber: orgDetails.crNumber,
-                    address: orgDetails.streetName,
+                    address: orgDetails.streetName, // Legacy fallback
                     city: orgDetails.cityName,
                     country: orgDetails.countryCode,
+                    buildingNumber: orgDetails.buildingNumber,
+                    streetName: orgDetails.streetName,
+                    citySubdivisionName: orgDetails.citySubdivisionName,
+                    postalZone: orgDetails.postalZone,
                     branchName: selectedBranch.name,
                     environment: complianceConfig.environment,
                     settings: {
@@ -549,7 +582,7 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
                                   <div>
                                       <h4 className="text-sm font-bold text-amber-800">API Access Audit</h4>
                                       <p className="text-xs text-amber-700 mt-1">
-                                          Last sensitive key access detected from IP 192.168.1.55 (ERP Connector) 2 hours ago.
+                                          {lastAuditMessage}
                                       </p>
                                   </div>
                               </div>

@@ -77,6 +77,7 @@ const App: React.FC = () => {
     try {
       console.log(`[DEBUG] fetchOrganizations - Email: ${userEmail}, Role: ${userRole}`);
       const res = await fetch('/api/admin/companies', {
+        cache: 'no-store',
         headers: { 
           'x-user-email': userEmail || '',
           'x-user-role': userRole || ''
@@ -87,9 +88,20 @@ const App: React.FC = () => {
             const sortedData = data.sort((a: any, b: any) => b.id - a.id);
             setOrganizations(sortedData);
             
-            // Auto switch to the first branch of the first org if none selected
-            if (!currentBranch && sortedData.length > 0 && sortedData[0].branches.length > 0) {
-                setCurrentBranch(sortedData[0].branches[0]);
+            if (sortedData.length > 0) {
+                if (!currentBranch && sortedData[0].branches.length > 0) {
+                    // Auto switch to the first branch if none selected
+                    setCurrentBranch(sortedData[0].branches[0]);
+                } else if (currentBranch) {
+                    // Update current branch with fresh data
+                    for (const org of sortedData) {
+                        const updatedBranch = org.branches.find((b: any) => b.id === currentBranch.id);
+                        if (updatedBranch) {
+                            setCurrentBranch(updatedBranch);
+                            break;
+                        }
+                    }
+                }
             }
         }
     } catch (error) {
@@ -201,7 +213,12 @@ const App: React.FC = () => {
 
       const checkSession = () => {
           const lastActivity = localStorage.getItem('lastActivity');
-          if (lastActivity && Date.now() - parseInt(lastActivity) > SESSION_TIMEOUT_MS) {
+          
+          // Use 15 minutes if enforced by organization settings, otherwise default to 30 minutes fallback
+          const isEnforced = currentBranch?.settings?.security?.sessionTimeout;
+          const timeoutMs = isEnforced ? 15 * 60 * 1000 : SESSION_TIMEOUT_MS;
+
+          if (lastActivity && Date.now() - parseInt(lastActivity) > timeoutMs) {
               handleLogout();
               alert("Your session has expired due to inactivity. Please log in again.");
           }
@@ -218,7 +235,7 @@ const App: React.FC = () => {
           events.forEach(event => window.removeEventListener(event, updateActivity));
           clearInterval(interval);
       };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentBranch]);
 
   const handleCreateOrganization = async (orgData: any) => {
       if (userRole !== 'SUPER_ADMIN') return;

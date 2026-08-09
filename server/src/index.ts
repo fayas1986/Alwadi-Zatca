@@ -14,6 +14,7 @@ import reportsRouter from './routes/reports.js';
 import prisma from './lib/prisma.js';
 import apiV1Router from './routes/api_v1.js';
 import KeepAliveService from './services/keepAliveService.js';
+import KeyRotationService from './services/keyRotationService.js';
 
 import { swaggerSpec } from './utils/swagger.js';
 
@@ -38,6 +39,9 @@ if (!process.env.VERCEL) {
     }).catch(err => {
         console.error('[Queue] Failed to resume background queue:', err);
     });
+    
+    // Start API Key Rotation background job
+    KeyRotationService.start();
 } else {
     console.log('[Server] Running on Vercel: Background Sync Service is inactive.');
 }

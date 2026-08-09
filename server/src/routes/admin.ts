@@ -207,15 +207,17 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
                 environment: c.environment,
                 settings: c.settings || {},
                 address: {
-                    streetName: c.address || '',
-                    buildingNumber: '',
+                    streetName: c.street_name || c.address || '',
+                    buildingNumber: c.building_number || '',
                     cityName: c.city || '',
-                    postalZone: '',
+                    citySubdivisionName: c.city_subdivision || '',
+                    postalZone: c.postal_zone || '',
                     countryCode: c.country || 'SA'
                 }
             }]
         }));
 
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         res.setHeader('x-isolation-status', 'active-v2');
         res.setHeader('x-debug-role', userRole || 'NONE');
         res.setHeader('x-debug-email', userEmail || 'NONE');
@@ -344,7 +346,7 @@ router.put('/companies/:id', requireAnyAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const companyId = parseInt(id);
-        const { name, vatNumber, crNumber, address, city, country, branchName, environment, settings } = req.body;
+        const { name, vatNumber, crNumber, address, city, country, branchName, environment, settings, buildingNumber, streetName, citySubdivisionName, postalZone } = req.body;
         console.log(`[Admin] Updating company ${companyId} with:`, { name, vatNumber, environment });
 
         const updateData: any = {
@@ -354,6 +356,10 @@ router.put('/companies/:id', requireAnyAdmin, async (req, res) => {
             address: address || '',
             city: city || '',
             country: country || 'SA',
+            building_number: buildingNumber || null,
+            street_name: streetName || null,
+            city_subdivision: citySubdivisionName || null,
+            postal_zone: postalZone || null,
             branch_name: cleanBranchName(branchName)
         };
 
