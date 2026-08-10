@@ -431,7 +431,12 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
         </div>
       </div>
 
-      {activeTab === 'management' ? (
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-32 text-slate-400 bg-white/50 backdrop-blur-sm rounded-2xl border border-slate-100 border-dashed animate-in fade-in duration-500">
+          <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+          <p className="text-sm font-medium">Loading ERP configurations...</p>
+        </div>
+      ) : activeTab === 'management' ? (
       <>
       <div className="flex justify-end">
         <button 

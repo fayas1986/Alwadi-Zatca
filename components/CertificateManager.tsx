@@ -584,8 +584,17 @@ Environment: ${cert.type}
                                     </td>
                                 </tr>
                             ))}
-                            {/* Empty State */}
-                            {filteredCertificates.length === 0 && (
+                            {/* Empty or Loading State */}
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={6} className="px-4 py-24 text-center">
+                                        <div className="flex flex-col items-center justify-center text-slate-400 animate-in fade-in duration-500">
+                                            <div className="w-8 h-8 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                                            <p className="text-sm font-medium">Loading CSR configurations...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : filteredCertificates.length === 0 && (
                                 <tr>
                                     <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
                                         <div className="flex flex-col items-center">
