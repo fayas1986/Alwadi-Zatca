@@ -407,20 +407,35 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
                     countryCode: 'SA'
                 }
             };
-        } else if (!payload.customer.address) {
-            // Map flat address fields if provided directly on the customer object (e.g. from ERP/Postman)
-            if (payload.customer.streetName || payload.customer.city || payload.customer.cityName) {
+        } 
+        
+        // Handle case where address is a string (from D365Service pull) or missing (from D365 push)
+        if (!payload.customer.address || typeof payload.customer.address === 'string') {
+            const rawAddressString = typeof payload.customer.address === 'string' 
+                ? payload.customer.address 
+                : (payload.InvoiceAddress || payload.DeliveryAddress || '');
+
+            if (rawAddressString || payload.customer.streetName || payload.customer.city || payload.customer.cityName) {
                 payload.customer.address = {
-                    streetName: payload.customer.streetName || 'Unknown',
+                    streetName: payload.customer.streetName || rawAddressString || 'Unknown',
                     buildingNumber: payload.customer.buildingNumber || '0000',
-                    cityName: payload.customer.city || payload.customer.cityName || 'Riyadh',
+                    cityName: payload.customer.city || payload.customer.cityName || payload.InvoiceCity || 'Riyadh',
                     postalZone: payload.customer.postalZone || '00000',
+                    citySubdivisionName: payload.customer.citySubdivisionName || payload.customer.district || '',
                     countryCode: payload.customer.countryCode || 'SA'
                 };
             } else if (payload.invoiceSubtype === 'STANDARD') {
                 // Requirement: Standard invoices MUST have a customer address
                 payload.customer.address = {
                     streetName: 'Client Street',
+                    buildingNumber: '0000',
+                    cityName: 'Riyadh',
+                    postalZone: '00000',
+                    countryCode: 'SA'
+                };
+            } else {
+                 payload.customer.address = {
+                    streetName: 'Unknown',
                     buildingNumber: '0000',
                     cityName: 'Riyadh',
                     postalZone: '00000',

@@ -148,10 +148,21 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
     // Favor calculated fields if root is 0 but items have tax
     const shouldFallback = rootVat === 0 && calcVat > 0;
     
+    let finalTaxExclusive = shouldFallback ? calcExclusive : (invoice.taxExclusiveAmount || (rootTotal - rootVat));
+    let finalVat = shouldFallback ? calcVat : rootVat;
+    let finalTotal = shouldFallback ? calcTotal : rootTotal;
+    
+    // If line items sum to a negative value (e.g. Credit Note), ensure the display totals are also negative
+    if (calcTotal < 0) {
+        if (finalTaxExclusive > 0) finalTaxExclusive *= -1;
+        if (finalVat > 0) finalVat *= -1;
+        if (finalTotal > 0) finalTotal *= -1;
+    }
+
     return {
-      taxExclusive: shouldFallback ? calcExclusive : (invoice.taxExclusiveAmount || (rootTotal - rootVat)),
-      vat: shouldFallback ? calcVat : rootVat,
-      total: shouldFallback ? calcTotal : rootTotal
+      taxExclusive: finalTaxExclusive,
+      vat: finalVat,
+      total: finalTotal
     };
   }, [invoice]);
 
@@ -853,13 +864,15 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                                     const price = Number(item.unitPrice || 0);
                                     const discount = Number(item.discount || 0);
                                     
-                                    const fallbackSubtotal = (qty * price) - discount;
-                                    const itemSubtotal = item.subtotal !== undefined ? Number(item.subtotal) : fallbackSubtotal;
+                                    const itemSubtotal = (qty * price) - discount;
                                     
-                                    const fallbackVat = fallbackSubtotal * (item.vatRate !== undefined ? Number(item.vatRate) : 0.15);
-                                    const itemVat = item.vatAmount !== undefined ? Number(item.vatAmount) : fallbackVat;
+                                    let vatRate = item.vatRate !== undefined ? Number(item.vatRate) : 0.15;
+                                    if (vatRate > 1) {
+                                        vatRate = vatRate / 100;
+                                    }
+                                    const itemVat = itemSubtotal * vatRate;
                                     
-                                    const itemTotal = item.total !== undefined ? Number(item.total) : (itemSubtotal + itemVat);
+                                    const itemTotal = itemSubtotal + itemVat;
 
                                     return (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors text-slate-700 pdf-item">
