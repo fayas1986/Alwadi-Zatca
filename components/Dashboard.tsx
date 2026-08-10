@@ -349,8 +349,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      {loading && invoices.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-32 text-slate-400 bg-white/50 backdrop-blur-sm rounded-2xl border border-slate-100 border-dashed animate-in fade-in duration-500">
+          <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+          <p className="text-sm font-medium">Aggregating real-time compliance data...</p>
+        </div>
+      ) : (
+        <>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card
           title="Total Volume"
           value={stats.totalVolume >= 1000000
@@ -518,6 +525,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
