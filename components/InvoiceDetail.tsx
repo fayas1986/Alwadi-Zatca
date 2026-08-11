@@ -619,7 +619,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                 {/* Meta Data */}
                 <div className="space-y-1 mb-4">
                     <ReceiptRow label="Number / رقم المستند" value={invoice.invoiceNumber} isBold />
-                    <ReceiptRow label="Date / التاريخ" value={new Date(invoice.issueDate).toLocaleString()} />
+                    <ReceiptRow label="Date / التاريخ" value={new Date(invoice.issueDate).toLocaleString('en-GB', { timeZone: 'UTC' })} />
                     {invoice.billingReference && (
                          <div className="mt-2 text-xs bg-slate-100 p-1 rounded text-center">
                              Reference: <span className="font-bold">{invoice.billingReference}</span>
@@ -731,12 +731,12 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                                 </div>
                                 <div className="flex gap-2 text-sm">
                                     <span className="font-bold w-24">Issue Date:</span>
-                                    <span>{new Date(invoice.issueDate).toLocaleString()}</span>
+                                    <span>{new Date(invoice.issueDate).toLocaleString('en-GB', { timeZone: 'UTC' })}</span>
                                 </div>
                                 {invoice.supplyDate && (
                                     <div className="flex gap-2 text-sm">
                                         <span className="font-bold w-24">Supply Date:</span>
-                                        <span>{invoice.supplyDate}</span>
+                                        <span>{new Date(invoice.supplyDate).toLocaleDateString()}</span>
                                     </div>
                                 )}
                                 {invoice.billingReference && (
