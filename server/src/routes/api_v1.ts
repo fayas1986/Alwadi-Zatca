@@ -416,12 +416,16 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
                 : (payload.InvoiceAddress || payload.DeliveryAddress || '');
 
             if (rawAddressString || payload.customer.streetName || payload.customer.city || payload.customer.cityName) {
+                const combinedStreet = payload.customer.streetName || rawAddressString || '';
+                const buildingMatch = combinedStreet.match(/(?<!\d)(\d{4})(?!\d)/);
+                const extractedBuildingNumber = buildingMatch ? buildingMatch[1] : '0000';
+                
                 payload.customer.address = {
-                    streetName: payload.customer.streetName || rawAddressString || 'Unknown',
-                    buildingNumber: payload.customer.buildingNumber || '0000',
+                    streetName: combinedStreet || 'Unknown',
+                    buildingNumber: payload.customer.buildingNumber || extractedBuildingNumber,
                     cityName: payload.customer.city || payload.customer.cityName || payload.InvoiceCity || 'Riyadh',
                     postalZone: payload.customer.postalZone || '00000',
-                    citySubdivisionName: payload.customer.citySubdivisionName || payload.customer.district || '',
+                    citySubdivisionName: payload.customer.citySubdivisionName || payload.customer.district || payload.customer.city || payload.customer.cityName || payload.InvoiceCity || 'Unknown',
                     countryCode: payload.customer.countryCode || 'SA'
                 };
             } else if (payload.invoiceSubtype === 'STANDARD') {
