@@ -61,6 +61,48 @@ export const Layout: React.FC<LayoutProps> = ({
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
   const [orgMenuOpen, setOrgMenuOpen] = React.useState(false);
+  const [notificationsOpen, setNotificationsOpen] = React.useState(false);
+  const [notifications, setNotifications] = React.useState<any[]>([]);
+  const [hasUnread, setHasUnread] = React.useState(false);
+  
+  const notifMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const companyId = currentBranch?.id || 'all'; // using currentBranch.id which maps to company_group id or actual company id
+        const res = await fetch(`/api/admin/notifications/recent?companyId=${companyId}`, {
+          headers: { 'x-user-role': userRole }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setNotifications(data);
+          
+          if (data.length > 0) {
+            const lastRead = localStorage.getItem('lastNotificationRead');
+            const latestNotifTime = new Date(data[0].timestamp).getTime();
+            if (!lastRead || latestNotifTime > parseInt(lastRead, 10)) {
+              setHasUnread(true);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching notifications', err);
+      }
+    };
+    
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [currentBranch, userRole]);
+
+  const handleNotificationClick = () => {
+    setNotificationsOpen(!notificationsOpen);
+    if (!notificationsOpen) {
+      setHasUnread(false);
+      localStorage.setItem('lastNotificationRead', Date.now().toString());
+    }
+  };
 
   const orgMenuRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +111,9 @@ export const Layout: React.FC<LayoutProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (orgMenuRef.current && !orgMenuRef.current.contains(event.target as Node)) {
         setOrgMenuOpen(false);
+      }
+      if (notifMenuRef.current && !notifMenuRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -411,10 +456,52 @@ export const Layout: React.FC<LayoutProps> = ({
             <div className="flex items-center space-x-4">
                {renderEnvironmentBadge()}
                
-               <button className="relative p-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-full transition-colors">
-                 <Bell size={20} />
-                 <span className="absolute top-2 right-2 h-2 w-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
-               </button>
+               <div className="relative" ref={notifMenuRef}>
+                 <button 
+                   onClick={handleNotificationClick}
+                   className="relative p-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-full transition-colors"
+                 >
+                   <Bell size={20} />
+                   {hasUnread && (
+                     <span className="absolute top-2 right-2 h-2 w-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
+                   )}
+                 </button>
+
+                 {notificationsOpen && (
+                   <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden flex flex-col max-h-96">
+                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 font-medium text-slate-700 flex justify-between items-center">
+                        <span>Notifications</span>
+                        {notifications.length > 0 && <span className="text-xs bg-indigo-100 text-indigo-700 py-0.5 px-2 rounded-full">{notifications.length}</span>}
+                     </div>
+                     <div className="flex-1 overflow-y-auto">
+                       {notifications.length === 0 ? (
+                         <div className="p-4 text-center text-sm text-slate-500">No new notifications</div>
+                       ) : (
+                         <div className="divide-y divide-slate-100">
+                           {notifications.map((notif, idx) => (
+                             <div key={idx} className="p-3 hover:bg-slate-50 transition-colors">
+                               <div className="flex justify-between items-start mb-1">
+                                 <span className={`text-[10px] uppercase font-bold tracking-wider ${notif.status === 'Failure' ? 'text-rose-600' : (notif.status === 'Warning' ? 'text-amber-600' : 'text-indigo-600')}`}>
+                                   {notif.status === 'Failure' ? 'Critical' : (notif.status === 'Warning' ? 'Warning' : 'System')}
+                                 </span>
+                                 <span className="text-[10px] text-slate-400">
+                                   {new Date(notif.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                 </span>
+                               </div>
+                               <div className="text-sm text-slate-700 font-medium leading-tight mb-1">
+                                 {notif.action.replace('SYSTEM_ALERT: ', '')}
+                               </div>
+                               <div className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                                 {notif.details}
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+                       )}
+                     </div>
+                   </div>
+                 )}
+               </div>
             </div>
           </div>
         </header>

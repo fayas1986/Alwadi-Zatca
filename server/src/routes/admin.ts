@@ -44,6 +44,42 @@ const requireAnyAdmin = (req: any, res: any, next: any) => {
 
 /**
  * @swagger
+ * /api/admin/notifications/recent:
+ *   get:
+ *     summary: Get recent system alerts for the notification bell
+ *     tags: [Admin - Notifications]
+ */
+router.get('/notifications/recent', requireAnyAdmin, async (req, res) => {
+    try {
+        const companyId = req.query.companyId as string;
+        
+        const whereClause: any = {
+            category: 'System',
+        };
+        
+        if (companyId && companyId !== 'all') {
+            whereClause.OR = [
+                { resource_id: companyId },
+                { resource_id: null },
+                { resource_id: undefined }
+            ];
+        }
+
+        const alerts = await prisma.audit_log.findMany({
+            where: whereClause,
+            orderBy: { timestamp: 'desc' },
+            take: 15
+        });
+
+        res.json(alerts);
+    } catch (error) {
+        console.error('Error fetching notifications:', error);
+        res.status(500).json({ error: 'Failed to fetch notifications' });
+    }
+});
+
+/**
+ * @swagger
  * /api/admin/groups:
  *   get:
  *     summary: List all company groups
