@@ -16,8 +16,16 @@ export const parseInvoiceDate = (issueDate: string): Date => {
     
     if (hasTime) {
         const d = new Date(dateStr);
-        // If parsing fails, fall back to current time
-        return isNaN(d.getTime()) ? new Date() : d;
+        if (isNaN(d.getTime())) return new Date();
+        
+        // If the ERP serialized a date-only field to JSON, it usually becomes exactly midnight UTC.
+        // We catch this and append the current time so it doesn't default to 00:00:00.
+        if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) {
+            const now = new Date();
+            d.setUTCHours(now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds(), now.getUTCMilliseconds());
+        }
+        
+        return d;
     }
 
     // It's likely just a date (YYYY-MM-DD or similar)
