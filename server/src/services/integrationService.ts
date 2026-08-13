@@ -241,9 +241,10 @@ export const fetchAndProcessInvoices = async (
                     if (t && typeof d === 'string' && d.length <= 10) {
                         return `${d}T${t}Z`;
                     }
-                    if (!t && typeof d === 'string' && d.length <= 10) {
+                    if (typeof d === 'string' && (d.length <= 10 || d.includes('00:00:00'))) {
+                        const dateOnly = d.split('T')[0].split(' ')[0];
                         const timeStr = new Date().toISOString().split('T')[1];
-                        return `${d}T${timeStr}`;
+                        return `${dateOnly}T${timeStr}`;
                     }
                     return d;
                 })(),
@@ -265,12 +266,15 @@ export const fetchAndProcessInvoices = async (
                         const extractBuildingAndStreet = (streetRaw: string) => {
                             let streetName = streetRaw || 'Test Street';
                             let buildingNumber = '0000';
-                            // Look for exactly 4 digits (common for KSA building numbers)
-                            const match = streetName.match(/\b(\d{4})\b/);
-                            if (match) {
-                                buildingNumber = match[1];
-                                streetName = streetName.replace(match[0], '').trim();
-                                if (!streetName) streetName = 'Main Street';
+                            
+                            const explicitMatch = streetName.match(/(?:building|bldg|no|#|رقم\s*المبنى)[\s.:#]*(\d{4,5})/i);
+                            if (explicitMatch) {
+                                buildingNumber = explicitMatch[1];
+                            } else {
+                                const match = streetName.match(/\b(\d{4,5})\b/);
+                                if (match) {
+                                    buildingNumber = match[1];
+                                }
                             }
                             return { streetName: streetName.substring(0, 50), buildingNumber };
                         };

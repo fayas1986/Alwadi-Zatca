@@ -736,7 +736,13 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                                 </div>
                                 <div className="flex gap-2 text-sm">
                                     <span className="font-bold w-24">Issue Time:</span>
-                                    <span>{new Date(invoice.issueDate).toLocaleTimeString('en-GB', { timeZone: 'UTC' })}</span>
+                                    <span>{(() => {
+                                        let t = new Date(invoice.issueDate).toLocaleTimeString('en-GB', { timeZone: 'UTC' });
+                                        if ((t === '00:00:00' || !t) && (invoice as any).created_at) {
+                                            t = new Date((invoice as any).created_at).toLocaleTimeString('en-GB');
+                                        }
+                                        return (t === '00:00:00' || !t) ? new Date().toLocaleTimeString('en-GB') : t;
+                                    })()}</span>
                                 </div>
                                 {invoice.supplyDate && (
                                     <div className="flex gap-2 text-sm">
@@ -812,9 +818,9 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                             <div>
                                 <Label en="Address" ar="العنوان" />
                                 <p className="text-slate-600">
-                                    {[invoice.customer.address.buildingNumber, invoice.customer.address.streetName].filter(Boolean).join(' ')}
+                                    {[invoice.customer.address.buildingNumber && invoice.customer.address.buildingNumber !== '0000' ? invoice.customer.address.buildingNumber : null, invoice.customer.address.streetName].filter(Boolean).join(' ')}
                                     {invoice.customer.address.additionalNumber ? `, ${invoice.customer.address.additionalNumber}` : ''}<br/>
-                                    {[invoice.customer.address.citySubdivisionName, invoice.customer.address.cityName].filter(Boolean).join(', ')} {invoice.customer.address.postalZone} {invoice.customer.address.countryCode}
+                                    {[invoice.customer.address.citySubdivisionName, invoice.customer.address.cityName].filter(Boolean).join(', ')} {invoice.customer.address.postalZone && invoice.customer.address.postalZone !== '00000' ? invoice.customer.address.postalZone : ''} {invoice.customer.address.countryCode}
                                 </p>
                             </div>
                             {invoice.customer.vatNumber && (

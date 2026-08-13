@@ -224,6 +224,89 @@ export const injectComplianceFields = (payload: any, type: string) => {
     if (payload.reason) {
         injected.instructionNote = payload.reason.description || payload.reason.text || injected.instructionNote;
     }
+
+    // 6. Ensure Issue Date has real processing time if missing or midnight (00:00:00)
+    let rawDate = injected.issueDate || new Date().toISOString();
+    let hasMidnight = false;
+
+    if (typeof rawDate === 'string') {
+        if (rawDate.length <= 10 || rawDate.includes('00:00:00')) {
+            hasMidnight = true;
+        }
+    } else if (rawDate instanceof Date) {
+        if (rawDate.getUTCHours() === 0 && rawDate.getUTCMinutes() === 0 && rawDate.getUTCSeconds() === 0) {
+            hasMidnight = true;
+        }
+    }
+
+    if (hasMidnight) {
+        const dateOnly = (typeof rawDate === 'string' ? rawDate.split('T')[0].split(' ')[0] : rawDate.toISOString().split('T')[0]);
+        const realTime = new Date().toISOString().split('T')[1];
+        injected.issueDate = `${dateOnly}T${realTime}`;
+    }
+
+    // 7. Standardize Customer Address & Extract Building Number / District
+    if (injected.customer) {
+        const topAddr = payload.address;
+        const custAddr = injected.customer.address || payload.customer?.address || topAddr;
+
+        let street = '';
+        let building = '';
+        let city = injected.customer.city || '';
+        let postal = '';
+        let country = 'SA';
+        let district = '';
+
+        if (typeof custAddr === 'string') {
+            street = custAddr;
+        } else if (custAddr) {
+            street = custAddr.streetName || custAddr.street_name || custAddr.street || '';
+            building = custAddr.buildingNumber || custAddr.building_number || custAddr.building || '';
+            city = custAddr.cityName || custAddr.city_name || custAddr.city || city;
+            postal = custAddr.postalZone || custAddr.postal_zone || custAddr.zip || custAddr.postcode || '';
+            country = custAddr.countryCode || custAddr.country_code || custAddr.country || 'SA';
+            district = custAddr.citySubdivisionName || custAddr.city_subdivision_name || custAddr.district || '';
+        }
+
+        if (topAddr && typeof topAddr === 'object') {
+            const topStreet = topAddr.streetName || topAddr.street_name || topAddr.street || '';
+            const topBuilding = topAddr.buildingNumber || topAddr.building_number || topAddr.building || '';
+            
+            if (topStreet && !street.includes(topStreet)) {
+                street = street ? `${street} ${topStreet}` : topStreet;
+            }
+            if ((!building || building === '0000') && topBuilding) building = topBuilding;
+            if (!city && topAddr.cityName) city = topAddr.cityName;
+            if (!postal && topAddr.postalZone) postal = topAddr.postalZone;
+            if (!district && topAddr.citySubdivisionName) district = topAddr.citySubdivisionName;
+        }
+
+        city = city || 'Riyadh';
+        district = district || city;
+
+        if (!building || building === '0000' || building === '0') {
+            const explicitMatch = street.match(/(?:building|bldg|no|#|رقم\s*المبنى)[\s.:#]*(\d{4,5})/i);
+            if (explicitMatch) {
+                building = explicitMatch[1];
+            } else {
+                const numMatch = street.match(/\b(\d{4,5})\b/);
+                if (numMatch) {
+                    building = numMatch[1];
+                }
+            }
+        }
+
+        if (!building || building === '0') building = '0000';
+
+        injected.customer.address = {
+            streetName: street || 'Main Street',
+            buildingNumber: building,
+            cityName: city,
+            citySubdivisionName: district,
+            postalZone: postal || '00000',
+            countryCode: country === 'SAU' ? 'SA' : (country || 'SA')
+        };
+    }
     
     return injected;
 };
