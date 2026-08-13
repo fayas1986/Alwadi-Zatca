@@ -883,7 +883,13 @@ router.post('/invoice/report', async (req, res) => {
 
         // 2. Early Idempotency Check
         const existingInvoice = await prisma.invoice.findFirst({
-            where: { company_id: company.id, hash: hash } as any
+            where: { 
+                company_id: company.id, 
+                OR: [
+                    { hash: hash },
+                    { invoice_number: invoiceData.invoiceNumber }
+                ]
+            } as any
         });
 
         if (existingInvoice && (existingInvoice.status === 'CLEARED' || existingInvoice.status === 'REPORTED')) {

@@ -87,24 +87,41 @@ export const InvoiceService = {
 
         console.log(`[InvoiceService] Saving invoice ${data.invoice_number} (Customer: ${customerId || 'Unknown'}, Items: ${metadata.items.length})`);
 
-        return await prisma.invoice.create({
-            data: {
+        const existingInvoice = await prisma.invoice.findFirst({
+            where: {
                 company_id: data.company_id,
-                customer_id: customerId,
-                invoice_number: data.invoice_number,
-                uuid: data.uuid,
-                date: data.date,
-                total_amount: data.total_amount,
-                tax_amount: data.tax_amount,
-                status: data.status,
-                type: data.type,
-                hash: data.hash,
-                qr_code: data.qr_code,
-                xml_payload: data.xml_payload,
-                submission_id: data.submission_id,
-                submission_response: data.submission_response,
-                metadata: metadata as any
+                invoice_number: data.invoice_number
             }
+        });
+
+        const invoiceDataToSave = {
+            company_id: data.company_id,
+            customer_id: customerId,
+            invoice_number: data.invoice_number,
+            uuid: data.uuid,
+            date: data.date,
+            total_amount: data.total_amount,
+            tax_amount: data.tax_amount,
+            status: data.status,
+            type: data.type,
+            hash: data.hash,
+            qr_code: data.qr_code,
+            xml_payload: data.xml_payload,
+            submission_id: data.submission_id,
+            submission_response: data.submission_response,
+            metadata: metadata as any
+        };
+
+        if (existingInvoice) {
+            console.log(`[InvoiceService] Updating existing invoice ${data.invoice_number} (ID: ${existingInvoice.id})`);
+            return await prisma.invoice.update({
+                where: { id: existingInvoice.id },
+                data: invoiceDataToSave as any
+            });
+        }
+
+        return await prisma.invoice.create({
+            data: invoiceDataToSave as any
         });
     },
 

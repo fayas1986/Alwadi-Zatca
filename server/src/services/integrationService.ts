@@ -235,7 +235,18 @@ export const fetchAndProcessInvoices = async (
         const normalizeInvoice = (raw: any): ExternalInvoice => {
             return {
                 invoiceNumber: String(raw.invoiceNumber || raw.invoice_number || raw.id || raw.number || `ERP-${Date.now()}`),
-                issueDate: raw.issueDate || raw.issue_date || raw.date || new Date().toISOString(),
+                issueDate: (() => {
+                    let d = raw.issueDate || raw.issue_date || raw.date || new Date().toISOString();
+                    const t = raw.issueTime || raw.issue_time || raw.time;
+                    if (t && typeof d === 'string' && d.length <= 10) {
+                        return `${d}T${t}Z`;
+                    }
+                    if (!t && typeof d === 'string' && d.length <= 10) {
+                        const timeStr = new Date().toISOString().split('T')[1];
+                        return `${d}T${timeStr}`;
+                    }
+                    return d;
+                })(),
                 invoiceSubtype: (raw.invoiceSubtype || raw.invoice_subtype || (raw.customer?.vatNumber || raw.customer_vat ? 'STANDARD' : 'SIMPLIFIED')).toString().toUpperCase() as InvoiceSubtype,
                 documentType: (raw.documentType || raw.document_type || raw.type || 'INVOICE').toString().toUpperCase().replace(/\s+/g, '_') as DocumentType,
                 billingReference: raw.billingReference || raw.billing_reference || raw.original_invoice_number || raw.original_id || null,
@@ -250,17 +261,49 @@ export const fetchAndProcessInvoices = async (
                     address: (() => {
                         const addr = raw.customer?.address || raw.customer_address || raw.address;
                         if (!addr) return null;
+                        
+                        const extractBuildingAndStreet = (streetRaw: string) => {
+                            let streetName = streetRaw || 'Test Street';
+                            let buildingNumber = '0000';
+                            // Look for exactly 4 digits (common for KSA building numbers)
+                            const match = streetName.match(/\b(\d{4})\b/);
+                            if (match) {
+                                buildingNumber = match[1];
+                                streetName = streetName.replace(match[0], '').trim();
+                                if (!streetName) streetName = 'Main Street';
+                            }
+                            return { streetName: streetName.substring(0, 50), buildingNumber };
+                        };
+
                         if (typeof addr === 'string') {
+                            const { streetName, buildingNumber } = extractBuildingAndStreet(addr);
+                            const cityName = raw.customer?.city || 'Riyadh';
                             return {
-                                streetName: addr.substring(0, 50),
-                                cityName: raw.customer?.city || 'Riyadh',
+                                streetName,
+                                buildingNumber,
+                                cityName: cityName,
+                                citySubdivisionName: cityName,
                                 countryCode: 'SA'
                             };
                         }
+                        
+                        let rawStreet = addr.streetName || addr.street_name || addr.street || '';
+                        let bNumber = addr.buildingNumber || addr.building_number || addr.building || '';
+                        
+                        // If building number wasn't provided separately, try to extract it from street
+                        if (!bNumber && rawStreet) {
+                            const extracted = extractBuildingAndStreet(rawStreet);
+                            rawStreet = extracted.streetName;
+                            bNumber = extracted.buildingNumber;
+                        }
+
+                        const cityName = addr.cityName || addr.city_name || addr.city || raw.customer?.city || 'Riyadh';
+
                         return {
-                            streetName: addr.streetName || addr.street_name || addr.street || 'Test Street',
-                            buildingNumber: addr.buildingNumber || addr.building_number || addr.building || '1',
-                            cityName: addr.cityName || addr.city_name || addr.city || raw.customer?.city || 'Riyadh',
+                            streetName: rawStreet || 'Test Street',
+                            buildingNumber: bNumber || '0000',
+                            cityName: cityName,
+                            citySubdivisionName: addr.citySubdivisionName || addr.city_subdivision_name || addr.district || cityName,
                             postalZone: addr.postalZone || addr.postal_zone || addr.zip || addr.postcode || '12345',
                             countryCode: addr.countryCode || addr.country_code || addr.country || 'SA'
                         };

@@ -619,7 +619,8 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                 {/* Meta Data */}
                 <div className="space-y-1 mb-4">
                     <ReceiptRow label="Number / رقم المستند" value={invoice.invoiceNumber} isBold />
-                    <ReceiptRow label="Date / التاريخ" value={new Date(invoice.issueDate).toLocaleString('en-GB', { timeZone: 'UTC' })} />
+                    <ReceiptRow label="Date / التاريخ" value={new Date(invoice.issueDate).toLocaleDateString('en-GB', { timeZone: 'UTC' })} />
+                    <ReceiptRow label="Time / الوقت" value={new Date(invoice.issueDate).toLocaleTimeString('en-GB', { timeZone: 'UTC' })} />
                     {invoice.billingReference && (
                          <div className="mt-2 text-xs bg-slate-100 p-1 rounded text-center">
                              Reference: <span className="font-bold">{invoice.billingReference}</span>
@@ -731,7 +732,11 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                                 </div>
                                 <div className="flex gap-2 text-sm">
                                     <span className="font-bold w-24">Issue Date:</span>
-                                    <span>{new Date(invoice.issueDate).toLocaleString('en-GB', { timeZone: 'UTC' })}</span>
+                                    <span>{new Date(invoice.issueDate).toLocaleDateString('en-GB', { timeZone: 'UTC' })}</span>
+                                </div>
+                                <div className="flex gap-2 text-sm">
+                                    <span className="font-bold w-24">Issue Time:</span>
+                                    <span>{new Date(invoice.issueDate).toLocaleTimeString('en-GB', { timeZone: 'UTC' })}</span>
                                 </div>
                                 {invoice.supplyDate && (
                                     <div className="flex gap-2 text-sm">
