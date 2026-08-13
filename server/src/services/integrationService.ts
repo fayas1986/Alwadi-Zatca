@@ -276,6 +276,9 @@ export const fetchAndProcessInvoices = async (
                                     buildingNumber = match[1];
                                 }
                             }
+                            if (buildingNumber && buildingNumber.length > 4 && buildingNumber !== '0000') {
+                                buildingNumber = buildingNumber.substring(0, 4);
+                            }
                             return { streetName: streetName.substring(0, 50), buildingNumber };
                         };
 

@@ -297,6 +297,7 @@ export const injectComplianceFields = (payload: any, type: string) => {
         }
 
         if (!building || building === '0') building = '0000';
+        if (building.length > 4 && building !== '0000') building = building.substring(0, 4);
 
         injected.customer.address = {
             streetName: street || 'Main Street',
