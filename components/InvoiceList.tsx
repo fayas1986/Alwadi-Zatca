@@ -397,8 +397,8 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
                     </td>
                     <td className="px-6 py-5">
                         <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-slate-700">{new Date(inv.issueDate || (inv as any).date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })}</span>
-                            <span className="text-xs text-slate-400 mt-0.5 font-mono">{new Date(inv.issueDate || (inv as any).date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}</span>
+                            <span className="text-sm font-semibold text-slate-700">{new Date(inv.issueDate || (inv as any).date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Riyadh' })}</span>
+                            <span className="text-xs text-slate-400 mt-0.5 font-mono">{new Date(inv.issueDate || (inv as any).date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Riyadh' })}</span>
                         </div>
                     </td>
                     <td className="px-6 py-5">

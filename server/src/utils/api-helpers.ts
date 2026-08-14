@@ -13,10 +13,8 @@ export const generateUUID = () => crypto.randomUUID();
  */
 export const getKSATimestamp = (date?: Date) => {
     const d = date || new Date();
-    // Offset for AST (Arabian Standard Time) is UTC+3
-    const ksaOffset = 3 * 60 * 60 * 1000;
-    const ksaDate = new Date(d.getTime() + ksaOffset);
-    return ksaDate.toISOString().replace('Z', '+03:00');
+    const ksaStr = d.toLocaleString('sv-SE', { timeZone: 'Asia/Riyadh' });
+    return ksaStr.replace(' ', 'T') + '+03:00';
 };
 
 export const generateHash = (content: string) => {
@@ -241,8 +239,8 @@ export const injectComplianceFields = (payload: any, type: string) => {
 
     if (hasMidnight) {
         const dateOnly = (typeof rawDate === 'string' ? rawDate.split('T')[0].split(' ')[0] : rawDate.toISOString().split('T')[0]);
-        const realTime = new Date().toISOString().split('T')[1];
-        injected.issueDate = `${dateOnly}T${realTime}`;
+        const realTime = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Riyadh', hour12: false });
+        injected.issueDate = `${dateOnly}T${realTime}+03:00`;
     }
 
     // 7. Standardize Customer Address & Extract Building Number / District
