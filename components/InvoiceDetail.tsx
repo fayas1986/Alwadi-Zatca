@@ -739,9 +739,9 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                                     <span>{(() => {
                                         let t = new Date(invoice.issueDate).toLocaleTimeString('en-GB', { timeZone: 'UTC' });
                                         if ((t === '00:00:00' || !t) && (invoice as any).created_at) {
-                                            t = new Date((invoice as any).created_at).toLocaleTimeString('en-GB');
+                                            t = new Date((invoice as any).created_at).toLocaleTimeString('en-GB', { timeZone: 'UTC' });
                                         }
-                                        return (t === '00:00:00' || !t) ? new Date().toLocaleTimeString('en-GB') : t;
+                                        return (t === '00:00:00' || !t) ? new Date().toLocaleTimeString('en-GB', { timeZone: 'UTC' }) : t;
                                     })()}</span>
                                 </div>
                                 {invoice.supplyDate && (
