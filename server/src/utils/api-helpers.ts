@@ -223,25 +223,12 @@ export const injectComplianceFields = (payload: any, type: string) => {
         injected.instructionNote = payload.reason.description || payload.reason.text || injected.instructionNote;
     }
 
-    // 6. Ensure Issue Date has real processing time if missing or midnight (00:00:00)
+    // 6. Enforce Real-time KSA Timezone for ZATCA Production Compliance
+    // Regardless of what time the ERP sends (e.g. India time), we stamp the exact current KSA time
     let rawDate = injected.issueDate || new Date().toISOString();
-    let hasMidnight = false;
-
-    if (typeof rawDate === 'string') {
-        if (rawDate.length <= 10 || rawDate.includes('00:00:00')) {
-            hasMidnight = true;
-        }
-    } else if (rawDate instanceof Date) {
-        if (rawDate.getUTCHours() === 0 && rawDate.getUTCMinutes() === 0 && rawDate.getUTCSeconds() === 0) {
-            hasMidnight = true;
-        }
-    }
-
-    if (hasMidnight) {
-        const dateOnly = (typeof rawDate === 'string' ? rawDate.split('T')[0].split(' ')[0] : rawDate.toISOString().split('T')[0]);
-        const realTime = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Riyadh', hour12: false });
-        injected.issueDate = `${dateOnly}T${realTime}+03:00`;
-    }
+    const dateOnly = (typeof rawDate === 'string' ? rawDate.split('T')[0].split(' ')[0] : rawDate.toISOString().split('T')[0]);
+    const realTime = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Riyadh', hour12: false });
+    injected.issueDate = `${dateOnly}T${realTime}+03:00`;
 
     // 7. Standardize Customer Address & Extract Building Number / District
     if (injected.customer) {
