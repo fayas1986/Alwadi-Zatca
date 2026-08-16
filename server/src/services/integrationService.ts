@@ -321,10 +321,11 @@ export const fetchAndProcessInvoices = async (
                     // --- Normalize taxCategory to a valid ZATCA code string ---
                     // ERPs sometimes send the VAT amount (e.g. 65.22) in this field by mistake.
                     // Valid ZATCA codes: "S" (Standard), "Z" (Zero-rated), "E" (Exempt), "O" (Out of scope)
-                    const rawTaxCat = it.taxCategory;
-                    let taxCategoryCode: string;
-                    if (typeof rawTaxCat === 'string' && ['S', 'Z', 'E', 'O'].includes(rawTaxCat.toUpperCase())) {
-                        taxCategoryCode = rawTaxCat.toUpperCase();
+                    const rawTaxCatStr = (rawTaxCat || '').toString().toUpperCase().trim();
+                    if (['S', 'Z', 'E', 'O'].includes(rawTaxCatStr)) {
+                        taxCategoryCode = rawTaxCatStr;
+                    } else if (rawTaxCatStr === 'OOSP' || rawTaxCatStr === 'OUT OF SCOPE' || rawTaxCatStr === 'OUTOFSCOPE') {
+                        taxCategoryCode = 'O';
                     } else {
                         // Fallback: derive from vatRate or default to Standard
                         const rate = Number(it.vatRate || 0);
@@ -335,7 +336,11 @@ export const fetchAndProcessInvoices = async (
                     // --- Normalize vatRate to a clean percentage (not a fraction) ---
                     // e.g. 15.000690004140026 → 15.00, 0.15 → 15.00
                     let rawRate = Number(it.vatRate || 0);
-                    if (rawRate > 0 && rawRate < 1) rawRate = rawRate * 100; // convert fraction to %
+                    if (taxCategoryCode === 'O' || taxCategoryCode === 'Z' || taxCategoryCode === 'E') {
+                        rawRate = 0;
+                    } else if (rawRate > 0 && rawRate < 1) {
+                        rawRate = rawRate * 100; // convert fraction to %
+                    }
                     const vatRate = Math.round(rawRate * 100) / 100; // round to 2dp
 
                     // --- Resolve taxAmount correctly ---

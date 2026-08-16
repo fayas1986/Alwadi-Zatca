@@ -113,8 +113,20 @@ export const calculateInvoiceTotals = (payload: any) => {
         // Line Extension Amount = (Quantity * UnitPrice) - Allowance + Charge
         const lineNetHalala = grossHalala - allowanceHalala + chargeHalala;
 
+        const rawTaxCatStr = (item.taxCategoryCode || item.taxCategory || '').toString().toUpperCase().trim();
+        let taxCategoryCode = rawTaxCatStr;
+        if (rawTaxCatStr === 'OOSP' || rawTaxCatStr === 'OUT OF SCOPE' || rawTaxCatStr === 'OUTOFSCOPE') {
+            taxCategoryCode = 'O';
+        } else if (!['S', 'Z', 'E', 'O'].includes(rawTaxCatStr)) {
+            taxCategoryCode = 'S'; // default to standard if unknown
+        }
+
         // Use vatRate as a percentage (e.g. 15) or fraction (e.g. 0.15) — normalize first
         let vatRate = Number(item.vatRate ?? 0.15);
+        if (taxCategoryCode === 'O' || taxCategoryCode === 'Z' || taxCategoryCode === 'E') {
+            vatRate = 0;
+        }
+
         const ratePercent = vatRate < 1 ? vatRate * 100 : vatRate;
 
         // VAT per line (rounded to 2 decimals as per ZATCA BR-KSA-XX)
@@ -125,6 +137,7 @@ export const calculateInvoiceTotals = (payload: any) => {
 
         return {
             ...item,
+            taxCategory: taxCategoryCode,
             quantity: qty,
             unitPrice: Number(price.toFixed(2)),
             discount: allowance,
@@ -364,11 +377,20 @@ export const validateHardenedCompliance = (invoice: any) => {
             const quantity = Number(item.quantity || 0);
             const unitPrice = Number(item.unitPrice || 0);
             const discount = Number(item.discount || 0);
-            let taxRate = Number(item.taxRate ?? item.vatRate ?? 15);
-            // Normalize: If user sent 0.15 (fraction), convert to 15 (percentage)
-            if (taxRate > 0 && taxRate < 1) taxRate = taxRate * 100;
+            const rawTaxCatStr = (item.taxCategoryCode || item.taxCategory || '').toString().toUpperCase().trim();
+            let taxCategory = rawTaxCatStr;
+            if (rawTaxCatStr === 'OOSP' || rawTaxCatStr === 'OUT OF SCOPE' || rawTaxCatStr === 'OUTOFSCOPE') {
+                taxCategory = 'O';
+            } else if (!['S', 'Z', 'E', 'O'].includes(rawTaxCatStr)) {
+                taxCategory = 'S'; // default to standard if unknown
+            }
             
-            const taxCategory = item.taxCategoryCode || item.taxCategory || 'S';
+            let taxRate = Number(item.taxRate ?? item.vatRate ?? 15);
+            if (taxCategory === 'O' || taxCategory === 'Z' || taxCategory === 'E') {
+                taxRate = 0;
+            } else if (taxRate > 0 && taxRate < 1) {
+                taxRate = taxRate * 100;
+            }
             
             // a. Discount Guard (Check signs consistency for Credit Notes)
             // If Credit Note uses positive values with reversal logic, keep them positive here for the math check
