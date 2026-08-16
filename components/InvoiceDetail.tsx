@@ -135,8 +135,17 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
     if (Array.isArray(invoice.items)) {
         invoice.items.forEach(item => {
             const sub = Number(invoice.invoiceSubtype === 'Simplified' ? (item as any).total / 1.15 : (item.subtotal || (Number(item.quantity || 1) * Number(item.unitPrice || 0))));
-            const rate = 0.15; // Standard VAT
-            const tax = invoice.invoiceSubtype === 'Simplified' ? ((item as any).total - sub) : Number(item.vatAmount || (sub * rate));
+            
+            let rate = 0.15; // Standard VAT fallback
+            const taxCat = (item.taxCategory || item.taxCategoryCode || '').toString().toUpperCase();
+            if (taxCat === 'O' || taxCat === 'Z' || taxCat === 'E' || taxCat === 'OOSP' || taxCat === 'OUT OF SCOPE') {
+                rate = 0;
+            } else if (item.vatRate !== undefined) {
+                rate = Number(item.vatRate);
+                if (rate > 1) rate = rate / 100;
+            }
+
+            const tax = invoice.invoiceSubtype === 'Simplified' ? ((item as any).total - sub) : Number(item.vatAmount !== undefined ? item.vatAmount : (sub * rate));
             
             calcVat += tax;
             calcExclusive += sub;
@@ -881,9 +890,15 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                                     if (vatRate > 1) {
                                         vatRate = vatRate / 100;
                                     }
-                                    const itemVat = itemSubtotal * vatRate;
                                     
-                                    const itemTotal = itemSubtotal + itemVat;
+                                    const taxCat = (item.taxCategory || item.taxCategoryCode || '').toString().toUpperCase();
+                                    if (taxCat === 'O' || taxCat === 'Z' || taxCat === 'E' || taxCat === 'OOSP' || taxCat === 'OUT OF SCOPE') {
+                                        vatRate = 0;
+                                    }
+                                    
+                                    const itemVat = item.vatAmount !== undefined ? Number(item.vatAmount) : (itemSubtotal * vatRate);
+                                    
+                                    const itemTotal = item.total !== undefined ? Number(item.total) : (itemSubtotal + itemVat);
 
                                     return (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors text-slate-700 pdf-item">
