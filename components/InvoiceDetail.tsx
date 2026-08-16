@@ -747,7 +747,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                                 {invoice.supplyDate && (
                                     <div className="flex gap-2 text-sm">
                                         <span className="font-bold w-24">Supply Date:</span>
-                                        <span>{new Date(invoice.supplyDate).toLocaleDateString()}</span>
+                                        <span>{new Date(invoice.supplyDate).toLocaleDateString('en-GB', { timeZone: 'Asia/Riyadh' })}</span>
                                     </div>
                                 )}
                                 {invoice.billingReference && (
