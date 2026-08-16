@@ -326,6 +326,12 @@ export const fetchAndProcessInvoices = async (
                         taxCategoryCode = rawTaxCatStr;
                     } else if (rawTaxCatStr === 'OOSP' || rawTaxCatStr === 'OUT OF SCOPE' || rawTaxCatStr === 'OUTOFSCOPE') {
                         taxCategoryCode = 'O';
+                    } else if (rawTaxCatStr === 'SRS' || rawTaxCatStr === 'STANDARD') {
+                        taxCategoryCode = 'S';
+                    } else if (rawTaxCatStr === 'EXEMPT') {
+                        taxCategoryCode = 'E';
+                    } else if (rawTaxCatStr === 'ZERO-RATED' || rawTaxCatStr === 'ZERO RATED' || rawTaxCatStr === 'ZERORATED') {
+                        taxCategoryCode = 'Z';
                     } else {
                         // Fallback: derive from vatRate or default to Standard
                         const rate = Number(it.vatRate || 0);

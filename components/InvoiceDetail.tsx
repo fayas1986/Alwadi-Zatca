@@ -137,8 +137,14 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
             const sub = Number(invoice.invoiceSubtype === 'Simplified' ? (item as any).total / 1.15 : (item.subtotal || (Number(item.quantity || 1) * Number(item.unitPrice || 0))));
             
             let rate = 0.15; // Standard VAT fallback
-            const taxCat = (item.taxCategory || item.taxCategoryCode || '').toString().toUpperCase();
-            if (taxCat === 'O' || taxCat === 'Z' || taxCat === 'E' || taxCat === 'OOSP' || taxCat === 'OUT OF SCOPE') {
+            const taxCatRaw = (item.taxCategory || item.taxCategoryCode || '').toString().toUpperCase().trim();
+            let taxCat = taxCatRaw;
+            if (taxCatRaw === 'OOSP' || taxCatRaw === 'OUT OF SCOPE' || taxCatRaw === 'OUTOFSCOPE') taxCat = 'O';
+            else if (taxCatRaw === 'SRS' || taxCatRaw === 'STANDARD') taxCat = 'S';
+            else if (taxCatRaw === 'EXEMPT') taxCat = 'E';
+            else if (taxCatRaw === 'ZERO-RATED' || taxCatRaw === 'ZERO RATED' || taxCatRaw === 'ZERORATED') taxCat = 'Z';
+            
+            if (taxCat === 'O' || taxCat === 'Z' || taxCat === 'E') {
                 rate = 0;
             } else if (item.vatRate !== undefined) {
                 rate = Number(item.vatRate);
@@ -891,8 +897,14 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                                         vatRate = vatRate / 100;
                                     }
                                     
-                                    const taxCat = (item.taxCategory || item.taxCategoryCode || '').toString().toUpperCase();
-                                    if (taxCat === 'O' || taxCat === 'Z' || taxCat === 'E' || taxCat === 'OOSP' || taxCat === 'OUT OF SCOPE') {
+                                    const taxCatRaw = (item.taxCategory || item.taxCategoryCode || '').toString().toUpperCase().trim();
+                                    let taxCat = taxCatRaw;
+                                    if (taxCatRaw === 'OOSP' || taxCatRaw === 'OUT OF SCOPE' || taxCatRaw === 'OUTOFSCOPE') taxCat = 'O';
+                                    else if (taxCatRaw === 'SRS' || taxCatRaw === 'STANDARD') taxCat = 'S';
+                                    else if (taxCatRaw === 'EXEMPT') taxCat = 'E';
+                                    else if (taxCatRaw === 'ZERO-RATED' || taxCatRaw === 'ZERO RATED' || taxCatRaw === 'ZERORATED') taxCat = 'Z';
+                                    
+                                    if (taxCat === 'O' || taxCat === 'Z' || taxCat === 'E') {
                                         vatRate = 0;
                                     }
                                     

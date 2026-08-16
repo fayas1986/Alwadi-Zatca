@@ -117,6 +117,12 @@ export const calculateInvoiceTotals = (payload: any) => {
         let taxCategoryCode = rawTaxCatStr;
         if (rawTaxCatStr === 'OOSP' || rawTaxCatStr === 'OUT OF SCOPE' || rawTaxCatStr === 'OUTOFSCOPE') {
             taxCategoryCode = 'O';
+        } else if (rawTaxCatStr === 'SRS' || rawTaxCatStr === 'STANDARD') {
+            taxCategoryCode = 'S';
+        } else if (rawTaxCatStr === 'EXEMPT') {
+            taxCategoryCode = 'E';
+        } else if (rawTaxCatStr === 'ZERO-RATED' || rawTaxCatStr === 'ZERO RATED' || rawTaxCatStr === 'ZERORATED') {
+            taxCategoryCode = 'Z';
         } else if (!['S', 'Z', 'E', 'O'].includes(rawTaxCatStr)) {
             taxCategoryCode = 'S'; // default to standard if unknown
         }
@@ -381,6 +387,12 @@ export const validateHardenedCompliance = (invoice: any) => {
             let taxCategory = rawTaxCatStr;
             if (rawTaxCatStr === 'OOSP' || rawTaxCatStr === 'OUT OF SCOPE' || rawTaxCatStr === 'OUTOFSCOPE') {
                 taxCategory = 'O';
+            } else if (rawTaxCatStr === 'SRS' || rawTaxCatStr === 'STANDARD') {
+                taxCategory = 'S';
+            } else if (rawTaxCatStr === 'EXEMPT') {
+                taxCategory = 'E';
+            } else if (rawTaxCatStr === 'ZERO-RATED' || rawTaxCatStr === 'ZERO RATED' || rawTaxCatStr === 'ZERORATED') {
+                taxCategory = 'Z';
             } else if (!['S', 'Z', 'E', 'O'].includes(rawTaxCatStr)) {
                 taxCategory = 'S'; // default to standard if unknown
             }
