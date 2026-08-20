@@ -251,7 +251,8 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
                     message: 'HMAC signature mismatch',
                     expectedData: authResult.expectedData,
                     receivedSig: signature,
-                    expectedSig: authResult.expectedSig
+                    expectedSig: authResult.expectedSig,
+                    secretDebug: normalizedSecret ? normalizedSecret.substring(0, 10) + '...' : 'none'
                 });
             }
 
