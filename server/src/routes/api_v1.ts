@@ -245,7 +245,14 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
             );
 
             if (!authResult.isValid) {
-                return sendError(res, 401, 'INVALID_SIGNATURE', 'HMAC signature mismatch. Please verify your API keys and request encoding.');
+                return res.status(401).json({
+                    status: 'ERROR',
+                    code: 'INVALID_SIGNATURE',
+                    message: 'HMAC signature mismatch',
+                    expectedData: authResult.expectedData,
+                    receivedSig: signature,
+                    expectedSig: authResult.expectedSig
+                });
             }
 
             console.log(`[AUTH] HMAC Verified successfully for Client: ${trimmedClientId}`);
