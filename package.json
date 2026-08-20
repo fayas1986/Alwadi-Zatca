@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "start": "npx tsx server/src/index.ts",
     "dev": "vite",
     "dev:server": "tsx watch server/src/index.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\"",
