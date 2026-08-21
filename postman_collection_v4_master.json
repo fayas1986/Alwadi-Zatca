@@ -313,7 +313,7 @@
 					"let bodyHash = '';",
 					"if (method !== 'GET' && pm.request.body && pm.request.body.raw) {",
 					"    try {",
-					"        const body = JSON.parse(pm.request.body.raw);",
+					"        const body = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
 					"        bodyHash = CryptoJS.SHA256(stableStringify(body)).toString();",
 					"    } catch(e) { bodyHash = ''; }",
 					"}",
