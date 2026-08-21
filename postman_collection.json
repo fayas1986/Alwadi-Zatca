@@ -498,7 +498,7 @@
           "pm.collectionVariables.set('currentNonce', nonce);",
           "",
           "const method = pm.request.method.toUpperCase();",
-          "const path = pm.request.url.getPathWithQuery();",
+          "const path = pm.variables.replaceIn(pm.request.url.getPathWithQuery());",
           "const secretRaw = pm.environment.get('apiKey') || pm.collectionVariables.get('clientSecret') || pm.variables.get('apiKey') || \"\";",
           "const secret = secretRaw.trim();",
           "",
