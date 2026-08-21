@@ -323,6 +323,10 @@
       "listen": "prerequest",
       "script": {
         "exec": [
+          "if (pm.request.body && pm.request.body.raw && pm.request.body.raw.indexOf('webhookGuid') !== -1) {",
+          "    pm.collectionVariables.set('webhookGuid', CryptoJS.lib.WordArray.random(16).toString());",
+          "}",
+          "",
           "const timestamp = new Date().toISOString();",
           "const nonce = CryptoJS.lib.WordArray.random(16).toString();",
           "pm.collectionVariables.set('currentTimestamp', timestamp);",

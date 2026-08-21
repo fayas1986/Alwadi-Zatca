@@ -1,279 +1,535 @@
 {
-	"info": {
-		"_postman_id": "zatca-fatoora-v2-enterprise-perfect",
-		"name": "ZATCA Fatoora V2 - Enterprise Perfect (SaaS Scale)",
-		"description": "The absolute final Enterprise API for ZATCA. Includes Burst 20/s, Sustained 1000/hr, and Webhook-driven Async model with mandatory Status fallbacks.\n\n### Webhook Security\nAll outgoing webhooks include an `x-webhook-signature` header (HMAC-SHA256). \n**Security Requirement:** You MUST verify this signature using the `webhookSecret` provided during registration to prevent fake events.",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"item": [
-		{
-			"name": "1. Integration Setup",
-			"item": [
-				{
-					"name": "Register Webhook",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"url\": \"https://webhook.site/{{$guid}}\",\n    \"events\": [\"INVOICE_ACCEPTED\", \"INVOICE_CLEARED\", \"INVOICE_REJECTED\"]\n}",
-							"options": { "raw": { "language": "json" } }
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/webhooks",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "webhooks"]
-						},
-						"description": "Register your system's webhook URL. \n\n**Note:** Store the `webhookSecret` returned in the response for production signature verification."
-					}
-				}
-			]
-		},
-		{
-			"name": "2. Submission (Async)",
-			"item": [
-				{
-					"name": "Submit Standard Invoice (B2B)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"invoiceNumber\": \"INV-B-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-b-{{$guid}}\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:44:09+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 1000.00,\n  \"taxExclusiveAmount\": 1000.00,\n  \"taxInclusiveAmount\": 1150.00,\n  \"totalAmount\": 1150.00,\n  \"payableAmount\": 1150.00,\n  \"vatAmount\": 150.00,\n  \"paymentMeansCode\": \"30\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"311111111111113\",\n    \"city\": \"Jeddah\",\n    \"streetName\": \"Prince Sultan Road\",\n    \"buildingNumber\": \"4321\",\n    \"postalZone\": \"54321\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 10,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 1000.00,\n      \"vatAmount\": 150.00,\n      \"totalWithVat\": 1150.00\n    }\n  ]\n}",
-							"options": { "raw": { "language": "json" } }
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "invoices", "submit"]
-						},
-						"description": "Submit a full ZATCA-compliant B2B invoice payload. \nReturns a 202 Accepted status with a `jobId` for tracking."
-					}
-				},
-				{
-					"name": "Submit Simplified Invoice (B2C)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"invoiceNumber\": \"INV-C-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-c-{{$guid}}\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T14:30:00+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"paymentMeansCode\": \"48\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"عميل نقدي\",\n    \"city\": \"Riyadh\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Retail Item\",\n      \"quantity\": 1,\n      \"unitPrice\": 110.00,\n      \"discount\": 10.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
-							"options": { "raw": { "language": "json" } }
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "invoices", "submit"]
-						},
-						"description": "Submit a full ZATCA-compliant B2C simplified invoice payload."
-					}
-				},
-				{
-					"name": "Submit Credit Note",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"invoiceNumber\": \"CN-2026-001\",\n  \"idempotencyKey\": \"req-cn-{{$guid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Credit Note\",\n  \"instructionNote\": \"Return of damaged goods\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
-							"options": { "raw": { "language": "json" } }
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "invoices", "submit"]
-						}
-					}
-				},
-				{
-					"name": "Submit Debit Note",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"invoiceNumber\": \"DN-2026-001\",\n  \"idempotencyKey\": \"req-dn-{{$guid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Debit Note\",\n  \"instructionNote\": \"Additional service charge\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"totalAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Expedited Shipping Fee\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
-							"options": { "raw": { "language": "json" } }
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "invoices", "submit"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "3. Status (Mandatory Fallback)",
-			"item": [
-				{
-					"name": "Check Job Status (Fallback)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/status/{{lastJobId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "status", "{{lastJobId}}"]
-						},
-						"description": "**Mandatory Fallback:** Use this endpoint to poll for status if webhooks are blocked by firewalls or network issues."
-					}
-				}
-			]
-		},
-		{
-			"name": "4. Advanced Observability (DLQ/Logs)",
-			"item": [
-				{
-					"name": "Get Job Failures (DLQ)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/status/{{lastJobId}}/failures",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "status", "{{lastJobId}}", "failures"]
-						},
-						"description": "Retrieve detailed ZATCA rejection logs for failed jobs."
-					}
-				},
-				{
-					"name": "Get Job Audit Logs",
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/status/{{lastJobId}}/logs",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "status", "{{lastJobId}}", "logs"]
-						},
-						"description": "View the chronological audit trail for the entire job lifecycle."
-					}
-				}
-			]
-		},
-		{
-			"name": "5. Simple API (Low Complexity)",
-			"description": "Simplified endpoints that use only a standard `x-api-key`. Recommended for ERPs that cannot easily implement HMAC signatures.",
-			"item": [
-				{
-					"name": "Simple Submit",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "x-api-key", "value": "{{clientSecret}}", "type": "text" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"invoiceNumber\": \"SIMP-{{$randomInt}}\",\n  \"documentType\": \"Invoice\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"items\": [\n    { \"name\": \"Standard Item\", \"quantity\": 1, \"unitPrice\": 100, \"vatRate\": 0.15 }\n  ]\n}",
-							"options": { "raw": { "language": "json" } }
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/submit",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "submit"]
-						}
-					}
-				},
-				{
-					"name": "Simple Status",
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "x-api-key", "value": "{{clientSecret}}", "type": "text" }
-						],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/erp/status/{{lastJobId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "status", "{{lastJobId}}"]
-						}
-					}
-				}
-			]
-		}
-	],
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"exec": [
-					"const timestamp = new Date().toISOString();",
-					"const nonce = CryptoJS.lib.WordArray.random(16).toString();",
-					"pm.collectionVariables.set('currentTimestamp', timestamp);",
-					"pm.collectionVariables.set('currentNonce', nonce);",
-					"",
-					"const method = pm.request.method.toUpperCase();",
-					"const path = pm.request.url.getPathWithQuery();",
-					"const secret = pm.collectionVariables.get('clientSecret');",
-					"",
-					"function stableStringify(obj) {",
-					"    if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);",
-					"    if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';",
-					"    const keys = Object.keys(obj).sort();",
-					"    return '{' + keys.map(k => '\"' + k + '\":' + stableStringify(obj[k])).join(',') + '}';",
-					"}",
-					"",
-					"let bodyHash = '';",
-					"if (method !== 'GET' && pm.request.body.raw) {",
-					"    try {",
-					"        const body = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
-					"        bodyHash = CryptoJS.SHA256(stableStringify(body)).toString();",
-					"    } catch(e) { bodyHash = ''; }",
-					"}",
-					"",
-					"const dataToSign = timestamp + nonce + method + path + bodyHash;",
-					"const signature = CryptoJS.HmacSHA256(dataToSign, secret).toString();",
-					"pm.collectionVariables.set('calculatedSignature', signature);"
-				],
-				"type": "text/javascript"
-			}
-		}
-	],
-	"variable": [
-		{ "key": "baseUrl", "value": "http://localhost:3001" },
-		{ "key": "clientId", "value": "YOUR_CLIENT_ID" },
-		{ "key": "clientSecret", "value": "YOUR_SECRET" },
-		{ "key": "lastJobId", "value": "" }
-	]
+  "info": {
+    "_postman_id": "zatca-fatoora-v2-enterprise-perfect",
+    "name": "ZATCA Fatoora V2 - Enterprise Perfect (SaaS Scale)",
+    "description": "The absolute final Enterprise API for ZATCA. Includes Burst 20/s, Sustained 1000/hr, and Webhook-driven Async model with mandatory Status fallbacks.\n\n### Webhook Security\nAll outgoing webhooks include an `x-webhook-signature` header (HMAC-SHA256). \n**Security Requirement:** You MUST verify this signature using the `webhookSecret` provided during registration to prevent fake events.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Integration Setup",
+      "item": [
+        {
+          "name": "Register Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"url\": \"https://webhook.site/{{$guid}}\",\n    \"events\": [\"INVOICE_ACCEPTED\", \"INVOICE_CLEARED\", \"INVOICE_REJECTED\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/erp/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "webhooks"
+              ]
+            },
+            "description": "Register your system's webhook URL. \n\n**Note:** Store the `webhookSecret` returned in the response for production signature verification."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Submission (Async)",
+      "item": [
+        {
+          "name": "Submit Standard Invoice (B2B)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"INV-B-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-b-{{$guid}}\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:44:09+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 1000.00,\n  \"taxExclusiveAmount\": 1000.00,\n  \"taxInclusiveAmount\": 1150.00,\n  \"totalAmount\": 1150.00,\n  \"payableAmount\": 1150.00,\n  \"vatAmount\": 150.00,\n  \"paymentMeansCode\": \"30\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"311111111111113\",\n    \"city\": \"Jeddah\",\n    \"streetName\": \"Prince Sultan Road\",\n    \"buildingNumber\": \"4321\",\n    \"postalZone\": \"54321\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 10,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 1000.00,\n      \"vatAmount\": 150.00,\n      \"totalWithVat\": 1150.00\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "invoices",
+                "submit"
+              ]
+            },
+            "description": "Submit a full ZATCA-compliant B2B invoice payload. \nReturns a 202 Accepted status with a `jobId` for tracking."
+          }
+        },
+        {
+          "name": "Submit Simplified Invoice (B2C)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"INV-C-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-c-{{$guid}}\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T14:30:00+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"paymentMeansCode\": \"48\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"عميل نقدي\",\n    \"city\": \"Riyadh\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Retail Item\",\n      \"quantity\": 1,\n      \"unitPrice\": 110.00,\n      \"discount\": 10.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "invoices",
+                "submit"
+              ]
+            },
+            "description": "Submit a full ZATCA-compliant B2C simplified invoice payload."
+          }
+        },
+        {
+          "name": "Submit Credit Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"CN-2026-001\",\n  \"idempotencyKey\": \"req-cn-{{$guid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Credit Note\",\n  \"instructionNote\": \"Return of damaged goods\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "invoices",
+                "submit"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Submit Debit Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"DN-2026-001\",\n  \"idempotencyKey\": \"req-dn-{{$guid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Debit Note\",\n  \"instructionNote\": \"Additional service charge\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"totalAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Expedited Shipping Fee\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/erp/invoices/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "invoices",
+                "submit"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Status (Mandatory Fallback)",
+      "item": [
+        {
+          "name": "Check Job Status (Fallback)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/erp/status/{{lastJobId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "status",
+                "{{lastJobId}}"
+              ]
+            },
+            "description": "**Mandatory Fallback:** Use this endpoint to poll for status if webhooks are blocked by firewalls or network issues."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Advanced Observability (DLQ/Logs)",
+      "item": [
+        {
+          "name": "Get Job Failures (DLQ)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/erp/status/{{lastJobId}}/failures",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "status",
+                "{{lastJobId}}",
+                "failures"
+              ]
+            },
+            "description": "Retrieve detailed ZATCA rejection logs for failed jobs."
+          }
+        },
+        {
+          "name": "Get Job Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/erp/status/{{lastJobId}}/logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "status",
+                "{{lastJobId}}",
+                "logs"
+              ]
+            },
+            "description": "View the chronological audit trail for the entire job lifecycle."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Simple API (Low Complexity)",
+      "description": "Simplified endpoints that use only a standard `x-api-key`. Recommended for ERPs that cannot easily implement HMAC signatures.",
+      "item": [
+        {
+          "name": "Simple Submit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{clientSecret}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceNumber\": \"SIMP-{{$randomInt}}\",\n  \"documentType\": \"Invoice\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"items\": [\n    { \"name\": \"Standard Item\", \"quantity\": 1, \"unitPrice\": 100, \"vatRate\": 0.15 }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/erp/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "submit"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Simple Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{clientSecret}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/erp/status/{{lastJobId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "status",
+                "{{lastJobId}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "if (pm.request.body && pm.request.body.raw && pm.request.body.raw.indexOf('webhookGuid') !== -1) {",
+          "    pm.collectionVariables.set('webhookGuid', CryptoJS.lib.WordArray.random(16).toString());",
+          "}",
+          "",
+          "const timestamp = new Date().toISOString();",
+          "const nonce = CryptoJS.lib.WordArray.random(16).toString();",
+          "pm.collectionVariables.set('currentTimestamp', timestamp);",
+          "pm.collectionVariables.set('currentNonce', nonce);",
+          "",
+          "const method = pm.request.method.toUpperCase();",
+          "const path = pm.request.url.getPathWithQuery();",
+          "const secret = pm.collectionVariables.get('clientSecret');",
+          "",
+          "function stableStringify(obj) {",
+          "    if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);",
+          "    if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';",
+          "    const keys = Object.keys(obj).sort();",
+          "    return '{' + keys.map(k => '\"' + k + '\":' + stableStringify(obj[k])).join(',') + '}';",
+          "}",
+          "",
+          "let bodyHash = '';",
+          "if (method !== 'GET' && pm.request.body.raw) {",
+          "    try {",
+          "        const body = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+          "        bodyHash = CryptoJS.SHA256(stableStringify(body)).toString();",
+          "    } catch(e) { bodyHash = ''; }",
+          "}",
+          "",
+          "const dataToSign = timestamp + nonce + method + path + bodyHash;",
+          "const signature = CryptoJS.HmacSHA256(dataToSign, secret).toString();",
+          "pm.collectionVariables.set('calculatedSignature', signature);"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "clientId",
+      "value": "YOUR_CLIENT_ID"
+    },
+    {
+      "key": "clientSecret",
+      "value": "YOUR_SECRET"
+    },
+    {
+      "key": "lastJobId",
+      "value": ""
+    }
+  ]
 }

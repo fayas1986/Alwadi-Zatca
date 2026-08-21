@@ -1,220 +1,395 @@
 {
-	"info": {
-		"_postman_id": "zatca-fatoora-v2-enterprise-final",
-		"name": "ZATCA Fatoora V2 - Full Compliance Suite",
-		"description": "Comprehensive Postman collection for ZATCA Phase 2 Enterprise Integration.\n\n### Document Types Covered:\n1. **Standard B2B Invoice** (TypeCode: 388, Subtype: Standard)\n2. **Simplified B2C Invoice** (TypeCode: 388, Subtype: Simplified)\n3. **Credit Notes** (TypeCode: 381)\n4. **Debit Notes** (TypeCode: 383)\n\n### Authentication\nAll requests use HMAC-SHA256 signature generated in the `Pre-request Script`.\nRequired Headers: `x-client-id`, `x-timestamp`, `x-nonce`, `x-signature`.",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"item": [
-		{
-			"name": "1. Setup & Registration",
-			"item": [
-				{
-					"name": "Register Webhook",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"url\": \"https://webhook.site/{{$guid}}\",\n    \"events\": [\"INVOICE_ACCEPTED\", \"INVOICE_CLEARED\", \"INVOICE_REJECTED\"]\n}",
-							"options": { "raw": { "language": "json" } }
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v2/erp/webhooks",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "webhooks"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "2. Invoices (388)",
-			"item": [
-				{
-					"name": "Standard B2B Invoice",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"invoiceNumber\": \"INV-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"388\",\n    \"issueDate\": \"2024-05-09\",\n    \"issueTime\": \"10:00:00\",\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\",\n        \"address\": {\n            \"streetName\": \"Prince Sultan St\",\n            \"buildingNumber\": \"2345\",\n            \"cityName\": \"Riyadh\",\n            \"postalZone\": \"12222\",\n            \"citySubdivisionName\": \"Al-Olaya\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"customer\": {\n        \"name\": \"Enterprise Client LLC\",\n        \"vatNumber\": \"311111111111113\",\n        \"address\": {\n            \"streetName\": \"Main Road\",\n            \"buildingNumber\": \"9999\",\n            \"cityName\": \"Jeddah\",\n            \"postalZone\": \"21442\",\n            \"citySubdivisionName\": \"Al-Hamra\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"taxTotal\": {\n        \"taxAmount\": 15.00,\n        \"taxSubtotals\": [\n            {\n                \"taxableAmount\": 100.00,\n                \"taxAmount\": 15.00,\n                \"taxCategory\": {\n                    \"id\": \"S\",\n                    \"percent\": 15\n                }\n            }\n        ]\n    },\n    \"legalMonetaryTotal\": {\n        \"lineExtensionAmount\": 100.00,\n        \"taxExclusiveAmount\": 100.00,\n        \"taxInclusiveAmount\": 115.00,\n        \"payableAmount\": 115.00\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Professional Services\",\n            \"quantity\": 1,\n            \"unitPrice\": 100.00,\n            \"taxAmount\": 15.00,\n            \"lineExtensionAmount\": 100.00,\n            \"taxCategory\": {\n                \"id\": \"S\",\n                \"percent\": 15\n            }\n        }\n    ]\n}",
-							"options": { "raw": { "language": "json" } }
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v2/erp/invoices",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "invoices"]
-						}
-					}
-				},
-				{
-					"name": "Simplified B2C Invoice",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"invoiceNumber\": \"INV-B2C-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Simplified\",\n    \"invoiceTypeCode\": \"388\",\n    \"issueDate\": \"2024-05-09\",\n    \"issueTime\": \"10:05:00\",\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\",\n        \"address\": {\n            \"streetName\": \"Prince Sultan St\",\n            \"buildingNumber\": \"2345\",\n            \"cityName\": \"Riyadh\",\n            \"postalZone\": \"12222\",\n            \"citySubdivisionName\": \"Al-Olaya\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"taxTotal\": {\n        \"taxAmount\": 1.50,\n        \"taxSubtotals\": [\n            {\n                \"taxableAmount\": 10.00,\n                \"taxAmount\": 1.50,\n                \"taxCategory\": {\n                    \"id\": \"S\",\n                    \"percent\": 15\n                }\n            }\n        ]\n    },\n    \"legalMonetaryTotal\": {\n        \"lineExtensionAmount\": 10.00,\n        \"taxExclusiveAmount\": 10.00,\n        \"taxInclusiveAmount\": 11.50,\n        \"payableAmount\": 11.50\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Coffee Cup\",\n            \"quantity\": 1,\n            \"unitPrice\": 10.00,\n            \"taxAmount\": 1.50,\n            \"lineExtensionAmount\": 10.00,\n            \"taxCategory\": {\n                \"id\": \"S\",\n                \"percent\": 15\n            }\n        }\n    ]\n}",
-							"options": { "raw": { "language": "json" } }
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v2/erp/invoices",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "invoices"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "3. Credit Notes (381)",
-			"item": [
-				{
-					"name": "Standard B2B Credit Note",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"invoiceNumber\": \"CN-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"381\",\n    \"issueDate\": \"2024-05-09\",\n    \"issueTime\": \"10:10:00\",\n    \"billingReference\": {\n        \"invoiceNumber\": \"INV-ORIGINAL-123\"\n    },\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\",\n        \"address\": {\n            \"streetName\": \"Prince Sultan St\",\n            \"buildingNumber\": \"2345\",\n            \"cityName\": \"Riyadh\",\n            \"postalZone\": \"12222\",\n            \"citySubdivisionName\": \"Al-Olaya\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"customer\": {\n        \"name\": \"Enterprise Client LLC\",\n        \"vatNumber\": \"311111111111113\",\n        \"address\": {\n            \"streetName\": \"Main Road\",\n            \"buildingNumber\": \"9999\",\n            \"cityName\": \"Jeddah\",\n            \"postalZone\": \"21442\",\n            \"citySubdivisionName\": \"Al-Hamra\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"taxTotal\": {\n        \"taxAmount\": 15.00,\n        \"taxSubtotals\": [\n            {\n                \"taxableAmount\": 100.00,\n                \"taxAmount\": 15.00,\n                \"taxCategory\": {\n                    \"id\": \"S\",\n                    \"percent\": 15\n                }\n            }\n        ]\n    },\n    \"legalMonetaryTotal\": {\n        \"lineExtensionAmount\": 100.00,\n        \"taxExclusiveAmount\": 100.00,\n        \"taxInclusiveAmount\": 115.00,\n        \"payableAmount\": 115.00\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Returned Service\",\n            \"quantity\": 1,\n            \"unitPrice\": 100.00,\n            \"taxAmount\": 15.00,\n            \"lineExtensionAmount\": 100.00,\n            \"taxCategory\": {\n                \"id\": \"S\",\n                \"percent\": 15\n            }\n        }\n    ]\n}",
-							"options": { "raw": { "language": "json" } }
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v2/erp/credit-notes",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "credit-notes"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "4. Debit Notes (383)",
-			"item": [
-				{
-					"name": "Standard B2B Debit Note",
-					"request": {
-						"method": "POST",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"invoiceNumber\": \"DN-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"383\",\n    \"issueDate\": \"2024-05-09\",\n    \"issueTime\": \"10:15:00\",\n    \"billingReference\": {\n        \"invoiceNumber\": \"INV-ORIGINAL-456\"\n    },\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\",\n        \"address\": {\n            \"streetName\": \"Prince Sultan St\",\n            \"buildingNumber\": \"2345\",\n            \"cityName\": \"Riyadh\",\n            \"postalZone\": \"12222\",\n            \"citySubdivisionName\": \"Al-Olaya\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"customer\": {\n        \"name\": \"Enterprise Client LLC\",\n        \"vatNumber\": \"311111111111113\",\n        \"address\": {\n            \"streetName\": \"Main Road\",\n            \"buildingNumber\": \"9999\",\n            \"cityName\": \"Jeddah\",\n            \"postalZone\": \"21442\",\n            \"citySubdivisionName\": \"Al-Hamra\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"taxTotal\": {\n        \"taxAmount\": 3.00,\n        \"taxSubtotals\": [\n            {\n                \"taxableAmount\": 20.00,\n                \"taxAmount\": 3.00,\n                \"taxCategory\": {\n                    \"id\": \"S\",\n                    \"percent\": 15\n                }\n            }\n        ]\n    },\n    \"legalMonetaryTotal\": {\n        \"lineExtensionAmount\": 20.00,\n        \"taxExclusiveAmount\": 20.00,\n        \"taxInclusiveAmount\": 23.00,\n        \"payableAmount\": 23.00\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Additional Charges\",\n            \"quantity\": 1,\n            \"unitPrice\": 20.00,\n            \"taxAmount\": 3.00,\n            \"lineExtensionAmount\": 20.00,\n            \"taxCategory\": {\n                \"id\": \"S\",\n                \"percent\": 15\n            }\n        }\n    ]\n}",
-							"options": { "raw": { "language": "json" } }
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v2/erp/debit-notes",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "debit-notes"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "5. Status & Observability",
-			"item": [
-				{
-					"name": "Check Job Status",
-					"request": {
-						"method": "GET",
-						"header": [
-							{ "key": "x-client-id", "value": "{{clientId}}", "type": "text" },
-							{ "key": "x-timestamp", "value": "{{currentTimestamp}}", "type": "text" },
-							{ "key": "x-nonce", "value": "{{currentNonce}}", "type": "text" },
-							{ "key": "x-signature", "value": "{{calculatedSignature}}", "type": "text" }
-						],
-						"url": {
-							"raw": "{{baseUrl}}/api/v2/erp/status/{{lastJobId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "erp", "status", "{{lastJobId}}"]
-						}
-					}
-				}
-			]
-		}
-	],
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"exec": [
-					"const timestamp = new Date().toISOString();",
-					"const nonce = CryptoJS.lib.WordArray.random(16).toString();",
-					"pm.collectionVariables.set('currentTimestamp', timestamp);",
-					"pm.collectionVariables.set('currentNonce', nonce);",
-					"",
-					"const method = pm.request.method.toUpperCase();",
-					"const path = pm.request.url.getPathWithQuery();",
-					"const secretRaw = pm.environment.get('apiKey') || pm.collectionVariables.get('clientSecret') || pm.variables.get('apiKey') || \"\";",
-					"const secret = secretRaw.trim();",
-					"",
-					"function stableStringify(obj) {",
-					"    if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);",
-					"    if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';",
-					"    const keys = Object.keys(obj).sort();",
-					"    return '{' + keys.map(k => '\"' + k + '\":' + stableStringify(obj[k])).join(',') + '}';",
-					"}",
-					"",
-					"let bodyHash = '';",
-					"if (method !== 'GET' && pm.request.body.raw) {",
-					"    try {",
-					"        const body = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
-					"        bodyHash = CryptoJS.SHA256(stableStringify(body)).toString();",
-					"    } catch(e) { bodyHash = ''; }",
-					"}",
-					"",
-					"const dataToSign = timestamp + nonce + method + path + bodyHash;",
-					"const signature = CryptoJS.HmacSHA256(dataToSign, secret).toString();",
-					"pm.collectionVariables.set('calculatedSignature', signature);"
-				],
-				"type": "text/javascript"
-			}
-		},
-		{
-			"listen": "test",
-			"script": {
-				"exec": [
-					"if (pm.response.code === 202) {",
-					"    const jsonData = pm.response.json();",
-					"    if (jsonData.data && jsonData.data.jobId) {",
-					"        pm.collectionVariables.set('lastJobId', jsonData.data.jobId);",
-					"    }",
-					"}"
-				],
-				"type": "text/javascript"
-			}
-		}
-	],
-	"variable": [
-		{ "key": "baseUrl", "value": "http://localhost:3001" },
-		{ "key": "clientId", "value": "YOUR_CLIENT_ID" },
-		{ "key": "clientSecret", "value": "YOUR_SECRET" },
-		{ "key": "lastJobId", "value": "" }
-	]
+  "info": {
+    "_postman_id": "zatca-fatoora-v2-enterprise-final",
+    "name": "ZATCA Fatoora V2 - Full Compliance Suite",
+    "description": "Comprehensive Postman collection for ZATCA Phase 2 Enterprise Integration.\n\n### Document Types Covered:\n1. **Standard B2B Invoice** (TypeCode: 388, Subtype: Standard)\n2. **Simplified B2C Invoice** (TypeCode: 388, Subtype: Simplified)\n3. **Credit Notes** (TypeCode: 381)\n4. **Debit Notes** (TypeCode: 383)\n\n### Authentication\nAll requests use HMAC-SHA256 signature generated in the `Pre-request Script`.\nRequired Headers: `x-client-id`, `x-timestamp`, `x-nonce`, `x-signature`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Setup & Registration",
+      "item": [
+        {
+          "name": "Register Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"url\": \"https://webhook.site/{{$guid}}\",\n    \"events\": [\"INVOICE_ACCEPTED\", \"INVOICE_CLEARED\", \"INVOICE_REJECTED\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/erp/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "webhooks"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Invoices (388)",
+      "item": [
+        {
+          "name": "Standard B2B Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"invoiceNumber\": \"INV-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"388\",\n    \"issueDate\": \"2024-05-09\",\n    \"issueTime\": \"10:00:00\",\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\",\n        \"address\": {\n            \"streetName\": \"Prince Sultan St\",\n            \"buildingNumber\": \"2345\",\n            \"cityName\": \"Riyadh\",\n            \"postalZone\": \"12222\",\n            \"citySubdivisionName\": \"Al-Olaya\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"customer\": {\n        \"name\": \"Enterprise Client LLC\",\n        \"vatNumber\": \"311111111111113\",\n        \"address\": {\n            \"streetName\": \"Main Road\",\n            \"buildingNumber\": \"9999\",\n            \"cityName\": \"Jeddah\",\n            \"postalZone\": \"21442\",\n            \"citySubdivisionName\": \"Al-Hamra\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"taxTotal\": {\n        \"taxAmount\": 15.00,\n        \"taxSubtotals\": [\n            {\n                \"taxableAmount\": 100.00,\n                \"taxAmount\": 15.00,\n                \"taxCategory\": {\n                    \"id\": \"S\",\n                    \"percent\": 15\n                }\n            }\n        ]\n    },\n    \"legalMonetaryTotal\": {\n        \"lineExtensionAmount\": 100.00,\n        \"taxExclusiveAmount\": 100.00,\n        \"taxInclusiveAmount\": 115.00,\n        \"payableAmount\": 115.00\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Professional Services\",\n            \"quantity\": 1,\n            \"unitPrice\": 100.00,\n            \"taxAmount\": 15.00,\n            \"lineExtensionAmount\": 100.00,\n            \"taxCategory\": {\n                \"id\": \"S\",\n                \"percent\": 15\n            }\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/erp/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "invoices"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Simplified B2C Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"invoiceNumber\": \"INV-B2C-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Simplified\",\n    \"invoiceTypeCode\": \"388\",\n    \"issueDate\": \"2024-05-09\",\n    \"issueTime\": \"10:05:00\",\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\",\n        \"address\": {\n            \"streetName\": \"Prince Sultan St\",\n            \"buildingNumber\": \"2345\",\n            \"cityName\": \"Riyadh\",\n            \"postalZone\": \"12222\",\n            \"citySubdivisionName\": \"Al-Olaya\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"taxTotal\": {\n        \"taxAmount\": 1.50,\n        \"taxSubtotals\": [\n            {\n                \"taxableAmount\": 10.00,\n                \"taxAmount\": 1.50,\n                \"taxCategory\": {\n                    \"id\": \"S\",\n                    \"percent\": 15\n                }\n            }\n        ]\n    },\n    \"legalMonetaryTotal\": {\n        \"lineExtensionAmount\": 10.00,\n        \"taxExclusiveAmount\": 10.00,\n        \"taxInclusiveAmount\": 11.50,\n        \"payableAmount\": 11.50\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Coffee Cup\",\n            \"quantity\": 1,\n            \"unitPrice\": 10.00,\n            \"taxAmount\": 1.50,\n            \"lineExtensionAmount\": 10.00,\n            \"taxCategory\": {\n                \"id\": \"S\",\n                \"percent\": 15\n            }\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/erp/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "invoices"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Credit Notes (381)",
+      "item": [
+        {
+          "name": "Standard B2B Credit Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"invoiceNumber\": \"CN-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"381\",\n    \"issueDate\": \"2024-05-09\",\n    \"issueTime\": \"10:10:00\",\n    \"billingReference\": {\n        \"invoiceNumber\": \"INV-ORIGINAL-123\"\n    },\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\",\n        \"address\": {\n            \"streetName\": \"Prince Sultan St\",\n            \"buildingNumber\": \"2345\",\n            \"cityName\": \"Riyadh\",\n            \"postalZone\": \"12222\",\n            \"citySubdivisionName\": \"Al-Olaya\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"customer\": {\n        \"name\": \"Enterprise Client LLC\",\n        \"vatNumber\": \"311111111111113\",\n        \"address\": {\n            \"streetName\": \"Main Road\",\n            \"buildingNumber\": \"9999\",\n            \"cityName\": \"Jeddah\",\n            \"postalZone\": \"21442\",\n            \"citySubdivisionName\": \"Al-Hamra\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"taxTotal\": {\n        \"taxAmount\": 15.00,\n        \"taxSubtotals\": [\n            {\n                \"taxableAmount\": 100.00,\n                \"taxAmount\": 15.00,\n                \"taxCategory\": {\n                    \"id\": \"S\",\n                    \"percent\": 15\n                }\n            }\n        ]\n    },\n    \"legalMonetaryTotal\": {\n        \"lineExtensionAmount\": 100.00,\n        \"taxExclusiveAmount\": 100.00,\n        \"taxInclusiveAmount\": 115.00,\n        \"payableAmount\": 115.00\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Returned Service\",\n            \"quantity\": 1,\n            \"unitPrice\": 100.00,\n            \"taxAmount\": 15.00,\n            \"lineExtensionAmount\": 100.00,\n            \"taxCategory\": {\n                \"id\": \"S\",\n                \"percent\": 15\n            }\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/erp/credit-notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "credit-notes"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Debit Notes (383)",
+      "item": [
+        {
+          "name": "Standard B2B Debit Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"invoiceNumber\": \"DN-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceSubtype\": \"Standard\",\n    \"invoiceTypeCode\": \"383\",\n    \"issueDate\": \"2024-05-09\",\n    \"issueTime\": \"10:15:00\",\n    \"billingReference\": {\n        \"invoiceNumber\": \"INV-ORIGINAL-456\"\n    },\n    \"supplier\": {\n        \"name\": \"EasyLease Solutions\",\n        \"vatNumber\": \"300000000000003\",\n        \"address\": {\n            \"streetName\": \"Prince Sultan St\",\n            \"buildingNumber\": \"2345\",\n            \"cityName\": \"Riyadh\",\n            \"postalZone\": \"12222\",\n            \"citySubdivisionName\": \"Al-Olaya\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"customer\": {\n        \"name\": \"Enterprise Client LLC\",\n        \"vatNumber\": \"311111111111113\",\n        \"address\": {\n            \"streetName\": \"Main Road\",\n            \"buildingNumber\": \"9999\",\n            \"cityName\": \"Jeddah\",\n            \"postalZone\": \"21442\",\n            \"citySubdivisionName\": \"Al-Hamra\",\n            \"countryCode\": \"SA\"\n        }\n    },\n    \"taxTotal\": {\n        \"taxAmount\": 3.00,\n        \"taxSubtotals\": [\n            {\n                \"taxableAmount\": 20.00,\n                \"taxAmount\": 3.00,\n                \"taxCategory\": {\n                    \"id\": \"S\",\n                    \"percent\": 15\n                }\n            }\n        ]\n    },\n    \"legalMonetaryTotal\": {\n        \"lineExtensionAmount\": 20.00,\n        \"taxExclusiveAmount\": 20.00,\n        \"taxInclusiveAmount\": 23.00,\n        \"payableAmount\": 23.00\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Additional Charges\",\n            \"quantity\": 1,\n            \"unitPrice\": 20.00,\n            \"taxAmount\": 3.00,\n            \"lineExtensionAmount\": 20.00,\n            \"taxCategory\": {\n                \"id\": \"S\",\n                \"percent\": 15\n            }\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/erp/debit-notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "debit-notes"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Status & Observability",
+      "item": [
+        {
+          "name": "Check Job Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-client-id",
+                "value": "{{clientId}}",
+                "type": "text"
+              },
+              {
+                "key": "x-timestamp",
+                "value": "{{currentTimestamp}}",
+                "type": "text"
+              },
+              {
+                "key": "x-nonce",
+                "value": "{{currentNonce}}",
+                "type": "text"
+              },
+              {
+                "key": "x-signature",
+                "value": "{{calculatedSignature}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/erp/status/{{lastJobId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "erp",
+                "status",
+                "{{lastJobId}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "if (pm.request.body && pm.request.body.raw && pm.request.body.raw.indexOf('webhookGuid') !== -1) {",
+          "    pm.collectionVariables.set('webhookGuid', CryptoJS.lib.WordArray.random(16).toString());",
+          "}",
+          "",
+          "const timestamp = new Date().toISOString();",
+          "const nonce = CryptoJS.lib.WordArray.random(16).toString();",
+          "pm.collectionVariables.set('currentTimestamp', timestamp);",
+          "pm.collectionVariables.set('currentNonce', nonce);",
+          "",
+          "const method = pm.request.method.toUpperCase();",
+          "const path = pm.request.url.getPathWithQuery();",
+          "const secretRaw = pm.environment.get('apiKey') || pm.collectionVariables.get('clientSecret') || pm.variables.get('apiKey') || \"\";",
+          "const secret = secretRaw.trim();",
+          "",
+          "function stableStringify(obj) {",
+          "    if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);",
+          "    if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';",
+          "    const keys = Object.keys(obj).sort();",
+          "    return '{' + keys.map(k => '\"' + k + '\":' + stableStringify(obj[k])).join(',') + '}';",
+          "}",
+          "",
+          "let bodyHash = '';",
+          "if (method !== 'GET' && pm.request.body.raw) {",
+          "    try {",
+          "        const body = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+          "        bodyHash = CryptoJS.SHA256(stableStringify(body)).toString();",
+          "    } catch(e) { bodyHash = ''; }",
+          "}",
+          "",
+          "const dataToSign = timestamp + nonce + method + path + bodyHash;",
+          "const signature = CryptoJS.HmacSHA256(dataToSign, secret).toString();",
+          "pm.collectionVariables.set('calculatedSignature', signature);"
+        ],
+        "type": "text/javascript"
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "exec": [
+          "if (pm.response.code === 202) {",
+          "    const jsonData = pm.response.json();",
+          "    if (jsonData.data && jsonData.data.jobId) {",
+          "        pm.collectionVariables.set('lastJobId', jsonData.data.jobId);",
+          "    }",
+          "}"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "clientId",
+      "value": "YOUR_CLIENT_ID"
+    },
+    {
+      "key": "clientSecret",
+      "value": "YOUR_SECRET"
+    },
+    {
+      "key": "lastJobId",
+      "value": ""
+    }
+  ]
 }
