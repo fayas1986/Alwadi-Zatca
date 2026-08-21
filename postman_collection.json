@@ -37,7 +37,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"url\": \"https://webhook.site/{{$guid}}\",\n    \"events\": [\"INVOICE_ACCEPTED\", \"INVOICE_CLEARED\", \"INVOICE_REJECTED\"]\n}",
+              "raw": "{\n    \"url\": \"https://webhook.site/{{webhookGuid}}\",\n    \"events\": [\"INVOICE_ACCEPTED\", \"INVOICE_CLEARED\", \"INVOICE_REJECTED\"]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -92,7 +92,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"invoiceNumber\": \"INV-B-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-b-{{$guid}}\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:44:09+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 1000.00,\n  \"taxExclusiveAmount\": 1000.00,\n  \"taxInclusiveAmount\": 1150.00,\n  \"totalAmount\": 1150.00,\n  \"payableAmount\": 1150.00,\n  \"vatAmount\": 150.00,\n  \"paymentMeansCode\": \"30\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"311111111111113\",\n    \"city\": \"Jeddah\",\n    \"streetName\": \"Prince Sultan Road\",\n    \"buildingNumber\": \"4321\",\n    \"postalZone\": \"54321\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 10,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 1000.00,\n      \"vatAmount\": 150.00,\n      \"totalWithVat\": 1150.00\n    }\n  ]\n}",
+              "raw": "{\n  \"invoiceNumber\": \"INV-B-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-b-{{webhookGuid}}\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:44:09+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 1000.00,\n  \"taxExclusiveAmount\": 1000.00,\n  \"taxInclusiveAmount\": 1150.00,\n  \"totalAmount\": 1150.00,\n  \"payableAmount\": 1150.00,\n  \"vatAmount\": 150.00,\n  \"paymentMeansCode\": \"30\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"311111111111113\",\n    \"city\": \"Jeddah\",\n    \"streetName\": \"Prince Sultan Road\",\n    \"buildingNumber\": \"4321\",\n    \"postalZone\": \"54321\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 10,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 1000.00,\n      \"vatAmount\": 150.00,\n      \"totalWithVat\": 1150.00\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -143,7 +143,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"invoiceNumber\": \"INV-C-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-c-{{$guid}}\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T14:30:00+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"paymentMeansCode\": \"48\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"عميل نقدي\",\n    \"city\": \"Riyadh\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Retail Item\",\n      \"quantity\": 1,\n      \"unitPrice\": 110.00,\n      \"discount\": 10.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
+              "raw": "{\n  \"invoiceNumber\": \"INV-C-{{$randomInt}}\",\n  \"idempotencyKey\": \"req-c-{{webhookGuid}}\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T14:30:00+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"paymentMeansCode\": \"48\",\n  \"supplier\": {\n    \"name\": \"Tech Solutions Ltd\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"customer\": {\n    \"name\": \"عميل نقدي\",\n    \"city\": \"Riyadh\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Retail Item\",\n      \"quantity\": 1,\n      \"unitPrice\": 110.00,\n      \"discount\": 10.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -194,7 +194,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"invoiceNumber\": \"CN-2026-001\",\n  \"idempotencyKey\": \"req-cn-{{$guid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Credit Note\",\n  \"instructionNote\": \"Return of damaged goods\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
+              "raw": "{\n  \"invoiceNumber\": \"CN-2026-001\",\n  \"idempotencyKey\": \"req-cn-{{webhookGuid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Credit Note\",\n  \"instructionNote\": \"Return of damaged goods\",\n  \"invoiceSubtype\": \"SIMPLIFIED\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"currency\": \"SAR\",\n  \"lineExtensionAmount\": 100.00,\n  \"taxExclusiveAmount\": 100.00,\n  \"taxInclusiveAmount\": 115.00,\n  \"totalAmount\": 115.00,\n  \"payableAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Consulting Services\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -244,7 +244,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"invoiceNumber\": \"DN-2026-001\",\n  \"idempotencyKey\": \"req-dn-{{$guid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Debit Note\",\n  \"instructionNote\": \"Additional service charge\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"totalAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Expedited Shipping Fee\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
+              "raw": "{\n  \"invoiceNumber\": \"DN-2026-001\",\n  \"idempotencyKey\": \"req-dn-{{webhookGuid}}\",\n  \"billingReference\": \"INV-ORIGINAL-ID\",\n  \"documentType\": \"Debit Note\",\n  \"instructionNote\": \"Additional service charge\",\n  \"invoiceSubtype\": \"STANDARD\",\n  \"issueDate\": \"2026-04-24T13:00:00+03:00\",\n  \"totalAmount\": 115.00,\n  \"vatAmount\": 15.00,\n  \"customer\": {\n    \"name\": \"Testing Enterprise\",\n    \"vatNumber\": \"300000000000003\",\n    \"city\": \"Riyadh\",\n    \"streetName\": \"King Fahd Road\",\n    \"buildingNumber\": \"1234\",\n    \"postalZone\": \"12345\",\n    \"countryCode\": \"SA\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Expedited Shipping Fee\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatRate\": 0.15,\n      \"lineTotal\": 100.00,\n      \"vatAmount\": 15.00,\n      \"totalWithVat\": 115.00\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -489,6 +489,14 @@
           "    }",
           "    if (bodyStr.indexOf('invoiceRandomInt') !== -1) {",
           "        pm.collectionVariables.set('invoiceRandomInt', Math.floor(Math.random() * 1000000).toString());",
+          "    }",
+          "}",
+          "",
+          "// Generate single-evaluation static variables to avoid double-evaluation mismatches",
+          "if (pm.request.body && pm.request.body.raw) {",
+          "    const bodyStr = pm.request.body.raw;",
+          "    }",
+          "    }",
           "    }",
           "}",
           "",
