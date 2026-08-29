@@ -10,7 +10,10 @@ export class ProductionClient extends BaseZatcaClient implements IZatcaClient {
     protected baseUrl = 'https://gw-fatoora.zatca.gov.sa/e-invoicing/core';
 
     async onboard(data: OnboardRequest): Promise<OnboardResponse> {
-        return this.post<OnboardResponse>('/compliance', data);
+        const base64Csr = data.csr.trim().startsWith('-----')
+            ? Buffer.from(data.csr).toString('base64')
+            : data.csr;
+        return this.post<OnboardResponse>('/compliance', { csr: base64Csr }, { OTP: data.otp });
     }
 
     async checkCompliance(data: ComplianceCheckRequest): Promise<ComplianceCheckResponse> {
@@ -23,7 +26,7 @@ export class ProductionClient extends BaseZatcaClient implements IZatcaClient {
     }
 
     async requestProductionCSID(data: ProductionCSIDRequest): Promise<ProductionCSIDResponse> {
-        const auth = this.getAuthHeader(data.complianceCsid, data.complianceSecret);
+        const auth = this.getAuthHeader(data.complianceCSID, data.complianceSecret);
         return this.post<ProductionCSIDResponse>('/production/csids', {
             compliance_request_id: data.requestId
         }, { Authorization: auth });

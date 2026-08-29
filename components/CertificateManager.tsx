@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { complianceChecks, defaultSupplier } from '../services/mockData';
 import { Plus, RefreshCw, X, AlertTriangle, Loader2, CheckCircle, ArrowRight, ShieldCheck, Activity, KeyRound, Info, FileText, ChevronDown, List, MoreHorizontal, Heart, MessageSquare, Server, Copy, Calendar, Download, Trash2, Eye, Filter, Tag } from 'lucide-react';
 import { Certificate, Branch, Organization } from '../types';
-import { onboardSolution, getCertificates } from '../services/api';
+import { onboardSolution, getCertificates, renewCertificate } from '../services/api';
 
 interface CertificateManagerProps {
     selectedBranch?: Branch | null;
@@ -48,6 +48,19 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({ selected
     const [onboardingStatus, setOnboardingStatus] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [completedChecks, setCompletedChecks] = useState<string[]>([]);
+    
+    // Renewal modal state
+    const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
+    const [renewOtp, setRenewOtp] = useState('');
+    const [renewingCert, setRenewingCert] = useState<Certificate | null>(null);
+    const [isRenewing, setIsRenewing] = useState(false);
+
+    const companyVat = useMemo(() => {
+        if (!selectedBranch?.organizationId) return '';
+        const org = organizations.find(o => o.id === selectedBranch.organizationId);
+        return org?.vatNumber || '';
+    }, [selectedBranch, organizations]);
+
     const [isRunningChecks, setIsRunningChecks] = useState(false);
     const [checkLogs, setCheckLogs] = useState<string[]>([]);
 
@@ -199,29 +212,36 @@ Environment: ${cert.type}
     };
 
     const handleRenewCertificate = (cert: Certificate) => {
-        if (!confirm(`Are you sure you want to renew the certificate for ${cert.commonName}? This will issue a new validity period.`)) return;
+        setRenewingCert(cert);
+        setRenewOtp('');
+        setIsRenewModalOpen(true);
+    };
 
-        // Simulate processing time
-        // Updating state
-        const updatedCerts = certificates.map(c => {
-            if (c.id === cert.id) {
-                const now = new Date();
-                const nextYear = new Date();
-                nextYear.setFullYear(now.getFullYear() + 1);
-
-                return {
-                    ...c,
-                    validFrom: now.toISOString().split('T')[0],
-                    validTo: nextYear.toISOString().split('T')[0],
-                    status: 'Active' as const
-                };
+    const handleRenewSubmit = async () => {
+        if (!renewOtp || renewOtp.length !== 6) {
+            setToast({ message: 'Please enter a valid 6-digit OTP from the Fatoora Portal', type: 'error' });
+            return;
+        }
+        if (!renewingCert) return;
+        setIsRenewing(true);
+        try {
+            await renewCertificate({
+                vat: companyVat || renewingCert.commonName,
+                otp: renewOtp,
+                environment: renewingCert.type === 'Production' ? 'production' : 'simulation'
+            });
+            setToast({ message: `✅ Certificate for ${renewingCert.commonName} renewed successfully!`, type: 'success' });
+            setIsRenewModalOpen(false);
+            // Refresh certificates list from server
+            if (selectedBranch?.organizationId) {
+                const updated = await getCertificates(selectedBranch.organizationId);
+                setCertificates(updated);
             }
-            return c;
-        });
-
-        setCertificates(updatedCerts);
-        // Note: Because selectedCert is now derived from viewingCertId and certificates, 
-        // the drawer will automatically reflect the updated data.
+        } catch (e: any) {
+            setToast({ message: `❌ Renewal failed: ${e.message}`, type: 'error' });
+        } finally {
+            setIsRenewing(false);
+        }
     };
 
     const handleRevokeCertificate = (cert: Certificate) => {
@@ -1141,6 +1161,91 @@ Environment: ${cert.type}
                                     Close & Activate
                                 </button>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- CERTIFICATE RENEWAL MODAL --- */}
+            {isRenewModalOpen && renewingCert && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-slate-200 relative animate-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="px-6 py-6 border-b border-slate-200 bg-white flex justify-between items-center relative">
+                            <div className="h-1.5 w-full bg-amber-500 absolute top-0 left-0"></div>
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900">Renew Certificate</h2>
+                                <p className="text-xs text-slate-500 mt-1">Request a new certificate validity period from ZATCA</p>
+                            </div>
+                            <button onClick={() => setIsRenewModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-6 space-y-4">
+                            <div className="bg-slate-50 p-4 rounded-xl space-y-2 border border-slate-100">
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-slate-500">Common Name:</span>
+                                    <span className="font-semibold text-slate-800">{renewingCert.commonName}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-slate-500">VAT Number:</span>
+                                    <span className="font-semibold text-slate-800">{companyVat || 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-slate-500">Environment:</span>
+                                    <span className={`font-semibold ${renewingCert.type === 'Production' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                        {renewingCert.type}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block text-sm font-semibold text-slate-700">
+                                    ZATCA OTP <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    maxLength={6}
+                                    placeholder="Enter 6-digit OTP"
+                                    value={renewOtp}
+                                    onChange={(e) => setRenewOtp(e.target.value.replace(/\D/g, ''))}
+                                    disabled={isRenewing}
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-center text-lg font-bold tracking-widest text-slate-800 disabled:bg-slate-50"
+                                />
+                                <p className="text-xs text-slate-500 leading-normal">
+                                    Generate this OTP from the ZATCA Fatoora Portal (EGS Units section). It is valid for single use for 1 hour.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
+                            <button
+                                onClick={() => setIsRenewModalOpen(false)}
+                                disabled={isRenewing}
+                                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleRenewSubmit}
+                                disabled={isRenewing || renewOtp.length !== 6}
+                                className="px-5 py-2 bg-amber-500 text-white font-medium rounded-xl hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/10 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isRenewing ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        Renewing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw size={16} />
+                                        Renew Certificate
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>

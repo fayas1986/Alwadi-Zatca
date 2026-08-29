@@ -29,16 +29,16 @@ export class ComplianceService {
 
         // 1. Generate CSR and Private Key
         const orgIdentifier = (tin && /^\d+$/.test(tin)) ? tin : vat;
-        const orgUnit = branchName || companyName || 'Main';
+        const numericTIN = (tin && /^\d{10}$/.test(tin)) ? tin : vat.substring(0, 10);
         const formattedSerial = serialNumber?.includes('|')
             ? serialNumber
             : `1-ZatcaConnect|2-Desktop|3-${serialNumber || crypto.randomUUID()}`;
 
         const csrConfig = `csr.common.name=${commonName || companyName}
 csr.serial.number=${formattedSerial}
-csr.organization.identifier=${orgIdentifier}
-csr.organization.unit.name=${orgUnit}
-csr.organization.name=${companyName}
+csr.organization.identifier=${vat}
+csr.organization.unit.name=${numericTIN}
+csr.organization.name=${numericTIN}
 csr.country.name=SA
 csr.invoice.type=${invoiceType || '1100'}
 csr.location.address=${location || 'Riyadh'}
@@ -58,7 +58,7 @@ csr.industry.business.category=${industry || 'IT'}`;
         }
 
         // 2. Obtain Compliance CSID (OTP exchange)
-        const complianceResult = await client.onboardCompliance({
+        const complianceResult = await client.onboard({
             csr,
             otp
         });
@@ -72,10 +72,11 @@ csr.industry.business.category=${industry || 'IT'}`;
             uuid: crypto.randomUUID(),
             issueDate: new Date().toISOString(),
             invoiceSubtype: 'Standard',
+            invoiceCounterValue: 1,
             documentType: 'Invoice',
             currencyCode: 'SAR',
             supplier: { 
-                name: companyName, 
+                name: numericTIN, 
                 vatNumber: vat, 
                 address: { 
                     streetName: streetName || 'Test Street', 
@@ -106,7 +107,7 @@ csr.industry.business.category=${industry || 'IT'}`;
 
         // 3a. Standard Invoice Compliance Check
         const xmlStandard = await (generateInvoiceXML as any)(sampleInvoice);
-        const signedStandard = await signInvoice(xmlStandard, complianceCSID.trim(), privateKey, environment === 'Simulation');
+        const signedStandard = await signInvoice(xmlStandard, complianceCSID.trim(), privateKey, true);
 
         await client.checkCompliance({
             csid: complianceCSID,
@@ -121,10 +122,12 @@ csr.industry.business.category=${industry || 'IT'}`;
             ...sampleInvoice, 
             invoiceNumber: 'COMPLIANCE-002', 
             uuid: crypto.randomUUID(), 
-            invoiceSubtype: 'Simplified' 
+            invoiceSubtype: 'Simplified',
+            invoiceCounterValue: 2,
+            previousInvoiceHash: signedStandard.hash
         };
         const xmlSimplified = await (generateInvoiceXML as any)(simplifiedInvoice);
-        const signedSimplified = await signInvoice(xmlSimplified, complianceCSID.trim(), privateKey, environment === 'Simulation');
+        const signedSimplified = await signInvoice(xmlSimplified, complianceCSID.trim(), privateKey, true);
 
         await client.checkCompliance({
             csid: complianceCSID,
@@ -136,7 +139,7 @@ csr.industry.business.category=${industry || 'IT'}`;
 
         // 4. Request Production CSID
         const prodResult = await client.requestProductionCSID({
-            complianceCsid: complianceCSID,
+            complianceCSID: complianceCSID,
             complianceSecret: complianceSecret,
             requestId: complianceResult.requestID
         });

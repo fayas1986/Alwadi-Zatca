@@ -96,6 +96,12 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .txt(invoice.previousInvoiceHash || INITIAL_PIH)
             .up()
             .up()
+            .up()
+            
+            // Invoice Counter Value (ICV)
+            .ele('cac:AdditionalDocumentReference')
+            .ele('cbc:ID').txt('ICV').up()
+            .ele('cbc:UUID').txt(String((invoice as any).invoiceCounterValue || '1')).up()
             .up();
 
         // Billing Reference (Mandatory for Credit/Debit Notes)

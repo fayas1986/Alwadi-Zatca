@@ -6,11 +6,11 @@ import crypto from 'crypto';
 async function main() {
     const otp = process.env.OTP;
     if (!otp) {
-        console.error("❌ Please provide the OTP in the environment: OTP=xxxxxx npx tsx scripts/onboard_real_simulation.ts");
+        console.error("❌ Please provide the OTP in the environment: OTP=xxxxxx npx tsx scripts/onboard_real_production.ts");
         process.exit(1);
     }
 
-    console.log(`--- REAL ZATCA SIMULATION ONBOARDING FLOW ---`);
+    console.log(`--- REAL ZATCA PRODUCTION ONBOARDING FLOW ---`);
     console.log(`Using OTP: ${otp}`);
 
     const dbCompany = await prisma.company.findFirst({
@@ -41,10 +41,10 @@ async function main() {
         citySubdivision: dbCompany.city_subdivision || "District",
         postalZone: dbCompany.postal_zone || "11111",
         city: dbCompany.city || "Riyadh",
-        environment: "simulation" as const
+        environment: "production"
     };
 
-    console.log("Starting Compliance Onboarding workflow (SIMULATION)...");
+    console.log("Starting Compliance Onboarding workflow...");
     try {
         const result = await ComplianceService.onboard(onboardData, {
             email: "admin@zatca-fatoora.com",
@@ -52,7 +52,7 @@ async function main() {
             ip: "127.0.0.1"
         });
         console.log("\n========================================================");
-        console.log("🎉 SUCCESS! Company has been successfully onboarded to ZATCA Simulation!");
+        console.log("🎉 SUCCESS! Company has been successfully onboarded to ZATCA Production!");
         console.log("Certificate details updated in the database.");
         console.log("Result:", JSON.stringify(result, null, 2));
         console.log("========================================================");

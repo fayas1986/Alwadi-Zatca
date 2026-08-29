@@ -520,7 +520,6 @@ router.post('/onboard', async (req, res) => {
 
     // ENT: Basic Validation
 
-    // ENT: Basic Validation
     if (!vat || vat.length !== 15) {
         return res.status(400).json({ success: false, error: 'VAT Number must be exactly 15 digits.' });
     }
@@ -547,10 +546,7 @@ router.post('/onboard', async (req, res) => {
 
         // Use a clean numeric TIN/VAT to avoid SDK validation failures 
         // especially when users enter placeholders like "3000XXXXXX"
-        const orgIdentifier = (tin && /^\d+$/.test(tin)) ? tin : vat;
-
-        // Organization Unit (OU) must be carefully formatted.
-        const orgUnit = cleanedBranchName || companyName || 'Main';
+        const numericTIN = (tin && /^\d{10}$/.test(tin)) ? tin : vat.substring(0, 10);
 
         const formattedSerial = serialNumber?.includes('|')
             ? serialNumber
@@ -558,9 +554,9 @@ router.post('/onboard', async (req, res) => {
 
         const csrConfig = `csr.common.name=${commonName || companyName}
 csr.serial.number=${formattedSerial}
-csr.organization.identifier=${orgIdentifier}
-csr.organization.unit.name=${orgUnit}
-csr.organization.name=${companyName}
+csr.organization.identifier=${vat}
+csr.organization.unit.name=${numericTIN}
+csr.organization.name=${numericTIN}
 csr.country.name=SA
 csr.invoice.type=${invoiceType || '1100'}
 csr.location.address=${location || 'Riyadh'}
@@ -624,15 +620,14 @@ csr.industry.business.category=${industry || 'IT'}`;
                 invoiceSubtype: 'Standard',
                 documentType: 'Invoice',
                 currencyCode: 'SAR',
-                supplier: { name: companyName, vatNumber: vat, address: { streetName: 'Test Street', buildingNumber: '1111', citySubdivisionName: 'District', cityName: 'Riyadh', postalZone: '11111', countryCode: 'SA' } },
+                supplier: { name: numericTIN, vatNumber: vat, address: { streetName: 'Test Street', buildingNumber: '1111', citySubdivisionName: 'District', cityName: 'Riyadh', postalZone: '11111', countryCode: 'SA' } },
                 customer: { name: 'Test Customer', vatNumber: '300000000000003', address: { streetName: 'Test Street', buildingNumber: '1111', citySubdivisionName: 'District', cityName: 'Riyadh', postalZone: '11111', countryCode: 'SA' } },
                 items: [{ name: 'Test Item', quantity: 1, unitPrice: 100, subtotal: 100, taxCategory: 'S', vatRate: 0.15, vatAmount: 15, total: 115 }],
                 totalAmount: 115, vatAmount: 15, taxExclusiveAmount: 100
             };
 
             const xml = generateInvoiceXML(sampleInvoice as any);
-            const isSimulation = environment === 'Simulation';
-            const { signedXml, hash } = await signInvoice(xml, complianceCSID.trim(), privateKey, isSimulation);
+            const { signedXml, hash } = await signInvoice(xml, complianceCSID.trim(), privateKey, true);
 
             if (isMockMode) {
                 console.log(`[ZATCA] Mock mode: Skipping real compliance check API.`);

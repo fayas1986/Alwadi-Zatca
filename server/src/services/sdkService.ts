@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 /**
  * Runs a command using spawn for robust argument handling (avoids shell quoting issues)
@@ -22,6 +23,10 @@ const runCommand = (command: string, args: string[], options: { cwd?: string; en
         child.stderr.on('data', (data) => { stderr += data.toString(); });
 
         child.on('close', (code) => {
+            console.log(`[SDK] Spawning finished with code ${code}.`);
+            if (stdout) console.log(`[SDK] stdout:\n${stdout}`);
+            if (stderr) console.error(`[SDK] stderr:\n${stderr}`);
+            
             // SDK v3.0.8 sometimes exits with code 0 even on some validation errors, 
             // but for CSR/Sign we check if files were created or if "SUCCESS" / "Signed" is in stdout
             if (code === 0 || stdout.includes('SUCCESS') || stdout.includes('Signed') || stdout.includes('Generated')) {
@@ -41,8 +46,8 @@ const getSDKSettings = () => {
     let sdkPath = process.env.ZATCA_SDK_PATH || '';
     const javaExe = process.env.JAVA_EXE_PATH || 'java';
     
-    // Vercel / Linux path mapping
-    if (process.env.VERCEL || (sdkPath && sdkPath.includes('\\')) || !sdkPath) {
+    // Check if configured path exists; only fallback if empty, missing, or explicitly on Vercel
+    if (process.env.VERCEL || !sdkPath || !fs.existsSync(sdkPath)) {
         const locations = [
             path.resolve(process.cwd(), 'server/zatca-sdk/zatca-sdk.jar'),
             path.resolve(process.cwd(), 'zatca-sdk/zatca-sdk.jar'),
@@ -159,25 +164,74 @@ export const generateCSR = async (configContent: string, isSimulation: boolean =
 export const signInvoice = async (xmlContent: string, certificate: string, privateKey: string, isSimulation: boolean = false) => {
     const timestamp = Date.now();
     const xmlPath = writeTempFile(`invoice_${timestamp}.xml`, xmlContent);
-    
-    const cleanCert = certificate
+
+    // --- Normalize Certificate ---
+    // ZATCA binarySecurityToken arrives in multiple possible formats:
+    //   1. Raw base64 DER (most common)          → starts with 'MII'
+    //   2. Double-encoded base64                  → starts with 'TUlJ' (base64 of 'MII')
+    //   3. PEM-wrapped                            → starts with '-----BEGIN CERTIFICATE-----'
+    // In all cases, the SDK cert file must contain raw single-line base64 DER (no PEM headers, no newlines).
+    let certB64 = certificate
         .replace(/-----BEGIN CERTIFICATE-----/g, '')
         .replace(/-----END CERTIFICATE-----/g, '')
-        .replace(/\s/g, '');
+        .replace(/\s+/g, '');   // strip ALL whitespace including embedded newlines
 
-    const cleanKey = privateKey
-        .replace(/-----BEGIN EC PRIVATE KEY-----/g, '')
-        .replace(/-----END EC PRIVATE KEY-----/g, '')
-        .replace(/-----BEGIN PRIVATE KEY-----/g, '')
-        .replace(/-----END PRIVATE KEY-----/g, '')
-        .replace(/\s/g, '');
+    // Unwrap double-encoding: if it's base64 of 'MII' it starts with 'TUlJ'
+    if (certB64.startsWith('TUlJ')) {
+        certB64 = Buffer.from(certB64, 'base64').toString('utf-8').replace(/\s+/g, '');
+    }
 
-    const certPath = writeTempFile(`cert_${timestamp}.txt`, cleanCert);
-    const keyPath = writeTempFile(`key_${timestamp}.txt`, cleanKey); 
-    const signedXmlPath = path.join(TEMP_DIR, `signed_invoice_${timestamp}.xml`);
+    // --- Normalize Private Key → SEC1 DER base64 (required by ZATCA SDK) ---
+    let keyB64 = '';
+    try {
+        let pemKey = privateKey.trim();
+        if (!pemKey.includes('-----BEGIN')) {
+            // Raw base64 — wrap in appropriate PEM header
+            pemKey = pemKey.length > 165
+                ? `-----BEGIN PRIVATE KEY-----\n${pemKey}\n-----END PRIVATE KEY-----`
+                : `-----BEGIN EC PRIVATE KEY-----\n${pemKey}\n-----END EC PRIVATE KEY-----`;
+        }
+        const key = crypto.createPrivateKey(pemKey);
+        const sec1Der = key.export({ type: 'sec1', format: 'der' });
+        keyB64 = sec1Der.toString('base64');
+
+        // Validate: public key from private key should match cert's public key
+        try {
+            const certDer = Buffer.from(certB64, 'base64');
+            const x509 = new crypto.X509Certificate(certDer);
+            const certPubKey = x509.publicKey.export({ type: 'spki', format: 'der' }).toString('base64').substring(0, 30);
+            const privPubKey = crypto.createPublicKey(key).export({ type: 'spki', format: 'der' }).toString('base64').substring(0, 30);
+            if (certPubKey === privPubKey) {
+                console.log(`[SDK] ✅ Key-cert pair validated — public keys match`);
+            } else {
+                console.warn(`[SDK] ⚠️  Key-cert mismatch! Cert pub: ${certPubKey}... | Key pub: ${privPubKey}...`);
+            }
+        } catch (_) { /* cert parse failure is non-fatal for signing */ }
+
+    } catch (e: any) {
+        console.warn(`[SDK] Failed to parse/export private key as SEC1: ${e.message}. Falling back to string clean.`);
+        keyB64 = privateKey
+            .replace(/-----BEGIN EC PRIVATE KEY-----/g, '')
+            .replace(/-----END EC PRIVATE KEY-----/g, '')
+            .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+            .replace(/-----END PRIVATE KEY-----/g, '')
+            .replace(/\s+/g, '');
+    }
+
+    console.log(`[SDK] certPath content: ${certB64.substring(0, 40)}...`);
+    console.log(`[SDK] keyPath content: ${keyB64.substring(0, 40)}...`);
+
+    // Write cert as proper PEM so the SDK can parse it to embed the correct public key in the QR TLV.
+    // Raw base64 DER without PEM headers causes the SDK to silently fail to parse the cert,
+    // producing a wrong/empty public key in the QR → ZATCA rejects with publicKey_QRCODE_INVALID.
+    const certPem = `-----BEGIN CERTIFICATE-----\n${certB64.match(/.{1,64}/g)!.join('\n')}\n-----END CERTIFICATE-----`;
+    
+    const certPath = writeTempFile(`cert_${timestamp}.pem`, certPem).replace(/\\/g, '/');
+    const keyPath  = writeTempFile(`key_${timestamp}.pem`,  keyB64).replace(/\\/g, '/');
+    const signedXmlPath = path.join(TEMP_DIR, `signed_invoice_${timestamp}.xml`).replace(/\\/g, '/');
 
     // Mock bypass
-    if (cleanCert.startsWith('MOCK_') || cleanKey.startsWith('MOCK_')) {
+    if (certB64.startsWith('MOCK_') || keyB64.startsWith('MOCK_')) {
         return {
             signedXml: xmlContent.replace('</Invoice>', `<!-- Mock Signed -->\n<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignedInfo><ds:Reference><ds:DigestValue>mock_hash_content</ds:DigestValue></ds:Reference></ds:SignedInfo></ds:Signature>\n</Invoice>`),
             hash: 'mock_hash_' + Date.now(),
@@ -185,6 +239,7 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
         };
     }
 
+    let tempConfigPath = '';
     try {
         if (isMockMode()) {
             console.log(`[SDK] Mocking Invoice Signing for Vercel/Cloud environment.`);
@@ -212,31 +267,58 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
             baseCmd = sdkPath;
         }
 
-        args.push('--globalVersion', '3.0.8', '-certpassword', '123456789');
-        args.push('-sign', '-invoice', xmlPath, '-signedInvoice', signedXmlPath, '-certificate', certPath, '-privateKey', keyPath);
-        if (isSimulation) {
-            args.push('-sim');
-        }
-
         const sdkDir = path.dirname(sdkPath);
         const configPath = path.join(sdkDir, 'Configuration', 'config.json');
-
-        const { stdout, stderr } = await runCommand(baseCmd, args, {
-            cwd: sdkDir,
-            env: {
-                ...process.env,
-                SDK_CONFIG: configPath
-            }
-        });
         
-        if (!fs.existsSync(signedXmlPath)) {
-            throw new Error(`SDK failed to sign invoice. Output: ${stdout}`);
+        // Backup the original config.json
+        const backupConfigContent = fs.readFileSync(configPath, 'utf-8');
+        let signedXml = '';
+        let hashMatch: RegExpMatchArray | null = null;
+        let qr = '';
+
+        try {
+            let newConfigContent = backupConfigContent;
+            const escapedCertPath = certPath.replace(/\//g, '\\\\');
+            const escapedKeyPath = keyPath.replace(/\//g, '\\\\');
+            
+            newConfigContent = newConfigContent.replace(
+                /"certPath"\s*:\s*"[^"]*"/,
+                `"certPath": "${escapedCertPath}"`
+            );
+            newConfigContent = newConfigContent.replace(
+                /"privateKeyPath"\s*:\s*"[^"]*"/,
+                `"privateKeyPath": "${escapedKeyPath}"`
+            );
+            
+            console.log(`[SDK] Overwriting config.json at ${configPath} with:\n${newConfigContent}`);
+            fs.writeFileSync(configPath, newConfigContent, 'utf-8');
+
+            args.push('--globalVersion', '3.0.8', '-certpassword', '123456789');
+            args.push('-sign', '-invoice', xmlPath, '-signedInvoice', signedXmlPath);
+            if (isSimulation) {
+                args.push('-sim');
+            }
+
+            const { stdout, stderr } = await runCommand(baseCmd, args, {
+                cwd: sdkDir,
+                env: {
+                    ...process.env,
+                    SDK_CONFIG: configPath.replace(/\\/g, '/')
+                }
+            });
+            
+            if (!fs.existsSync(signedXmlPath)) {
+                throw new Error(`SDK failed to sign invoice. Output: ${stdout}`);
+            }
+
+            signedXml = fs.readFileSync(signedXmlPath, 'utf-8');
+            hashMatch = signedXml.match(/<ds:DigestValue>([^<]+)<\/ds:DigestValue>/);
+            qr = extractQR(signedXml);
+        } finally {
+            // Always restore the original config.json
+            fs.writeFileSync(configPath, backupConfigContent, 'utf-8');
         }
-
-        const signedXml = fs.readFileSync(signedXmlPath, 'utf-8');
-        const hashMatch = signedXml.match(/<ds:DigestValue>([^<]+)<\/ds:DigestValue>/);
-        const qr = extractQR(signedXml);
-
+        
         return {
             signedXml,
             hash: hashMatch ? hashMatch[1] : '',
@@ -248,6 +330,9 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
         deleteTempFile(certPath);
         deleteTempFile(keyPath);
         deleteTempFile(signedXmlPath);
+        if (tempConfigPath) {
+            deleteTempFile(tempConfigPath);
+        }
     }
 };
 

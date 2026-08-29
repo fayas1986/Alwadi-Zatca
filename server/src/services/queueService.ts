@@ -173,7 +173,7 @@ export class QueueService {
             const isProxySubmission = (invoice.metadata as any)?.source === 'API_V2_FINAL';
 
             // Micro-GAP 2: Hash Consistency Check
-            if (hash && hash !== invoice.hash) {
+            if (invoice.hash && hash && hash !== invoice.hash) {
                 if (isProxySubmission) {
                     console.log(`[Queue] Updating temporary hash for proxy invoice ${invoice.id}. Old: ${invoice.hash}, New: ${hash}`);
                     // We proceed and the hash will be updated in the DB update call below

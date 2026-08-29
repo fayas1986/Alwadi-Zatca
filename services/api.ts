@@ -101,3 +101,16 @@ export const saveERPConfig = async (data: any) => {
     }
     return response.json();
 };
+
+export const renewCertificate = async (data: { vat: string; otp: string; environment: string }) => {
+    const response = await fetch(`${API_BASE_URL}/renew`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Certificate renewal failed');
+    }
+    return response.json();
+};

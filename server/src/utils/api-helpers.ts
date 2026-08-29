@@ -24,7 +24,7 @@ export const generateHash = (content: string) => {
         .digest('base64');
 };
 
-export const INITIAL_PIH = '0';
+export const INITIAL_PIH = 'NWZlY2ViNTZmZGNlNTQ4NDVkZmVhM2YwMzhhNDk4YWUxNmU1NDNlM2MxM2NhNDQ4RGNhZmJjMzkyMTBiYzFlZA==';
 
 /**
  * Handles the core requirement of identity and chain derivation
