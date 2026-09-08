@@ -278,9 +278,34 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
         }
 
         const sdkDir = path.dirname(sdkPath);
-        const configPath = path.join(sdkDir, 'Configuration', 'config.json');
-        
-        const backupConfigContent = fs.readFileSync(configPath, 'utf-8');
+        const configDir = path.join(sdkDir, 'Configuration');
+        const pihDir = path.join(sdkDir, 'Data', 'PIH');
+        const inputDir = path.join(sdkDir, 'Data', 'Input');
+        const certsDir = path.join(sdkDir, 'Data', 'Certificates');
+
+        if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+        if (!fs.existsSync(pihDir)) fs.mkdirSync(pihDir, { recursive: true });
+        if (!fs.existsSync(inputDir)) fs.mkdirSync(inputDir, { recursive: true });
+        if (!fs.existsSync(certsDir)) fs.mkdirSync(certsDir, { recursive: true });
+
+        const configPath = path.join(configDir, 'config.json');
+        let backupConfigContent = '';
+        if (fs.existsSync(configPath)) {
+            backupConfigContent = fs.readFileSync(configPath, 'utf-8');
+        } else {
+            backupConfigContent = JSON.stringify({
+                xsdPath: path.join(sdkDir, 'Data', 'Schemas', 'xsds', 'UBL2.1', 'xsd', 'maindoc', 'UBL-Invoice-2.1.xsd'),
+                enSchematron: path.join(sdkDir, 'Data', 'Rules', 'schematrons', 'CEN-EN16931-UBL.xsl'),
+                zatcaSchematron: path.join(sdkDir, 'Data', 'Rules', 'schematrons', 'Validation_Rules.xsl'),
+                certPath: path.join(sdkDir, 'Data', 'Certificates', 'cert.pem'),
+                privateKeyPath: path.join(sdkDir, 'Data', 'Certificates', 'ec-secp256k1-priv-key.pem'),
+                pihPath: path.join(sdkDir, 'Data', 'PIH', 'pih.txt'),
+                certPassword: '123456789',
+                inputPath: path.join(sdkDir, 'Data', 'Input'),
+                usagePathFile: path.join(sdkDir, 'Configuration', 'usage.txt')
+            }, null, 2);
+            fs.writeFileSync(configPath, backupConfigContent, 'utf-8');
+        }
         let signedXml = '';
         let hash = '';
         let qr = '';
