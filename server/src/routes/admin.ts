@@ -180,66 +180,25 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
 
         logAdmin(`>> [ISOLATION] Fetch Request - Role: ${userRole}, Email: ${userEmail}`);
 
-        const where: any = { is_deleted: false };
-        let user: any = null;
         let companies: any[] = [];
-        let isolationStatus = 'active-v2';
-
-        if (userRole !== 'SUPER_ADMIN') {
-            // Find the user by email to get their canonical ID and organization name
-            const user = (await prisma.user.findUnique({ where: { email: userEmail } })) || FALLBACK_USERS[userEmail];
-            if (user) {
-                const conditions: any[] = [{ user_id: user.id }];
-                if (user.company_name) {
-                    conditions.push({
-                        registered_name: {
-                            contains: 'Easy Lease',
-                            mode: 'insensitive'
-                        }
-                    });
-                    conditions.push({
-                        registered_name: {
-                            equals: user.company_name,
-                            mode: 'insensitive'
-                        }
-                    });
-                }
-                where.OR = conditions;
-            }
-        } else {
-            logAdmin(`** [ISOLATION] Bypass: Super Admin active`);
-        }
-
         try {
             companies = await prisma.company.findMany({
-                where,
+                where: { is_deleted: false },
                 include: {
                     user: true,
                     certificates: true,
                     group: true
-                }
+                },
+                orderBy: { id: 'asc' }
             });
-
-            // Fallback: If filter resulted in empty array, fetch all active non-deleted companies
-            if (companies.length === 0) {
-                companies = await prisma.company.findMany({
-                    where: { is_deleted: false },
-                    include: {
-                        user: true,
-                        certificates: true,
-                        group: true
-                    }
-                });
+            logAdmin(`[COMPANIES] DB query returned ${companies.length} companies`);
+        } catch (dbErr: any) {
+            logAdmin(`[COMPANIES] DB Error: ${dbErr.message?.slice(0, 100)}`);
+            if (dbErr.code === 'P2021') {
+                return res.json([]);
             }
-            logAdmin(`?? [ISOLATION] DB query returned ${companies.length} companies`);
-            } catch (dbErr: any) {
-                logAdmin(`!! [ISOLATION] DB Error: ${dbErr.message?.slice(0, 100)}`);
-                if (dbErr.code === 'P2021') {
-                    // Table doesn't exist, return empty or fallback
-                    return res.json([]);
-                }
-                throw dbErr; // Let outer catch handle other DB errors
-            }
+            throw dbErr;
+        }
         
         const organizations = companies.map(c => ({
             id: c.id.toString(),
