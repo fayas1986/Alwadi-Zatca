@@ -6,12 +6,15 @@ import crypto from 'crypto';
 async function main() {
     const otp = process.env.OTP;
     if (!otp) {
-        console.error("❌ Please provide the OTP in the environment: OTP=xxxxxx npx tsx scripts/onboard_real_production.ts");
+        console.error("❌ Please provide the Production OTP in the environment: OTP=xxxxxx npx tsx scripts/onboard_real_production.ts");
         process.exit(1);
     }
 
-    console.log(`--- REAL ZATCA PRODUCTION ONBOARDING FLOW ---`);
-    console.log(`Using OTP: ${otp}`);
+    console.log(`========================================================`);
+    console.log(`⚡ REAL ZATCA PRODUCTION CSID ONBOARDING FLOW`);
+    console.log(`========================================================\n`);
+    console.log(`Target Environment : PRODUCTION`);
+    console.log(`Using Production OTP: [SANITIZED]`);
 
     const dbCompany = await prisma.company.findFirst({
         where: { is_active: true }
@@ -29,22 +32,22 @@ async function main() {
         vat,
         otp,
         companyName,
-        commonName: "Easy Lease Unit 1",
+        commonName: dbCompany.registered_name || "Easy Lease Transport Services (Sole Proprietorship) L.L.C.",
         branchName: dbCompany.branch_name || "HQ",
         location: dbCompany.city || "Riyadh",
         industry: "Transport",
-        invoiceType: "1100", // Standard & Simplified
-        serialNumber: `1-Standard|2-Desktop|3-${crypto.randomUUID()}`,
+        invoiceType: "1000", // Standard Tax Invoices (B2B Clearance)
+        serialNumber: `1-EasyLease|2-Desktop|3-${crypto.randomUUID()}`,
         tin,
         buildingNumber: dbCompany.building_number || "1111",
         streetName: dbCompany.street_name || "Test Street",
         citySubdivision: dbCompany.city_subdivision || "District",
         postalZone: dbCompany.postal_zone || "11111",
         city: dbCompany.city || "Riyadh",
-        environment: "production"
+        environment: "production" as const
     };
 
-    console.log("Starting Compliance Onboarding workflow...");
+    console.log("Exchanging Production OTP with ZATCA Live Gateway...");
     try {
         const result = await ComplianceService.onboard(onboardData, {
             email: "admin@zatca-fatoora.com",
@@ -52,15 +55,25 @@ async function main() {
             ip: "127.0.0.1"
         });
         console.log("\n========================================================");
-        console.log("🎉 SUCCESS! Company has been successfully onboarded to ZATCA Production!");
-        console.log("Certificate details updated in the database.");
-        console.log("Result:", JSON.stringify(result, null, 2));
+        console.log("🎉 SUCCESS! Real Production CSID Issued by ZATCA!");
+        console.log("Production Certificate record activated in database.");
+        console.log("Result Summary:", JSON.stringify({
+            success: result.success,
+            companyId: result.companyId,
+            certId: result.certId,
+            environment: result.environment
+        }, null, 2));
         console.log("========================================================");
+
+        // Next: Automatically execute the Production Auth Probe & Invoice Tests
+        console.log("\nRunning Production Authentication & Connectivity Verification...");
+        const { testLiveProductionCredentials } = await import('./test_live_production_credentials.js');
+        await testLiveProductionCredentials();
     } catch (e: any) {
         if (e.response) {
-            console.error("❌ ZATCA API Error:", JSON.stringify(e.response.data, null, 2));
+            console.error("❌ ZATCA Production API Error:", JSON.stringify(e.response.data, null, 2));
         } else {
-            console.error("❌ Onboarding Error:", e.message);
+            console.error("❌ Production Onboarding Error:", e.message);
         }
     }
 }

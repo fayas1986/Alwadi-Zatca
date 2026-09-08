@@ -83,7 +83,7 @@ if (!fs.existsSync(TEMP_DIR)) {
     } catch (err) {}
 }
 
-const writeTempFile = (filename: string, content: string) => {
+const writeTempFile = (filename: string, content: string | Buffer) => {
     const filePath = path.join(TEMP_DIR, filename);
     fs.writeFileSync(filePath, content);
     return filePath;
@@ -213,20 +213,31 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
         keyB64 = privateKey
             .replace(/-----BEGIN EC PRIVATE KEY-----/g, '')
             .replace(/-----END EC PRIVATE KEY-----/g, '')
+            .replace(/-----BEGIN RSA PRIVATE KEY-----/g, '')
+            .replace(/-----END RSA PRIVATE KEY-----/g, '')
             .replace(/-----BEGIN PRIVATE KEY-----/g, '')
             .replace(/-----END PRIVATE KEY-----/g, '')
             .replace(/\s+/g, '');
     }
 
+    // Robust unwrap: if certificate is double-base64 encoded (starts with TUlJ), unwrap to single base64 (MIIC)
+    while (certB64.startsWith('TUlJ') || certB64.startsWith('dFVJ')) {
+        try {
+            const unwrapped = Buffer.from(certB64, 'base64').toString('utf-8').replace(/\s+/g, '');
+            if (unwrapped.startsWith('MII') || unwrapped.startsWith('TUlJ')) {
+                certB64 = unwrapped;
+            } else {
+                break;
+            }
+        } catch (_) {
+            break;
+        }
+    }
+
     console.log(`[SDK] certPath content: ${certB64.substring(0, 40)}...`);
     console.log(`[SDK] keyPath content: ${keyB64.substring(0, 40)}...`);
 
-    // Write cert as proper PEM so the SDK can parse it to embed the correct public key in the QR TLV.
-    // Raw base64 DER without PEM headers causes the SDK to silently fail to parse the cert,
-    // producing a wrong/empty public key in the QR → ZATCA rejects with publicKey_QRCODE_INVALID.
-    const certPem = `-----BEGIN CERTIFICATE-----\n${certB64.match(/.{1,64}/g)!.join('\n')}\n-----END CERTIFICATE-----`;
-    
-    const certPath = writeTempFile(`cert_${timestamp}.pem`, certPem).replace(/\\/g, '/');
+    const certPath = writeTempFile(`cert_${timestamp}.pem`, certB64).replace(/\\/g, '/');
     const keyPath  = writeTempFile(`key_${timestamp}.pem`,  keyB64).replace(/\\/g, '/');
     const signedXmlPath = path.join(TEMP_DIR, `signed_invoice_${timestamp}.xml`).replace(/\\/g, '/');
 
@@ -252,9 +263,8 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
 
         const { sdkPath, javaExe } = getSDKSettings();
 
-        // Environment Check for Vercel (No JRE)
         if (process.env.VERCEL && javaExe === 'java' && !fs.existsSync(javaExe)) {
-             throw new Error('ZATCA SDK (Java) is not supported on Vercel Serverless Functions. Please use a local environment or VPS for real invoice signing.');
+             throw new Error('ZATCA SDK (Java) is not supported on Vercel Serverless Functions.');
         }
 
         const args = [];
@@ -270,36 +280,33 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
         const sdkDir = path.dirname(sdkPath);
         const configPath = path.join(sdkDir, 'Configuration', 'config.json');
         
-        // Backup the original config.json
         const backupConfigContent = fs.readFileSync(configPath, 'utf-8');
         let signedXml = '';
-        let hashMatch: RegExpMatchArray | null = null;
+        let hash = '';
         let qr = '';
+
+        const defaultCertPath = path.join(sdkDir, 'Data', 'Certificates', 'cert.pem');
+        const defaultKeyPath = path.join(sdkDir, 'Data', 'Certificates', 'ec-secp256k1-priv-key.pem');
+        const backupCertContent = fs.existsSync(defaultCertPath) ? fs.readFileSync(defaultCertPath, 'utf-8') : '';
+        const backupKeyContent = fs.existsSync(defaultKeyPath) ? fs.readFileSync(defaultKeyPath, 'utf-8') : '';
 
         try {
             let newConfigContent = backupConfigContent;
             const escapedCertPath = certPath.replace(/\//g, '\\\\');
             const escapedKeyPath = keyPath.replace(/\//g, '\\\\');
             
-            newConfigContent = newConfigContent.replace(
-                /"certPath"\s*:\s*"[^"]*"/,
-                `"certPath": "${escapedCertPath}"`
-            );
-            newConfigContent = newConfigContent.replace(
-                /"privateKeyPath"\s*:\s*"[^"]*"/,
-                `"privateKeyPath": "${escapedKeyPath}"`
-            );
+            newConfigContent = newConfigContent.replace(/"certPath"\s*:\s*"[^"]*"/, `"certPath": "${escapedCertPath}"`);
+            newConfigContent = newConfigContent.replace(/"privateKeyPath"\s*:\s*"[^"]*"/, `"privateKeyPath": "${escapedKeyPath}"`);
             
-            console.log(`[SDK] Overwriting config.json at ${configPath} with:\n${newConfigContent}`);
             fs.writeFileSync(configPath, newConfigContent, 'utf-8');
+            fs.writeFileSync(defaultCertPath, certB64, 'utf-8');
+            fs.writeFileSync(defaultKeyPath, keyB64, 'utf-8');
 
             args.push('--globalVersion', '3.0.8', '-certpassword', '123456789');
             args.push('-sign', '-invoice', xmlPath, '-signedInvoice', signedXmlPath);
-            if (isSimulation) {
-                args.push('-sim');
-            }
+            if (isSimulation) args.push('-sim');
 
-            const { stdout, stderr } = await runCommand(baseCmd, args, {
+            const { stdout } = await runCommand(baseCmd, args, {
                 cwd: sdkDir,
                 env: {
                     ...process.env,
@@ -312,16 +319,19 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
             }
 
             signedXml = fs.readFileSync(signedXmlPath, 'utf-8');
-            hashMatch = signedXml.match(/<ds:DigestValue>([^<]+)<\/ds:DigestValue>/);
+            const realInvoiceHashMatch = stdout.match(/\*\*\* INVOICE HASH = ([^\s\r\n]+)/);
+            hash = realInvoiceHashMatch ? realInvoiceHashMatch[1] : (signedXml.match(/<ds:DigestValue>([^<]+)<\/ds:DigestValue>/)?.[1] || '');
             qr = extractQR(signedXml);
         } finally {
-            // Always restore the original config.json
+            // Always restore the original config.json and default cert files
             fs.writeFileSync(configPath, backupConfigContent, 'utf-8');
+            if (backupCertContent) fs.writeFileSync(defaultCertPath, backupCertContent, 'utf-8');
+            if (backupKeyContent) fs.writeFileSync(defaultKeyPath, backupKeyContent, 'utf-8');
         }
         
         return {
             signedXml,
-            hash: hashMatch ? hashMatch[1] : '',
+            hash,
             qr: qr
         };
 

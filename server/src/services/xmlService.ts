@@ -45,10 +45,13 @@ export const generateInvoiceXML = (invoice: Invoice) => {
         taxSubtotals[key].taxableHalala += lineNetHalala;
         taxSubtotals[key].taxHalala += lineVatHalala;
 
+        const lineInclusiveHalala = lineNetHalala + lineVatHalala;
+
         return {
             ...it,
             lineNetStr: fromHalala(lineNetHalala),
             lineVatStr: fromHalala(lineVatHalala),
+            lineInclusiveStr: fromHalala(lineInclusiveHalala),
             ratePercentStr: ratePercent.toFixed(2),
             category,
             qtyStr: qty.toString(),
@@ -63,7 +66,7 @@ export const generateInvoiceXML = (invoice: Invoice) => {
     const timePart = timeWithOffset.split('+')[0].split('.')[0]; // HH:mm:ss
 
     try {
-        const isStandard = invoice.invoiceSubtype === 'STANDARD';
+        const isStandard = String(invoice.invoiceSubtype || '').toUpperCase() === 'STANDARD';
         const typeCode = invoice.documentType === 'CREDIT_NOTE' ? '381' : (invoice.documentType === 'DEBIT_NOTE' ? '383' : '388');
         const subtypeCode = isStandard ? '0100000' : '0200000';
 
@@ -78,7 +81,7 @@ export const generateInvoiceXML = (invoice: Invoice) => {
                 'xmlns:sbc': 'urn:oasis:names:specification:ubl:schema:xsd:SignatureBasicComponents-2',
                 'xmlns:ds': 'http://www.w3.org/2000/09/xmldsig#'
             })
-            .ele('cbc:ProfileID').txt(isStandard ? 'clearance:1.0' : 'reporting:1.0').up()
+            .ele('cbc:ProfileID').txt((invoice as any).profileId || (isStandard ? 'clearance:1.0' : 'reporting:1.0')).up()
             .ele('cbc:ID').txt(invoice.invoiceNumber).up()
             .ele('cbc:UUID').txt(invoice.uuid || crypto.randomUUID()).up()
             .ele('cbc:IssueDate').txt(datePart).up()
@@ -86,25 +89,9 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .ele('cbc:InvoiceTypeCode', { name: subtypeCode }).txt(typeCode).up()
             .ele('cbc:Note').txt(invoice.instructionNote || 'This is a computer generated invoice').up()
             .ele('cbc:DocumentCurrencyCode').txt(invoice.currencyCode || 'SAR').up()
-            .ele('cbc:TaxCurrencyCode').txt('SAR').up()
+            .ele('cbc:TaxCurrencyCode').txt('SAR').up();
 
-            // Previous Invoice Hash (PIH)
-            .ele('cac:AdditionalDocumentReference')
-            .ele('cbc:ID').txt('PIH').up()
-            .ele('cac:Attachment')
-            .ele('cbc:EmbeddedDocumentBinaryObject', { mimeCode: 'text/plain' })
-            .txt(invoice.previousInvoiceHash || INITIAL_PIH)
-            .up()
-            .up()
-            .up()
-            
-            // Invoice Counter Value (ICV)
-            .ele('cac:AdditionalDocumentReference')
-            .ele('cbc:ID').txt('ICV').up()
-            .ele('cbc:UUID').txt(String((invoice as any).invoiceCounterValue || '1')).up()
-            .up();
-
-        // Billing Reference (Mandatory for Credit/Debit Notes)
+        // Billing Reference (Mandatory for Credit/Debit Notes — MUST precede AdditionalDocumentReference in UBL 2.1 XSD)
         if (invoice.billingReference) {
             const br = invoice.billingReference;
             const brId = typeof br === 'string' ? br : br.id;
@@ -119,7 +106,24 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             if (typeof br !== 'string' && br.uuid) {
                 brNode.ele('cbc:UUID').txt(br.uuid).up();
             }
+            brNode.up().up();
         }
+
+        // Previous Invoice Hash (PIH)
+        xml.ele('cac:AdditionalDocumentReference')
+            .ele('cbc:ID').txt('PIH').up()
+            .ele('cac:Attachment')
+            .ele('cbc:EmbeddedDocumentBinaryObject', { mimeCode: 'text/plain' })
+            .txt(invoice.previousInvoiceHash || INITIAL_PIH)
+            .up()
+            .up()
+            .up();
+            
+        // Invoice Counter Value (ICV)
+        xml.ele('cac:AdditionalDocumentReference')
+            .ele('cbc:ID').txt('ICV').up()
+            .ele('cbc:UUID').txt(String((invoice as any).invoiceCounterValue || '1')).up()
+            .up();
 
         // Supplier
         xml.ele('cac:AccountingSupplierParty')
@@ -133,25 +137,24 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .ele('cbc:CitySubdivisionName').txt(invoice.supplier?.address?.citySubdivisionName || invoice.supplier?.address?.cityName || 'Riyadh').up()
             .ele('cbc:CityName').txt(invoice.supplier?.address?.cityName || 'Riyadh').up()
             .ele('cbc:PostalZone').txt(invoice.supplier?.address?.postalZone || '12345').up()
-            .ele('cbc:CountrySubentity').txt(invoice.supplier?.address?.cityName || 'Riyadh').up()
             .ele('cac:Country')
             .ele('cbc:IdentificationCode').txt('SA').up()
             .up()
             .up()
             .ele('cac:PartyTaxScheme')
-            .ele('cbc:CompanyID').txt(invoice.supplier?.vatNumber || '300000000000003').up()
+            .ele('cbc:CompanyID').txt(invoice.supplier?.vatNumber || '311499218600003').up()
             .ele('cac:TaxScheme')
             .ele('cbc:ID').txt('VAT').up()
             .up()
             .up()
             .ele('cac:PartyLegalEntity')
-            .ele('cbc:RegistrationName').txt(invoice.supplier?.registrationName || invoice.supplier?.name || 'Tech Solutions Ltd').up()
+            .ele('cbc:RegistrationName').txt(invoice.supplier?.name || 'Easy Lease Transport Services LLC').up()
             .up()
             .up()
-            .up()
+            .up();
 
-            // Customer
-            .ele('cac:AccountingCustomerParty')
+        // Customer
+        xml.ele('cac:AccountingCustomerParty')
             .ele('cac:Party')
             .ele('cac:PostalAddress')
             .ele('cbc:StreetName').txt(invoice.customer?.address?.streetName || 'Unknown').up()
@@ -174,6 +177,14 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .up()
             .up()
             .up();
+
+        // PaymentMeans (Mandatory for Credit/Debit Notes to satisfy BR-KSA-17)
+        if (typeCode === '381' || typeCode === '383') {
+            xml.ele('cac:PaymentMeans')
+               .ele('cbc:PaymentMeansCode').txt('10').up()
+               .ele('cbc:InstructionNote').txt(invoice.instructionNote || 'Cancellation or adjustment of transport services').up()
+               .up();
+        }
 
         // Tax Total Section
         const taxTotalNode = xml.ele('cac:TaxTotal');
@@ -222,19 +233,10 @@ export const generateInvoiceXML = (invoice: Invoice) => {
                 .up();
             }
                 
+            // Line-level TaxTotal: contains TaxAmount and RoundingAmount (KSA-12 Line Amount with VAT)
             xmlLine.ele('cac:TaxTotal')
                     .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(item.lineVatStr).up()
-                    .ele('cac:TaxSubtotal')
-                        .ele('cbc:TaxableAmount', { currencyID: 'SAR' }).txt(item.lineNetStr).up()
-                        .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(item.lineVatStr).up()
-                        .ele('cac:TaxCategory')
-                            .ele('cbc:ID').txt(item.category).up()
-                            .ele('cbc:Percent').txt(item.ratePercentStr).up()
-                            .ele('cac:TaxScheme')
-                                .ele('cbc:ID').txt('VAT').up()
-                            .up() // Close TaxScheme
-                        .up() // Close TaxCategory
-                    .up() // Close TaxSubtotal
+                    .ele('cbc:RoundingAmount', { currencyID: 'SAR' }).txt(item.lineInclusiveStr).up()
                 .up() // Close TaxTotal
 
                 .ele('cac:Item')

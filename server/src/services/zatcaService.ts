@@ -213,6 +213,45 @@ export const clearInvoice = async (env: string, csid: string, secret: string, xm
     }
 };
 
+export const getProductionCredentials = async (vatOrCompanyId: string | number) => {
+    let whereClause: any = {};
+    if (typeof vatOrCompanyId === 'number' || /^\d+$/.test(String(vatOrCompanyId)) && String(vatOrCompanyId).length < 10) {
+        whereClause = { id: Number(vatOrCompanyId) };
+    } else {
+        whereClause = { vat_number: String(vatOrCompanyId) };
+    }
+
+    const company = await prisma.company.findFirst({
+        where: whereClause,
+        include: { certificates: true }
+    });
+
+    if (!company) {
+        throw new Error(`Company not found for identifier: ${vatOrCompanyId}`);
+    }
+
+    // Look for active PRODUCTION certificate first, fallback to active certificate
+    const activeCert = company.certificates.find((c: any) => c.is_active && c.type === 'PRODUCTION')
+        || company.certificates.find((c: any) => c.is_active);
+
+    if (!activeCert || !activeCert.csid || !activeCert.secret || !activeCert.private_key) {
+        throw new Error(`Active ZATCA credentials (CSID, secret, private_key) not found for company ${company.registered_name} (${company.vat_number}).`);
+    }
+
+    const { SecurityService } = await import('./securityService.js');
+
+    return {
+        companyId: company.id,
+        vatNumber: company.vat_number,
+        companyName: company.registered_name,
+        environment: company.environment || activeCert.type,
+        csid: activeCert.csid,
+        certificate: activeCert.certificate || activeCert.csid,
+        secret: SecurityService.decrypt(activeCert.secret),
+        privateKey: SecurityService.decrypt(activeCert.private_key)
+    };
+};
+
 export const ZatcaService = {
     onboardCompliance,
     checkCompliance,
@@ -220,17 +259,18 @@ export const ZatcaService = {
     renewProductionCSID,
     reportInvoice,
     clearInvoice,
+    getProductionCredentials,
     report: async (params: any) => {
-        const company = await prisma.company.findFirst({
-            where: params.companyId ? { id: params.companyId } : { vat_number: params.vat }
-        });
-        if (!company) throw new Error('Company not found');
-        const config = await prisma.erp_configuration.findFirst({ 
-            where: { company_id: company.id },
-            include: { certificate: true }
-        });
-        if (!config || !config.certificate?.csid || !config.certificate?.secret) throw new Error('ZATCA CSID/Secret not configured');
-        return await reportInvoice(config.environment || 'SANDBOX', config.certificate.csid, config.certificate.secret, params.invoiceData?.hash || '', params.invoiceData?.xmlBase64 || '', params.invoiceData?.uuid || '');
+        const credentials = await getProductionCredentials(params.companyId || params.vat);
+        const env = credentials.environment || 'PRODUCTION';
+        return await reportInvoice(
+            env,
+            credentials.csid,
+            credentials.secret,
+            params.invoiceData?.hash || '',
+            params.invoiceData?.xmlBase64 || '',
+            params.invoiceData?.uuid || ''
+        );
     },
     reprocessInvoice: async (invoiceId: number) => {
         const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });

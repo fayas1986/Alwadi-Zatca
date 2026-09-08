@@ -29,12 +29,12 @@ async function main() {
         vat,
         otp,
         companyName,
-        commonName: "Easy Lease Unit 1",
+        commonName: dbCompany.registered_name || "Easy Lease Transport Services (Sole Proprietorship) L.L.C.",
         branchName: dbCompany.branch_name || "HQ",
         location: dbCompany.city || "Riyadh",
         industry: "Transport",
-        invoiceType: "1100", // Standard & Simplified
-        serialNumber: `1-Standard|2-Desktop|3-${crypto.randomUUID()}`,
+        invoiceType: "1000", // Standard Tax Invoices (B2B Clearance)
+        serialNumber: `1-EasyLease|2-Desktop|3-${crypto.randomUUID()}`,
         tin,
         buildingNumber: dbCompany.building_number || "1111",
         streetName: dbCompany.street_name || "Test Street",

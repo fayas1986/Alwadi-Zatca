@@ -52,6 +52,27 @@ router.post('/renew', async (req, res) => {
 
 /**
  * @swagger
+ * /api/zatca/credentials/production:
+ *   post:
+ *     summary: Configure existing Production CSID credentials (CSID, Secret, Private Key)
+ *     tags: [ZATCA - Onboarding]
+ */
+router.post('/credentials/production', async (req, res) => {
+    try {
+        const userEmail = (req.headers['x-user-email'] as string) || 'portal-user';
+        const userRole = (req.headers['x-user-role'] as string) || 'USER';
+        const ip = req.ip || 'unknown';
+
+        const result = await ComplianceService.configureProductionCredentials(req.body, { email: userEmail, role: userRole, ip });
+        return ResponseHandler.success(res, result);
+    } catch (error: any) {
+        console.error('[Route: Configure Production Credentials] Error:', error.message);
+        return ResponseHandler.error(res, error.message);
+    }
+});
+
+/**
+ * @swagger
  * /api/zatca/certificates:
  *   get:
  *     summary: List all certificates for a company
