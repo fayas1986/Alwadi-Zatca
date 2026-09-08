@@ -6,10 +6,20 @@ const prismaClientSingleton = () => {
   
   // Fix for Neon Postgres: Remove connection pooler to avoid connection issues on cold starts and serverless
   if (url && url.includes('neon.tech')) {
-    url = url.replace('-pooler.', '.');
-    url = url.replace('?pgbouncer=true&', '?');
-    url = url.replace('?pgbouncer=true', '');
-    url = url.replace('&pgbouncer=true', '');
+    if (process.env.VERCEL) {
+      if (!url.includes('-pooler.')) {
+        url = url.replace('.ap-southeast-1.', '-pooler.ap-southeast-1.');
+      }
+      if (!url.includes('pgbouncer=true')) {
+        const separator = url.includes('?') ? '&' : '?';
+        url = `${url}${separator}pgbouncer=true`;
+      }
+    } else {
+      url = url.replace('-pooler.', '.');
+      url = url.replace('?pgbouncer=true&', '?');
+      url = url.replace('?pgbouncer=true', '');
+      url = url.replace('&pgbouncer=true', '');
+    }
     url = url.replace('&channel_binding=require', '');
     url = url.replace('?channel_binding=require&', '?');
     url = url.replace('?channel_binding=require', '');
