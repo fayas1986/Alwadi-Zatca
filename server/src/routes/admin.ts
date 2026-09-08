@@ -490,6 +490,15 @@ router.post('/users', requireSuperAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Email, password, and role are required' });
         }
 
+        const allowedDomains = ['easylease.ae', 'easylease.com.sa', 'easylease.com', 'sakytek.com', 'tech-solutions.sa', 'system.local'];
+        const userDomain = email.toLowerCase().split('@')[1];
+        if (!userDomain || !allowedDomains.includes(userDomain)) {
+            console.warn(`[Admin] Rejected user creation with disallowed domain: ${email}`);
+            return res.status(400).json({
+                error: 'Access Denied: Only EasyLease domain users (@easylease.ae, @easylease.com.sa, @easylease.com) are allowed.'
+            });
+        }
+
         // Test connection before creating
         try {
             await prisma.$connect();
