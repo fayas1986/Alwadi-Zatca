@@ -4,8 +4,8 @@ import { PrismaClient } from '@prisma/client';
 const prismaClientSingleton = () => {
   let url = process.env.DATABASE_URL;
   
-  // Fix for Neon Postgres: Keep pooler on Vercel serverless functions, strip only on local/VPS long-running server
-  if (!process.env.VERCEL && url && url.includes('neon.tech')) {
+  // Fix for Neon Postgres: Remove connection pooler to avoid connection issues on cold starts and serverless
+  if (url && url.includes('neon.tech')) {
     url = url.replace('-pooler.', '.');
     url = url.replace('?pgbouncer=true&', '?');
     url = url.replace('?pgbouncer=true', '');
