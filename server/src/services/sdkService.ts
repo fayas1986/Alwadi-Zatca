@@ -44,7 +44,10 @@ const runCommand = (command: string, args: string[], options: { cwd?: string; en
 
 const getSDKSettings = () => {
     let sdkPath = process.env.ZATCA_SDK_PATH || '';
-    const javaExe = process.env.JAVA_EXE_PATH || 'java';
+    let javaExe = process.env.JAVA_EXE_PATH || 'java';
+    if (os.platform() !== 'win32' && (javaExe.includes(':\\') || javaExe.includes('Program Files') || javaExe.includes('\\'))) {
+        javaExe = 'java';
+    }
     
     // Check if configured path exists; only fallback if empty, missing, or explicitly on Vercel
     if (process.env.VERCEL || !sdkPath || !fs.existsSync(sdkPath)) {
