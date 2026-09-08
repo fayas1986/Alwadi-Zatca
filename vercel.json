@@ -36,7 +36,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.ts"
+      "destination": "http://200.97.172.222:3001/api/$1"
     },
     {
       "source": "/(.*)",
