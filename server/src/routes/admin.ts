@@ -60,8 +60,7 @@ router.get('/notifications/recent', requireAnyAdmin, async (req, res) => {
         if (companyId && companyId !== 'all') {
             whereClause.OR = [
                 { resource_id: companyId },
-                { resource_id: null },
-                { resource_id: undefined }
+                { resource_id: null }
             ];
         }
 

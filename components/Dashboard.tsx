@@ -46,7 +46,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
 
   React.useEffect(() => {
     const fetchInvoices = async () => {
-      if (!selectedBranch) return;
+      if (!selectedBranch) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         const data = await getInvoices(selectedBranch.organizationId || selectedBranch.id.toString(), {

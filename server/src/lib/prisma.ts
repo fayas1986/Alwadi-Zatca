@@ -43,7 +43,8 @@ const prismaClientSingleton = () => {
               errorMsg.includes('Closed connection') ||
               errorMsg.includes('Can\'t reach database server') ||
               errorMsg.includes('timeout expired') ||
-              errorMsg.includes('socket disconnected')
+              errorMsg.includes('socket disconnected') ||
+              errorMsg.includes('Engine is not yet connected')
             ) {
               console.warn(`[Prisma Retry] Connection error (${errorCode || 'drop'}) on ${model}.${operation}. Reconnecting and retrying...`);
               try {

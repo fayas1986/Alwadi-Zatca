@@ -40,14 +40,14 @@ router.get('/invoices', async (req, res) => {
 
         if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail.trim() !== '' && userEmail !== 'undefined') {
             const user = await prisma.user.findUnique({ where: { email: userEmail } });
-            if (!user) return ResponseHandler.forbidden(res, 'User not found');
-
-            where.company = {
-                OR: [
-                    { user: { email: userEmail } },
-                    { registered_name: { equals: user.company_name || '___NEVER_MATCH___', mode: 'insensitive' } }
-                ]
-            };
+            if (user) {
+                where.company = {
+                    OR: [
+                        { user: { email: userEmail } },
+                        { registered_name: { equals: user.company_name || '___NEVER_MATCH___', mode: 'insensitive' } }
+                    ]
+                };
+            }
         }
 
         const invoices = await prisma.invoice.findMany({
