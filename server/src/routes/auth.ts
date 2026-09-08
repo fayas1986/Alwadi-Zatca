@@ -11,31 +11,31 @@ import { decrypt } from '../utils/crypto.js';
 export const FALLBACK_USERS: Record<string, { id: string; email: string; password: string; name: string; role: string; company_name: string; company_id?: number }> = {
     'superadmin@tech-solutions.sa': {
         id: 'u-001', email: 'superadmin@tech-solutions.sa', password: 'Zatca#Secure!2026@Connect',
-        name: 'Super Admin', role: 'SUPER_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
+        name: 'Super Admin', role: 'SUPER_ADMIN', company_name: 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.', company_id: 1
     },
     'admin@tech-solutions.sa': {
         id: 'u-002', email: 'admin@tech-solutions.sa', password: 'password123',
-        name: 'IT Administrator', role: 'IT_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
+        name: 'IT Administrator', role: 'IT_ADMIN', company_name: 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.', company_id: 1
     },
     'finance@tech-solutions.sa': {
         id: 'u-003', email: 'finance@tech-solutions.sa', password: 'password123',
-        name: 'Finance Manager', role: 'FINANCE_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
+        name: 'Finance Manager', role: 'FINANCE_ADMIN', company_name: 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.', company_id: 1
     },
     'tax@tech-solutions.sa': {
         id: 'u-004', email: 'tax@tech-solutions.sa', password: 'password123',
-        name: 'Tax Officer', role: 'TAX_OFFICER', company_name: 'Satguru Travels Tourism', company_id: 1
+        name: 'Tax Officer', role: 'TAX_OFFICER', company_name: 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.', company_id: 1
     },
-    'alka.sharma@yiron.in': {
-        id: 'u-alka-001', email: 'alka.sharma@yiron.in', password: 'password123',
-        name: 'Alka Sharma', role: 'IT_ADMIN', company_name: 'Satguru Travels Tourism', company_id: 1
+    'mahesh@easylease.com': {
+        id: '3399d656-d6ae-4eb2-b945-9c8996d7446b', email: 'mahesh@easylease.com', password: 'password123',
+        name: 'Mahesh', role: 'IT_ADMIN', company_name: 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.', company_id: 1
     },
     'kamila.banu@easylease.ae': {
         id: 'a698efe8-0995-4ea1-9c3b-c01aba88fae3', email: 'kamila.banu@easylease.ae', password: 'password123',
-        name: 'Kamila Banu', role: 'IT_ADMIN', company_name: 'EasyLease', company_id: 1
+        name: 'Kamila Banu', role: 'IT_ADMIN', company_name: 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.', company_id: 1
     },
     'mahesh@easylease.ae': {
         id: 'c584c436-e3a3-4f8e-8a9c-634abad878dc', email: 'mahesh@easylease.ae', password: 'password123',
-        name: 'Mahesh', role: 'IT_ADMIN', company_name: 'EasyLease', company_id: 1
+        name: 'Mahesh', role: 'IT_ADMIN', company_name: 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.', company_id: 1
     },
 };
 

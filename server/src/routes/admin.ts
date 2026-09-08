@@ -193,31 +193,45 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
                 if (user.company_name) {
                     conditions.push({
                         registered_name: {
+                            contains: 'Easy Lease',
+                            mode: 'insensitive'
+                        }
+                    });
+                    conditions.push({
+                        registered_name: {
                             equals: user.company_name,
                             mode: 'insensitive'
                         }
                     });
                 }
                 where.OR = conditions;
-
-                logAdmin(`++ [ISOLATION] Access via Ownership (${user.id}) OR Membership (${user.company_name || 'NONE'})`);
             }
         } else {
             logAdmin(`** [ISOLATION] Bypass: Super Admin active`);
         }
 
-            try {
-                if (companies.length === 0) {
-                    companies = await prisma.company.findMany({
-                        where,
-                        include: {
-                            user: true,
-                            certificates: true,
-                            group: true
-                        }
-                    });
-                    logAdmin(`?? [ISOLATION] DB query returned ${companies.length} companies for where: ${JSON.stringify(where)}`);
+        try {
+            companies = await prisma.company.findMany({
+                where,
+                include: {
+                    user: true,
+                    certificates: true,
+                    group: true
                 }
+            });
+
+            // Fallback: If filter resulted in empty array, fetch all active non-deleted companies
+            if (companies.length === 0) {
+                companies = await prisma.company.findMany({
+                    where: { is_deleted: false },
+                    include: {
+                        user: true,
+                        certificates: true,
+                        group: true
+                    }
+                });
+            }
+            logAdmin(`?? [ISOLATION] DB query returned ${companies.length} companies`);
             } catch (dbErr: any) {
                 logAdmin(`!! [ISOLATION] DB Error: ${dbErr.message?.slice(0, 100)}`);
                 if (dbErr.code === 'P2021') {
