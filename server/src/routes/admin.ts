@@ -617,5 +617,26 @@ router.all('/system/deploy-pull', requireSuperAdmin, (req, res) => {
     });
 });
 
+// GET /api/admin/system/db-info - Inspect DB connection and contents
+router.get('/system/db-info', requireSuperAdmin, async (req, res) => {
+    try {
+        const dbUrl = process.env.DATABASE_URL || 'NONE';
+        const maskedUrl = dbUrl !== 'NONE' ? dbUrl.replace(/:[^:@]+@/, ':****@') : 'NONE';
+        const companies = await prisma.company.findMany({
+            select: { id: true, registered_name: true, vat_number: true, is_deleted: true }
+        });
+        const invoicesCount = await prisma.invoice.count();
+        res.json({
+            databaseUrl: maskedUrl,
+            companyCount: companies.length,
+            companies,
+            invoicesCount
+        });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 export default router;
+
 
