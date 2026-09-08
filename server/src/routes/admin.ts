@@ -230,9 +230,9 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
         res.setHeader('x-debug-role', userRole || 'NONE');
         res.setHeader('x-debug-email', userEmail || 'NONE');
         res.json(organizations);
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error fetching companies:', error);
-        res.status(500).json({ error: 'Failed to fetch companies' });
+        res.status(500).json({ error: 'Failed to fetch companies', details: error?.message || String(error) });
     }
 });
 
@@ -604,4 +604,18 @@ router.delete('/users/:id', requireSuperAdmin, async (req, res) => {
     }
 });
 
+// ALL /api/admin/system/deploy-pull - Pull latest code on VPS host
+router.all('/system/deploy-pull', requireSuperAdmin, (req, res) => {
+    const { exec } = require('child_process');
+    exec('git pull origin master', (err: any, stdout: string, stderr: string) => {
+        if (err) {
+            console.error('[Deploy Pull] Error:', err);
+            return res.status(500).json({ error: err.message, stderr });
+        }
+        console.log('[Deploy Pull] Success:', stdout);
+        res.json({ message: 'Git pull successful', stdout });
+    });
+});
+
 export default router;
+
