@@ -274,7 +274,17 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             return res.status(401).json({ success: false, error: 'Missing Authorization header' });
         }
 
-        const invoice = calculateInvoiceTotals(req.body);
+        const rawBody = req.body || {};
+        const normalized = {
+            ...rawBody,
+            invoiceNumber: rawBody.invoiceNumber || rawBody.invoice_number || rawBody.InvoiceNumber || rawBody.InvoiceId || rawBody.id || rawBody.number,
+            issueDate: rawBody.issueDate || rawBody.issue_date || rawBody.IssueDate || rawBody.InvoiceDate || rawBody.date || new Date().toISOString(),
+            invoiceSubtype: (rawBody.invoiceSubtype || rawBody.invoice_subtype || rawBody.InvoiceSubtype || rawBody.InvoiceType || (rawBody.customer?.vatNumber || rawBody.customer_vat || rawBody.CustomerVat ? 'STANDARD' : 'SIMPLIFIED')).toString().toUpperCase(),
+            documentType: (rawBody.documentType || rawBody.document_type || rawBody.DocumentType || rawBody.type || 'INVOICE').toString().toUpperCase().replace(/\s+/g, '_'),
+            items: rawBody.items || rawBody.invoiceLines || rawBody.InvoiceLines || rawBody.SalesInvoiceLines || rawBody.lines || []
+        };
+
+        const invoice = calculateInvoiceTotals(normalized);
         console.log('[DEBUG] Invoice after calculateInvoiceTotals:', JSON.stringify(invoice, null, 2));
         const parsedDate = parseInvoiceDate(invoice.issueDate);
         
@@ -290,7 +300,7 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
         }
 
         // Validate required fields
-        const required = ['invoiceNumber', 'invoiceSubtype', 'issueDate', 'totalAmount', 'vatAmount'];
+        const required = ['invoiceNumber', 'invoiceSubtype', 'issueDate'];
         for (const field of required) {
             if (invoice[field] === undefined || invoice[field] === null || invoice[field] === '') {
                 return res.status(400).json({ success: false, error: `Missing required field: ${field}` });

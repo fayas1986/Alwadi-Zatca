@@ -321,7 +321,9 @@ export const fetchAndProcessInvoices = async (
                     // --- Normalize taxCategory to a valid ZATCA code string ---
                     // ERPs sometimes send the VAT amount (e.g. 65.22) in this field by mistake.
                     // Valid ZATCA codes: "S" (Standard), "Z" (Zero-rated), "E" (Exempt), "O" (Out of scope)
+                    const rawTaxCat = it.taxCategory || it.taxCategoryCode || it.tax_category || it.TaxCategory;
                     const rawTaxCatStr = (rawTaxCat || '').toString().toUpperCase().trim();
+                    let taxCategoryCode = 'S';
                     if (['S', 'Z', 'E', 'O'].includes(rawTaxCatStr)) {
                         taxCategoryCode = rawTaxCatStr;
                     } else if (rawTaxCatStr === 'OOSP' || rawTaxCatStr === 'OUT OF SCOPE' || rawTaxCatStr === 'OUTOFSCOPE') {

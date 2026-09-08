@@ -369,7 +369,16 @@ const authenticateSimple = async (req: Request, res: Response, next: any) => {
 const handleAsyncSubmission = async (req: Request, res: Response, documentType: 'Invoice' | 'Credit Note' | 'Debit Note') => {
     try {
         const company = (req as any).company;
-        const payload = req.body;
+        const payload = req.body || {};
+
+        // --- Normalize Field Aliases for D365 Push Compatibility ---
+        payload.invoiceNumber = payload.invoiceNumber || payload.invoice_number || payload.InvoiceNumber || payload.InvoiceId || payload.id || payload.number;
+        payload.issueDate = payload.issueDate || payload.issue_date || payload.IssueDate || payload.InvoiceDate || payload.date || new Date().toISOString();
+        payload.invoiceSubtype = (payload.invoiceSubtype || payload.invoice_subtype || payload.InvoiceSubtype || payload.InvoiceType || (payload.customer?.vatNumber || payload.customer_vat || payload.CustomerVat ? 'STANDARD' : 'SIMPLIFIED')).toString().toUpperCase();
+        payload.documentType = (payload.documentType || payload.document_type || payload.DocumentType || payload.type || documentType || 'INVOICE').toString().toUpperCase().replace(/\s+/g, '_');
+        if (!payload.items) {
+            payload.items = payload.invoiceLines || payload.InvoiceLines || payload.SalesInvoiceLines || payload.lines || [];
+        }
 
         // --- 0. UUID Normalization (ZATCA Requirement: RFC 4122 Version 4) ---
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
