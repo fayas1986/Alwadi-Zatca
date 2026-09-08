@@ -1,37 +1,22 @@
 import './env.js';
 import { PrismaClient } from '@prisma/client';
 
-const prismaClientSingleton = () => {
-  let url = process.env.DATABASE_URL;
-  
-  // Fix for Neon Postgres: Remove connection pooler to avoid connection issues on cold starts and serverless
-  if (url && url.includes('neon.tech')) {
-    if (process.env.VERCEL) {
-      if (!url.includes('-pooler.')) {
-        url = url.replace('ep-spring-hat-a18pmkyp.', 'ep-spring-hat-a18pmkyp-pooler.');
-      }
-    } else {
-      url = url.replace('-pooler.', '.');
-      url = url.replace('?pgbouncer=true&', '?');
-      url = url.replace('?pgbouncer=true', '');
-      url = url.replace('&pgbouncer=true', '');
-    }
-    url = url.replace('&channel_binding=require', '');
-    url = url.replace('?channel_binding=require&', '?');
-    url = url.replace('?channel_binding=require', '');
-    
-    // Serverless functions on Vercel must use connection_limit=1 to prevent pool exhaustion across lambdas
-    const connParams = process.env.VERCEL 
-      ? 'connection_limit=1&connect_timeout=10&pool_timeout=10' 
-      : 'connection_limit=15&connect_timeout=30&pool_timeout=30';
+const DEFAULT_NEON_URL = "postgresql://neondb_owner:npg_MStg5qT3uFbc@ep-spring-hat-a18pmkyp-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
 
-    if (!url.includes('connect_timeout=')) {
+const prismaClientSingleton = () => {
+  let url = process.env.DATABASE_URL || DEFAULT_NEON_URL;
+  
+  if (url.includes('neon.tech')) {
+    if (!url.includes('-pooler.')) {
+      url = url.replace('ep-spring-hat-a18pmkyp.', 'ep-spring-hat-a18pmkyp-pooler.');
+    }
+    if (!url.includes('sslmode=require')) {
       const separator = url.includes('?') ? '&' : '?';
-      url = `${url}${separator}${connParams}`;
+      url = `${url}${separator}sslmode=require`;
     }
   }
 
-  console.log('[Prisma] Initializing with DB URL:', url ? (url.substring(0, 20) + '...') : 'MISSING');
+  console.log('[Prisma] Initializing with DB URL:', url ? (url.substring(0, 30) + '...') : 'MISSING');
   
   const basePrisma = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
