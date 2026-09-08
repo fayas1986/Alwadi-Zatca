@@ -11,10 +11,14 @@ const prismaClientSingleton = () => {
     url = url.replace('?pgbouncer=true', '');
     url = url.replace('&pgbouncer=true', '');
     
-    // Add connection timeout and pool parameters for cold starts
+    // Serverless functions on Vercel must use connection_limit=1 to prevent pool exhaustion across lambdas
+    const connParams = process.env.VERCEL 
+      ? 'connection_limit=1&connect_timeout=10&pool_timeout=10' 
+      : 'connection_limit=15&connect_timeout=30&pool_timeout=30';
+
     if (!url.includes('connect_timeout=')) {
       const separator = url.includes('?') ? '&' : '?';
-      url = `${url}${separator}connect_timeout=30&pool_timeout=30&connection_limit=15`;
+      url = `${url}${separator}${connParams}`;
     }
   }
 
@@ -44,7 +48,8 @@ const prismaClientSingleton = () => {
               errorMsg.includes('Can\'t reach database server') ||
               errorMsg.includes('timeout expired') ||
               errorMsg.includes('socket disconnected') ||
-              errorMsg.includes('Engine is not yet connected')
+              errorMsg.includes('Engine is not yet connected') ||
+              errorMsg.includes('connection pool')
             ) {
               console.warn(`[Prisma Retry] Connection error (${errorCode || 'drop'}) on ${model}.${operation}. Reconnecting and retrying...`);
               try {
@@ -69,8 +74,8 @@ declare global {
   var prisma: undefined | ReturnType<typeof prismaClientSingleton>;
 }
 
-const prisma = globalThis.prisma ?? prismaClientSingleton();
+const prisma = process.env.VERCEL ? prismaClientSingleton() : (globalThis.prisma ?? prismaClientSingleton());
 
 export default prisma;
 
-if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma;
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) globalThis.prisma = prisma;
