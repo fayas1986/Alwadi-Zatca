@@ -33,11 +33,11 @@ export default async (req: any, res: any) => {
   if (url === '/api/health') {
     try {
         const { default: prisma } = await import('../server/src/lib/prisma.js');
-        const dbStatus = await prisma.$queryRaw`SELECT 1`.catch(() => 'FAIL');
+        const dbConnected = await prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false);
         
         return res.status(200).json({
             status: 'ok',
-            database: dbStatus === 1 ? 'CONNECTED' : 'DISCONNECTED',
+            database: dbConnected ? 'CONNECTED' : 'DISCONNECTED',
             cwd: process.cwd(),
             dir: path.resolve(process.cwd())
         });
