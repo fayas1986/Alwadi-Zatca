@@ -16,50 +16,44 @@ function listFiles(dir: string, fileList: string[] = []) {
   return fileList;
 }
 
+const HOSTINGER_VPS_URL = 'http://200.97.172.222:3001';
+
 export default async (req: any, res: any) => {
   const url = req.url || '';
 
-  // Infrastructure Ping
-  if (url === '/api/ping') {
-    return res.status(200).json({ 
-        status: 'pong', 
-        env: !!process.env.DATABASE_URL,
-        node: process.version,
-        vercel: !!process.env.VERCEL
-    });
-  }
-
-  // Diagnostic endpoints for debugging Vercel environment
-  if (url === '/api/health') {
-    try {
-        const { default: prisma } = await import('../server/src/lib/prisma.js');
-        let dbErr: any = null;
-        const dbConnected = await prisma.$queryRaw`SELECT 1`.then(() => true).catch((e: any) => { dbErr = e?.message || String(e); return false; });
-        
-        return res.status(200).json({
-            status: 'ok',
-            database: dbConnected ? 'CONNECTED' : 'DISCONNECTED',
-            error: dbErr,
-            cwd: process.cwd(),
-            dir: path.resolve(process.cwd())
-        });
-    } catch (err: any) {
-        return res.status(500).json({ status: 'error', message: err.message });
-    }
-  }
-
-  // Final App Load
+  // Proxy API requests to active Hostinger VPS backend
   try {
-    // Standardizing on .js extension for ESM resolution on Vercel
-    const { default: app } = await import('../server/src/index.js');
-    return app(req, res);
+    const targetUrl = `${HOSTINGER_VPS_URL}${url}`;
+    const headers: any = { ...req.headers };
+    delete headers.host;
+
+    const options: any = {
+      method: req.method,
+      headers
+    };
+
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+      options.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    }
+
+    const response = await fetch(targetUrl, options);
+    const contentType = response.headers.get('content-type');
+    const data = await response.text();
+
+    res.status(response.status);
+    if (contentType) res.setHeader('content-type', contentType);
+    return res.send(data);
   } catch (error: any) {
-    console.error("Vercel App Boot Failure:", error);
-    return res.status(500).json({
-      error: "Vercel Boot Failure",
-      message: error.message,
-      path: req.url,
-      cwd: process.cwd()
-    });
+    console.error("Vercel Proxy Failure:", error);
+    try {
+      const { default: app } = await import('../server/src/index.js');
+      return app(req, res);
+    } catch (err: any) {
+      return res.status(500).json({
+        error: "Vercel Boot Failure",
+        message: error.message,
+        path: req.url
+      });
+    }
   }
 };
