@@ -617,26 +617,44 @@ router.all('/system/deploy-pull', requireSuperAdmin, (req, res) => {
     });
 });
 
-// GET /api/admin/system/db-info - Inspect DB connection and contents
-router.get('/system/db-info', requireSuperAdmin, async (req, res) => {
+// POST /api/admin/system/update-env - Update environment variables (e.g. DATABASE_URL)
+router.post('/system/update-env', requireSuperAdmin, async (req, res) => {
     try {
-        const dbUrl = process.env.DATABASE_URL || 'NONE';
-        const maskedUrl = dbUrl !== 'NONE' ? dbUrl.replace(/:[^:@]+@/, ':****@') : 'NONE';
-        const companies = await prisma.company.findMany({
-            select: { id: true, registered_name: true, vat_number: true, is_deleted: true }
+        const { databaseUrl } = req.body;
+        if (!databaseUrl) {
+            return res.status(400).json({ error: 'databaseUrl is required' });
+        }
+        
+        const envPath = path.join(process.cwd(), '.env');
+        let envContent = '';
+        if (fs.existsSync(envPath)) {
+            envContent = fs.readFileSync(envPath, 'utf-8');
+        }
+
+        if (envContent.includes('DATABASE_URL=')) {
+            envContent = envContent.replace(/DATABASE_URL=".*?"/g, `DATABASE_URL="${databaseUrl}"`);
+            envContent = envContent.replace(/DATABASE_URL='.*?'/g, `DATABASE_URL="${databaseUrl}"`);
+            envContent = envContent.replace(/DATABASE_URL=[^\r\n]+/g, `DATABASE_URL="${databaseUrl}"`);
+        } else {
+            envContent += `\nDATABASE_URL="${databaseUrl}"\n`;
+        }
+
+        fs.writeFileSync(envPath, envContent, 'utf-8');
+        process.env.DATABASE_URL = databaseUrl;
+
+        // Restart PM2 process if pm2 is available
+        const { exec } = require('child_process');
+        exec('pm2 restart all || pm2 restart zatca-backend', (err: any, stdout: string) => {
+            console.log('[Update Env] PM2 restart output:', stdout);
         });
-        const invoicesCount = await prisma.invoice.count();
-        res.json({
-            databaseUrl: maskedUrl,
-            companyCount: companies.length,
-            companies,
-            invoicesCount
-        });
+
+        res.json({ message: 'DATABASE_URL updated successfully and PM2 restart triggered' });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }
 });
 
 export default router;
+
 
 

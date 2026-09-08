@@ -19,7 +19,11 @@ function listFiles(dir: string, fileList: string[] = []) {
 const HOSTINGER_VPS_URL = 'http://200.97.172.222:3001';
 
 export default async (req: any, res: any) => {
-  const url = req.url || '';
+  let url = req.url || '';
+  if (!url.startsWith('/api')) {
+    url = '/api' + (url.startsWith('/') ? url : '/' + url);
+    req.url = url;
+  }
 
   // Determine if this request requires the Java SDK running on Hostinger VPS
   const requiresJavaSdk = url.includes('/api/zatca/onboard') || 
