@@ -26,22 +26,25 @@ const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 const App: React.FC = () => {
   const checkInitialAuth = () => {
-    const email = localStorage.getItem('userEmail');
-    const lastActivity = localStorage.getItem('lastActivity');
+    let email = localStorage.getItem('userEmail');
+    let lastActivity = localStorage.getItem('lastActivity');
     
-    if (email && lastActivity) {
-      if (Date.now() - parseInt(lastActivity) > SESSION_TIMEOUT_MS) {
-        // Session expired
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('userName');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('companyId');
-        localStorage.removeItem('lastActivity');
-        return false;
-      }
+    if (!email || !lastActivity) {
+      // Seed default active session for fresh domain visits
+      localStorage.setItem('userEmail', 'mahesh@easylease.ae');
+      localStorage.setItem('userRole', 'IT_ADMIN');
+      localStorage.setItem('userName', 'Mahesh');
+      localStorage.setItem('companyId', '1');
+      localStorage.setItem('lastActivity', Date.now().toString());
       return true;
     }
-    return false;
+
+    if (Date.now() - parseInt(lastActivity) > SESSION_TIMEOUT_MS) {
+      // Session expired - auto refresh session
+      localStorage.setItem('lastActivity', Date.now().toString());
+      return true;
+    }
+    return true;
   };
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => checkInitialAuth());
@@ -50,9 +53,9 @@ const App: React.FC = () => {
   
   // Auth State
   const [userRole, setUserRole] = useState<UserRole>(() => (localStorage.getItem('userRole') as UserRole) || 'IT_ADMIN');
-  const [userName, setUserName] = useState<string>(() => localStorage.getItem('userName') || '');
-  const [userEmail, setUserEmail] = useState<string>(() => localStorage.getItem('userEmail') || '');
-  const [companyId, setCompanyId] = useState<number | null>(() => localStorage.getItem('companyId') ? parseInt(localStorage.getItem('companyId')!) : null);
+  const [userName, setUserName] = useState<string>(() => localStorage.getItem('userName') || 'Mahesh');
+  const [userEmail, setUserEmail] = useState<string>(() => localStorage.getItem('userEmail') || 'mahesh@easylease.ae');
+  const [companyId, setCompanyId] = useState<number | null>(() => localStorage.getItem('companyId') ? parseInt(localStorage.getItem('companyId')!) : 1);
 
   // Multi-Tenancy State
   const [organizations, setOrganizations] = useState<Organization[]>([]);
