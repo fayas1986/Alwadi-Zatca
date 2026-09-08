@@ -10,6 +10,7 @@ const prismaClientSingleton = () => {
     if (!url.includes('-pooler.')) {
       url = url.replace('ep-spring-hat-a18pmkyp.', 'ep-spring-hat-a18pmkyp-pooler.');
     }
+    url = url.replace(/&channel_binding=require|\?channel_binding=require&|\?channel_binding=require/g, '');
     if (!url.includes('sslmode=require')) {
       const separator = url.includes('?') ? '&' : '?';
       url = `${url}${separator}sslmode=require`;
