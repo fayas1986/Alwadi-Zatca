@@ -272,7 +272,109 @@ csr.industry.business.category=${industry || 'Transport'}`;
             const complianceSecret = complianceResult.secret;
             const requestId = (complianceResult as any).requestID || (complianceResult as any).requestId;
 
-            // Step B: Request Production CSID (PCSID) from ZATCA Production Endpoint (/production/csids)
+            // Step B: Run Mandatory Compliance Checks (Standard 388, Credit Note 381, Debit Note 383)
+            console.log('[Compliance Service] Running mandatory Production compliance checks (388, 381, 383)...');
+            const sampleInvoice = {
+                invoiceNumber: 'COMPLIANCE-PROD-001',
+                uuid: crypto.randomUUID(),
+                issueDate: new Date().toISOString(),
+                invoiceSubtype: 'STANDARD',
+                profileId: 'reporting:1.0',
+                invoiceCounterValue: 1,
+                documentType: 'Invoice',
+                currencyCode: 'SAR',
+                supplier: {
+                    name: numericTIN,
+                    vatNumber: vat,
+                    address: {
+                        streetName: streetName || 'Test Street',
+                        buildingNumber: buildingNumber || '1111',
+                        citySubdivisionName: citySubdivision || 'District',
+                        cityName: city || location || 'Riyadh',
+                        postalZone: postalZone || '11111',
+                        countryCode: 'SA'
+                    }
+                },
+                customer: {
+                    name: 'Test Customer',
+                    vatNumber: '300000000000003',
+                    address: {
+                        streetName: 'Test Street',
+                        buildingNumber: '1111',
+                        citySubdivisionName: 'District',
+                        cityName: 'Riyadh',
+                        postalZone: '11111',
+                        countryCode: 'SA'
+                    }
+                },
+                items: [{ name: 'Test Item', quantity: 1, unitPrice: 100, subtotal: 100, taxCategory: 'S', vatRate: 0.15, vatAmount: 15, total: 115 }],
+                totalAmount: 115,
+                vatAmount: 15,
+                taxExclusiveAmount: 100
+            };
+
+            const cleanComplianceCsid = complianceCSID.replace(/-----BEGIN CERTIFICATE-----/g, '').replace(/-----END CERTIFICATE-----/g, '').replace(/\s+/g, '');
+
+            // Standard Invoice 388
+            const xmlStandard = await (generateInvoiceXML as any)(sampleInvoice);
+            const signedStandard = await signInvoice(xmlStandard, cleanComplianceCsid, prodPrivateKey, false);
+            await client.checkCompliance({
+                csid: complianceCSID,
+                secret: complianceSecret,
+                xmlHash: signedStandard.hash,
+                xmlBase64: Buffer.from(signedStandard.signedXml).toString('base64'),
+                uuid: sampleInvoice.uuid
+            });
+            console.log('[Compliance Service] ✅ Production Standard Invoice (388) compliance check passed.');
+
+            // Credit Note 381
+            const todayDateStr = new Date().toISOString().split('T')[0];
+            const creditNoteInvoice = {
+                ...sampleInvoice,
+                invoiceNumber: 'COMPLIANCE-PROD-002',
+                uuid: crypto.randomUUID(),
+                invoiceSubtype: 'STANDARD',
+                documentType: 'CREDIT_NOTE',
+                invoiceCounterValue: 2,
+                previousInvoiceHash: signedStandard.hash,
+                billingReference: { id: 'COMPLIANCE-PROD-001', issueDate: todayDateStr },
+                instructionNote: 'Cancellation of transport agreement'
+            };
+            const xmlCreditNote = await (generateInvoiceXML as any)(creditNoteInvoice);
+            const signedCreditNote = await signInvoice(xmlCreditNote, cleanComplianceCsid, prodPrivateKey, false);
+            await client.checkCompliance({
+                csid: complianceCSID,
+                secret: complianceSecret,
+                xmlHash: signedCreditNote.hash,
+                xmlBase64: Buffer.from(signedCreditNote.signedXml).toString('base64'),
+                uuid: creditNoteInvoice.uuid
+            });
+            console.log('[Compliance Service] ✅ Production Credit Note (381) compliance check passed.');
+
+            // Debit Note 383
+            const debitNoteInvoice = {
+                ...sampleInvoice,
+                invoiceNumber: 'COMPLIANCE-PROD-003',
+                uuid: crypto.randomUUID(),
+                invoiceSubtype: 'STANDARD',
+                documentType: 'DEBIT_NOTE',
+                invoiceCounterValue: 3,
+                previousInvoiceHash: signedCreditNote.hash,
+                billingReference: { id: 'COMPLIANCE-PROD-001', issueDate: todayDateStr },
+                instructionNote: 'Additional transport service charge'
+            };
+            const xmlDebitNote = await (generateInvoiceXML as any)(debitNoteInvoice);
+            const signedDebitNote = await signInvoice(xmlDebitNote, cleanComplianceCsid, prodPrivateKey, false);
+            await client.checkCompliance({
+                csid: complianceCSID,
+                secret: complianceSecret,
+                xmlHash: signedDebitNote.hash,
+                xmlBase64: Buffer.from(signedDebitNote.signedXml).toString('base64'),
+                uuid: debitNoteInvoice.uuid
+            });
+            console.log('[Compliance Service] ✅ Production Debit Note (383) compliance check passed.');
+
+            // Step C: Request Production CSID (PCSID) from ZATCA Production Endpoint (/production/csids)
             console.log('[Compliance Service] Requesting Production CSID from ZATCA...');
             const pcsidResult = await client.requestProductionCSID({
                 complianceCSID,
