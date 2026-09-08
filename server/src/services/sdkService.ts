@@ -320,8 +320,8 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
 
         try {
             let newConfigContent = backupConfigContent;
-            const escapedCertPath = certPath.replace(/\//g, '\\\\');
-            const escapedKeyPath = keyPath.replace(/\//g, '\\\\');
+            const escapedCertPath = os.platform() === 'win32' ? certPath.replace(/\//g, '\\\\') : certPath;
+            const escapedKeyPath  = os.platform() === 'win32' ? keyPath.replace(/\//g, '\\\\')  : keyPath;
             
             newConfigContent = newConfigContent.replace(/"certPath"\s*:\s*"[^"]*"/, `"certPath": "${escapedCertPath}"`);
             newConfigContent = newConfigContent.replace(/"privateKeyPath"\s*:\s*"[^"]*"/, `"privateKeyPath": "${escapedKeyPath}"`);
