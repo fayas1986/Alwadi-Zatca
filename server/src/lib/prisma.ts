@@ -8,11 +8,7 @@ const prismaClientSingleton = () => {
   if (url && url.includes('neon.tech')) {
     if (process.env.VERCEL) {
       if (!url.includes('-pooler.')) {
-        url = url.replace('.ap-southeast-1.', '-pooler.ap-southeast-1.');
-      }
-      if (!url.includes('pgbouncer=true')) {
-        const separator = url.includes('?') ? '&' : '?';
-        url = `${url}${separator}pgbouncer=true`;
+        url = url.replace('ep-spring-hat-a18pmkyp.', 'ep-spring-hat-a18pmkyp-pooler.');
       }
     } else {
       url = url.replace('-pooler.', '.');
