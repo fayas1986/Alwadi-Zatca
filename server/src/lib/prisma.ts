@@ -10,6 +10,9 @@ const prismaClientSingleton = () => {
     url = url.replace('?pgbouncer=true&', '?');
     url = url.replace('?pgbouncer=true', '');
     url = url.replace('&pgbouncer=true', '');
+    url = url.replace('&channel_binding=require', '');
+    url = url.replace('?channel_binding=require&', '?');
+    url = url.replace('?channel_binding=require', '');
     
     // Serverless functions on Vercel must use connection_limit=1 to prevent pool exhaustion across lambdas
     const connParams = process.env.VERCEL 
