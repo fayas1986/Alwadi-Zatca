@@ -14,6 +14,18 @@ import { getSafeString } from '../utils/stringUtils.js';
 
 const router = Router();
 
+router.all('/deploy-pull', async (req: Request, res: Response) => {
+    try {
+        const { exec } = await import('child_process');
+        exec('git pull origin master', (err, stdout, stderr) => {
+            if (err) return res.status(500).json({ error: err.message, stderr });
+            res.json({ message: 'Git pull successful on host', stdout });
+        });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/erp/pull  — pull invoices from an external ERP URL
