@@ -8,6 +8,16 @@ import { getKSATimestamp, INITIAL_PIH } from '../utils/api-helpers.js';
 
 const safeNum = (v: any) => Number(v) || 0;
 
+const normalizeTaxCategory = (cat: string | undefined, vatRate: number): string => {
+    if (!cat) return vatRate > 0 ? 'S' : 'Z';
+    const clean = cat.trim().toUpperCase();
+    if (['S', 'Z', 'E', 'O'].includes(clean)) return clean;
+    if (clean.includes('EXEMPT') || clean.includes('EXE')) return 'E';
+    if (clean.includes('ZERO') || clean === 'Z') return 'Z';
+    if (clean.includes('OUTSIDE') || clean === 'O') return 'O';
+    return vatRate > 0 ? 'S' : 'Z';
+};
+
 export const generateInvoiceXML = (invoice: Invoice) => {
     // 1. Unified Math (Halala-based to avoid float drift)
     const toHalala = (n: number) => Math.round((n + Number.EPSILON) * 100);
@@ -26,7 +36,7 @@ export const generateInvoiceXML = (invoice: Invoice) => {
         const discount = safeNum(it.discount);
         const rate = safeNum(it.vatRate || it.taxRate || 0.15);
         const ratePercent = rate < 1 ? rate * 100 : rate;
-        const category = it.taxCategory || it.taxCategoryCode || 'S';
+        const category = normalizeTaxCategory(it.taxCategory || it.taxCategoryCode, rate);
 
         const grossHalala = toHalala(qty * price);
         const discountHalala = toHalala(discount);
@@ -176,6 +186,12 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .ele('cbc:RegistrationName').txt(invoice.customer?.name || 'Cash Client').up()
             .up()
             .up()
+            .up();
+
+        // Delivery / Supply Date (Mandatory for Standard Tax Invoices to satisfy BR-KSA-15)
+        const supplyDateStr = String((invoice as any).supplyDate || (invoice as any).deliveryDate || invoice.issueDate || datePart).split('T')[0];
+        xml.ele('cac:Delivery')
+            .ele('cbc:ActualDeliveryDate').txt(supplyDateStr).up()
             .up();
 
         // PaymentMeans (Mandatory for Credit/Debit Notes to satisfy BR-KSA-17)
