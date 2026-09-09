@@ -538,7 +538,14 @@ const handleAsyncSubmission = async (req: Request, res: Response, documentType: 
         // --- 2.1 Critical Compliance Check ---
         const validation = validateHardenedCompliance(invoiceData);
         if (!validation.isValid) {
-            return sendError(res, 400, 'COMPLIANCE_ERROR', 'The provided data fails ZATCA mandatory requirements', validation.errors);
+            const vatErr = validation.errors.find(e => e.code === 'CUSTOMER_VAT_REQUIRED');
+            const errCode = vatErr ? 'CUSTOMER_VAT_REQUIRED' : 'COMPLIANCE_ERROR';
+            const msg = vatErr ? 'Customer VAT number is required for a Standard Tax Invoice.' : 'The provided data fails ZATCA mandatory requirements';
+
+            return sendError(res, 400, errCode, msg, validation.errors, {
+                invoiceNumber: payload.invoiceNumber || invoiceData.invoiceNumber,
+                customerAccount: payload.customerAccount || payload.customer_account || payload.CustomerAccount || payload.customer?.name
+            });
         }
 
         // Retrieve the last successful OR pending invoice to maintain a strict chain

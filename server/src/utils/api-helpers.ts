@@ -44,13 +44,27 @@ export async function processInvoiceChaining(payload: any, lastHash: string | nu
 export interface ApiErrorDetail {
     field?: string;
     issue: string;
+    code?: string;
 }
 
-export const sendError = (res: Response, status: number, code: string, message: string, details?: ApiErrorDetail[]) => {
+export const sendError = (res: Response, status: number, code: string, message: string, details?: ApiErrorDetail[], extra: any = {}) => {
+    const req = (res as any).req;
+    const correlationId = (req?.correlationId || req?.headers['x-correlation-id'] || req?.headers['x-request-id'] || res.getHeader('x-correlation-id') || `corr-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`) as string;
+
+    const invNum = extra.invoiceNumber || req?.body?.invoiceNumber || req?.body?.invoice_number || req?.body?.InvoiceNumber || req?.body?.FreeTextInvoiceNumber || req?.body?.InvoiceId;
+    const custAcc = extra.customerAccount || req?.body?.customerAccount || req?.body?.customer_account || req?.body?.CustomerAccount || req?.body?.customer?.accountNumber || req?.body?.customer?.name || req?.body?.InvoiceCustomerName;
+
+    const primaryCode = details?.find(d => d.code)?.code || code;
+
     return res.status(status).json({
+        success: false,
         status: 'ERROR',
-        code,
+        errorCode: primaryCode,
+        code: primaryCode,
         message,
+        invoiceNumber: invNum || undefined,
+        customerAccount: custAcc || undefined,
+        correlationId,
         details,
         timestamp: getKSATimestamp()
     });
@@ -206,8 +220,9 @@ export const injectComplianceFields = (payload: any, type: string) => {
     injected.ublTypeCode = ublCode;
 
     // Subtype Code (0100000 = Standard, 0200000 = Simplified)
+    const explicitSubtype = payload.invoiceSubtype || payload.invoice_subtype || payload.InvoiceSubtype || payload.InvoiceType;
     const hasCustomerVat = !!(injected.customer?.vatNumber);
-    injected.invoiceSubtype = (payload.invoiceSubtype || (hasCustomerVat ? 'STANDARD' : 'SIMPLIFIED')).toUpperCase();
+    injected.invoiceSubtype = (explicitSubtype ? explicitSubtype : (hasCustomerVat ? 'STANDARD' : 'SIMPLIFIED')).toString().toUpperCase();
     
     if (!injected.invoiceTypeCode) {
         injected.invoiceTypeCode = (injected.invoiceSubtype === 'STANDARD') ? '0100000' : '0200000';
@@ -343,14 +358,22 @@ export const validateHardenedCompliance = (invoice: any) => {
     // 3. Customer Requirements for STANDARD (B2B) Invoices
     if (invoice.invoiceSubtype === 'STANDARD') {
         if (!invoice.customer) {
-            errors.push({ field: 'customer', issue: 'Customer details are mandatory for STANDARD invoices' });
+            errors.push({ 
+                field: 'customer', 
+                code: 'CUSTOMER_VAT_REQUIRED',
+                issue: 'Customer details are mandatory for a Standard Tax Invoice.' 
+            });
         } else {
-            if (!invoice.customer.name) errors.push({ field: 'customer.name', issue: 'Customer name is mandatory for STANDARD invoices' });
-            if (!invoice.customer.vatNumber) errors.push({ field: 'customer.vatNumber', issue: 'Customer VAT number is mandatory for STANDARD invoices' });
-            
-            // Standard invoices require specific address fields for ZATCA
-            if (!invoice.customer.address) {
-                errors.push({ field: 'customer.address', issue: 'Customer address is mandatory for STANDARD invoices' });
+            const vat = invoice.customer.vatNumber || invoice.customer.taxRegistrationNumber || invoice.customer.vat_number;
+            if (!vat || typeof vat !== 'string' || vat.trim() === '') {
+                errors.push({ 
+                    field: 'customer.vatNumber', 
+                    code: 'CUSTOMER_VAT_REQUIRED',
+                    issue: 'Customer VAT number is required for a Standard Tax Invoice.' 
+                });
+            }
+            if (!invoice.customer.name) {
+                errors.push({ field: 'customer.name', issue: 'Customer name is mandatory for a Standard Tax Invoice.' });
             }
         }
     }

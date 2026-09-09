@@ -9,7 +9,7 @@ import prisma from '../lib/prisma.js';
 import { AuditService } from '../services/auditService.js';
 import { parseInvoiceDate } from '../utils/dateUtils.js';
 import { InvoiceService } from '../services/invoiceService.js';
-import { calculateInvoiceTotals, injectComplianceFields } from '../utils/api-helpers.js';
+import { calculateInvoiceTotals, injectComplianceFields, validateHardenedCompliance, sendError } from '../utils/api-helpers.js';
 import { getSafeString } from '../utils/stringUtils.js';
 
 const router = Router();
@@ -456,6 +456,31 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
         zatcaInvoice.previousInvoiceHash = pih;
         zatcaInvoice.taxCategory = zatcaInvoice.taxCategory || (zatcaInvoice.items?.[0]?.taxCategory || 'S');
         zatcaInvoice.documentType = zatcaInvoice.documentType || 'Invoice';
+
+        // ── Pre-flight Hardened Compliance Check ──
+        const validation = validateHardenedCompliance(zatcaInvoice);
+        if (!validation.isValid) {
+            const vatErr = validation.errors.find(e => e.code === 'CUSTOMER_VAT_REQUIRED');
+            const errCode = vatErr ? 'CUSTOMER_VAT_REQUIRED' : 'VALIDATION_ERROR';
+            const msg = vatErr ? 'Customer VAT number is required for a Standard Tax Invoice.' : 'The provided data fails ZATCA mandatory requirements';
+
+            await AuditService.log({
+                action: 'ERP Push Submission Rejected',
+                category: 'Operational',
+                user: 'External API',
+                role: 'IT_ADMIN',
+                ipAddress: req.ip || '127.0.0.1',
+                details: `Validation failed for ${invoice.invoiceNumber}: ${msg}`,
+                status: 'Failure',
+                resourceId: invoice.invoiceNumber,
+                metadata: { errors: validation.errors, correlationId: (req as any).correlationId }
+            });
+
+            return sendError(res, 400, errCode, msg, validation.errors, {
+                invoiceNumber: invoice.invoiceNumber,
+                customerAccount: rawBody.CustomerAccount || rawBody.customerAccount || rawBody.CustomerName || invoice.customer?.name
+            });
+        }
 
         let signedXml: string = '';
         let hash: string = '';

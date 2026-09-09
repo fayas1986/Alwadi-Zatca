@@ -30,6 +30,14 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Correlation ID Middleware
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const existingHeader = req.headers['x-correlation-id'] || req.headers['x-request-id'];
+    const correlationId = (Array.isArray(existingHeader) ? existingHeader[0] : existingHeader) || `corr-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    (req as any).correlationId = correlationId;
+    res.setHeader('x-correlation-id', correlationId);
+    next();
+});
 
 // Initialize Background Queue & Sync (Disabled on Vercel)
 if (!process.env.VERCEL) {
@@ -121,10 +129,25 @@ app.get('/api/db-test', async (req, res) => {
  
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error(`[GLOBAL ERROR] ${req.method} ${req.originalUrl}`, err);
-    res.status(err.status || 500).json({
-        error: err.message || 'Internal Server Error',
-        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    const correlationId = (req as any).correlationId || `corr-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    console.error(`[GLOBAL ERROR] [${correlationId}] ${req.method} ${req.originalUrl}`, err);
+    
+    const status = err.status || err.statusCode || 500;
+    const errorCode = err.code || err.errorCode || (status === 400 ? 'VALIDATION_ERROR' : 'INTERNAL_SERVER_ERROR');
+    const invNum = req.body?.invoiceNumber || req.body?.invoice_number || req.body?.InvoiceNumber || req.body?.FreeTextInvoiceNumber || req.body?.InvoiceId;
+    const custAcc = req.body?.customerAccount || req.body?.customer_account || req.body?.CustomerAccount || req.body?.customer?.accountNumber || req.body?.customer?.name;
+
+    res.status(status).json({
+        success: false,
+        status: 'ERROR',
+        errorCode,
+        code: errorCode,
+        message: err.message || 'Internal Server Error',
+        invoiceNumber: invNum || undefined,
+        customerAccount: custAcc || undefined,
+        correlationId,
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+        timestamp: new Date().toISOString()
     });
 });
 
