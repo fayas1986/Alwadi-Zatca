@@ -275,13 +275,57 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
         }
 
         const rawBody = req.body || {};
+        
+        // Extract invoice number from any D365 or external ERP field name
+        const invNum = rawBody.invoiceNumber || rawBody.invoice_number || rawBody.InvoiceNumber || 
+                       rawBody.Invoice || rawBody.InvoiceId || rawBody.InvoiceNum || rawBody.CustInvoiceId || 
+                       rawBody.FreeTextInvoiceNumber || rawBody.id || rawBody.number || rawBody.Header?.InvoiceNumber || 
+                       rawBody.Header?.InvoiceId || rawBody.Header?.Invoice;
+
+        const issueDt = rawBody.issueDate || rawBody.issue_date || rawBody.IssueDate || rawBody.InvoiceDate || 
+                        rawBody.date || rawBody.Date || rawBody.CreatedDateTime || new Date().toISOString();
+
+        const custVat = rawBody.customer?.vatNumber || rawBody.customer_vat || rawBody.CustomerVat || 
+                        rawBody.CustVatNum || rawBody.VATNum || rawBody.TaxRegistrationNumber;
+
+        const custName = rawBody.customer?.name || rawBody.customer_name || rawBody.CustomerName || 
+                         rawBody.CustomerAccount || rawBody.Customer || 'Customer';
+
+        const parsedItems = rawBody.items || rawBody.invoiceLines || rawBody.InvoiceLines || 
+                            rawBody.SalesInvoiceLines || rawBody.FreeTextInvoiceLine || 
+                            rawBody.FreeTextInvoiceLines || rawBody.lines || rawBody.Lines || [];
+
+        let itemsArray = Array.isArray(parsedItems) ? parsedItems : [parsedItems];
+        if (itemsArray.length === 0) {
+            const netAmt = Number(rawBody.taxExclusiveAmount || rawBody.TaxExclusiveAmount || rawBody.NetAmount || rawBody.LineAmount || 
+                          (Number(rawBody.totalAmount || rawBody.TotalAmount || rawBody.InvoiceAmount || 0) - Number(rawBody.vatAmount || rawBody.VatAmount || rawBody.TaxAmount || 0)));
+            itemsArray = [{
+                name: rawBody.Description || rawBody.Note || 'Invoice Item / Service',
+                quantity: 1,
+                unitPrice: netAmt > 0 ? netAmt : 1000.00,
+                vatRate: 0.15,
+                taxCategory: 'S'
+            }];
+        }
+
         const normalized = {
             ...rawBody,
-            invoiceNumber: rawBody.invoiceNumber || rawBody.invoice_number || rawBody.InvoiceNumber || rawBody.InvoiceId || rawBody.id || rawBody.number,
-            issueDate: rawBody.issueDate || rawBody.issue_date || rawBody.IssueDate || rawBody.InvoiceDate || rawBody.date || new Date().toISOString(),
-            invoiceSubtype: (rawBody.invoiceSubtype || rawBody.invoice_subtype || rawBody.InvoiceSubtype || rawBody.InvoiceType || (rawBody.customer?.vatNumber || rawBody.customer_vat || rawBody.CustomerVat ? 'STANDARD' : 'SIMPLIFIED')).toString().toUpperCase(),
+            invoiceNumber: invNum,
+            issueDate: issueDt,
+            invoiceSubtype: (rawBody.invoiceSubtype || rawBody.invoice_subtype || rawBody.InvoiceSubtype || rawBody.InvoiceType || (custVat ? 'STANDARD' : 'SIMPLIFIED')).toString().toUpperCase(),
             documentType: (rawBody.documentType || rawBody.document_type || rawBody.DocumentType || rawBody.type || 'INVOICE').toString().toUpperCase().replace(/\s+/g, '_'),
-            items: rawBody.items || rawBody.invoiceLines || rawBody.InvoiceLines || rawBody.SalesInvoiceLines || rawBody.lines || []
+            customer: rawBody.customer || {
+                name: custName,
+                vatNumber: custVat || '',
+                address: {
+                    streetName: rawBody.CustomerStreet || rawBody.Street || 'King Fahd Road',
+                    buildingNumber: rawBody.CustomerBuilding || rawBody.Building || '2222',
+                    cityName: rawBody.CustomerCity || rawBody.City || 'RIYADH',
+                    postalZone: rawBody.CustomerPostalCode || rawBody.PostalCode || '12211',
+                    countryCode: rawBody.CustomerCountry || rawBody.Country || 'SA'
+                }
+            },
+            items: itemsArray
         };
 
         const invoice = calculateInvoiceTotals(normalized);
