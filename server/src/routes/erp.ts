@@ -447,8 +447,19 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
             return res.status(409).json({ success: false, error: 'Invoice already exists' });
         }
 
-        // ── Build ZATCA-shaped invoice ──
-        const pih = 'NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMjRiZmQ3NTI0MjkzZjBlYTRiM2IzZTk4MTU1MWNiMA==';
+        // ── Build ZATCA-shaped invoice & Dynamic PIH (MS Dynamics F&O / ERP Audit Hash Chain) ──
+        const incomingPih = rawBody.previousInvoiceHash || rawBody.previous_invoice_hash || rawBody.PIH || 
+                            rawBody.Header?.PreviousInvoiceHash || rawBody.Header?.PIH || rawBody.Header?.previous_invoice_hash;
+
+        let pih = incomingPih;
+        if (!pih) {
+            const lastInvoice = await prisma.invoice.findFirst({
+                where: { company_id: company.id, hash: { not: null } },
+                orderBy: { id: 'desc' }
+            });
+            pih = lastInvoice?.hash || 'NWZlY2ViNTZmZGNlNTQ4NDVkZmVhM2YwMzhhNDk4YWUxNmU1NDNlM2MxM2NhNDQ4RGNhZmJjMzkyMTBiYzFlZA==';
+        }
+
         const zatcaInvoice = injectComplianceFields(invoice, invoice.invoiceSubtype || 'Simplified');
         
         // Final overrides for ZATCA logic
@@ -575,6 +586,7 @@ router.post('/invoices/submit', async (req: Request, res: Response) => {
                 status: (status === 'SIMULATED' ? 'REPORTED' : status) as any,
                 type: invoice.invoiceSubtype === 'Standard' ? 'B2B' : 'B2C',
                 hash,
+                previous_invoice_hash: pih,
                 qr_code: qr,
                 xml_payload: signedXml,
                 submission_id: idempotencyKey, 

@@ -297,6 +297,24 @@ const mapInvoiceToFrontend = (inv: any) => {
         totalAmount: Number(inv.total_amount),
         vatAmount: Number(inv.tax_amount),
         taxExclusiveAmount: Number(inv.total_amount) - Number(inv.tax_amount),
+        previousInvoiceHash: (() => {
+            if (inv.previous_invoice_hash) return inv.previous_invoice_hash;
+            if (metadata.previousInvoiceHash) return metadata.previousInvoiceHash;
+            if (metadata.pih) return metadata.pih;
+            if (metadata.erp_raw?.previousInvoiceHash) return metadata.erp_raw.previousInvoiceHash;
+            if (inv.xml_payload) {
+                try {
+                    if (typeof inv.xml_payload === 'string' && inv.xml_payload.startsWith('{')) {
+                        const parsed = JSON.parse(inv.xml_payload);
+                        if (parsed.previousInvoiceHash) return parsed.previousInvoiceHash;
+                    } else if (typeof inv.xml_payload === 'string' && inv.xml_payload.includes('DigestValue')) {
+                        const match = inv.xml_payload.match(/<cbc:DigestValue>([\s\S]*?)<\/cbc:DigestValue>/);
+                        if (match && match[1]) return match[1].trim();
+                    }
+                } catch (e) {}
+            }
+            return 'NWZlY2ViNTZmZGNlNTQ4NDVkZmVhM2YwMzhhNDk4YWUxNmU1NDNlM2MxM2NhNDQ4RGNhZmJjMzkyMTBiYzFlZA==';
+        })(),
         status: mapStatus(inv.status || 'REPORTED'),
         qrCode: inv.qr_code,
         xmlContent: inv.xml_payload,

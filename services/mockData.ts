@@ -229,6 +229,7 @@ const generateMockInvoices = (count: number): Invoice[] => {
             status: status,
             history: [],
             invoiceHash: 'mock_hash_' + i,
+            previousInvoiceHash: i > 0 ? 'mock_hash_' + (i - 1) : 'NWZlY2ViNTZmZGNlNTQ4NDVkZmVhM2YwMzhhNDk4YWUxNmU1NDNlM2MxM2NhNDQ4RGNhZmJjMzkyMTBiYzFlZA==',
             signature: status !== 'Pending' && status !== 'Failed' ? 'mock_sig_' + i : undefined,
             qrCode: status !== 'Pending' && status !== 'Failed' ? 'mock_qr' : undefined
         } as Invoice;

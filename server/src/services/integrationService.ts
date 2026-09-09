@@ -543,6 +543,7 @@ export const fetchAndProcessInvoices = async (
                         result.reportingStatus === 'REPORTED' ? 'REPORTED' : 'FAILED') as invoice_status,
                     type: (inv.invoiceSubtype === 'STANDARD' ? 'B2B' : 'B2C') as 'B2B' | 'B2C',
                     hash: hash,
+                    previous_invoice_hash: pih,
                     xml_payload: Buffer.from(signedXml).toString('base64'),
                     qr_code: qr,
                     submission_response: JSON.stringify(result),

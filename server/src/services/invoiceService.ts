@@ -59,6 +59,7 @@ export const InvoiceService = {
         status: any;
         type: 'B2B' | 'B2C';
         hash: string;
+        previous_invoice_hash?: string;
         qr_code: string;
         xml_payload: string;
         submission_id?: string;
@@ -105,6 +106,7 @@ export const InvoiceService = {
             status: data.status,
             type: data.type,
             hash: data.hash,
+            previous_invoice_hash: data.previous_invoice_hash || (data.metadata as any)?.previousInvoiceHash || (data.metadata as any)?.pih || 'NWZlY2ViNTZmZGNlNTQ4NDVkZmVhM2YwMzhhNDk4YWUxNmU1NDNlM2MxM2NhNDQ4RGNhZmJjMzkyMTBiYzFlZA==',
             qr_code: data.qr_code,
             xml_payload: data.xml_payload,
             submission_id: data.submission_id,
