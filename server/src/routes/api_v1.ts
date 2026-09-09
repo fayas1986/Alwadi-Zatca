@@ -700,10 +700,10 @@ const handleSyncSubmission = async (req: Request, res: Response, type: 'Invoice'
             return sendError(res, 403, 'CERTIFICATE_MISSING', 'No active ZATCA certificate found for this company.');
         }
 
-        const decryptedSecret = SecurityService.decrypt(cert.private_key);
+        const decryptedPrivateKey = SecurityService.decrypt(cert.private_key);
         
         // SYNC SIGNING CALL
-        const { signedXml, hash, qr } = await signInvoice(xmlContent, cert.certificate, decryptedSecret);
+        const { signedXml, hash, qr } = await signInvoice(xmlContent, cert.certificate, decryptedPrivateKey);
 
         // 5. Store in DB
         const saved: any = await prisma.invoice.create({

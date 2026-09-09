@@ -887,9 +887,10 @@ router.post('/invoice/report', async (req, res) => {
 
         // 3. Signing (Step 2)
         const decryptedSecret = SecurityService.decrypt(cert.secret!);
+        const decryptedPrivateKey = SecurityService.decrypt(cert.private_key || cert.secret!);
         // signInvoice(xmlContent, certificate, privateKey)
         const isSimulation = company.environment === 'SIMULATION';
-        const { signedXml, hash, qr } = await signInvoice(xml, cert.certificate, decryptedSecret, isSimulation);
+        const { signedXml, hash, qr } = await signInvoice(xml, cert.certificate, decryptedPrivateKey, isSimulation);
 
         // 2. Early Idempotency Check
         const existingInvoice = await prisma.invoice.findFirst({

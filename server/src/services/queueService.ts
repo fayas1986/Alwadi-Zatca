@@ -125,6 +125,7 @@ export class QueueService {
 
             // ENT 2: Field-Level Decryption
             const decryptedSecret = SecurityService.decrypt(cert.secret!);
+            const decryptedPrivateKey = SecurityService.decrypt(cert.private_key || cert.secret!);
             
             // PIH: Find the last submitted invoice hash for this company
             // We use a TRANSACTION with a LOCK to prevent multiple workers from reading the same PIH
@@ -166,7 +167,7 @@ export class QueueService {
 
             // OPT 3: Step-Level Metrics (Time to Sign)
             const signStart = Date.now();
-            const { signedXml, hash, qr } = await signInvoice(xmlToSign, cert.certificate, decryptedSecret);
+            const { signedXml, hash, qr } = await signInvoice(xmlToSign, cert.certificate, decryptedPrivateKey);
             const signDuration = Date.now() - signStart;
             
             const localHash = hash || invoice.hash;
