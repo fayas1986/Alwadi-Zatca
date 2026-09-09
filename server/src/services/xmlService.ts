@@ -91,15 +91,18 @@ export const generateInvoiceXML = (invoice: Invoice) => {
                 'xmlns:sbc': 'urn:oasis:names:specification:ubl:schema:xsd:SignatureBasicComponents-2',
                 'xmlns:ds': 'http://www.w3.org/2000/09/xmldsig#'
             })
-            .ele('cbc:ProfileID').txt((invoice as any).profileId || (isStandard ? 'clearance:1.0' : 'reporting:1.0')).up()
+            .ele('cbc:ProfileID').txt((invoice as any).profileId || 'reporting:1.0').up()
             .ele('cbc:ID').txt(invoice.invoiceNumber).up()
             .ele('cbc:UUID').txt(invoice.uuid || crypto.randomUUID()).up()
             .ele('cbc:IssueDate').txt(datePart).up()
             .ele('cbc:IssueTime').txt(timePart).up()
             .ele('cbc:InvoiceTypeCode', { name: subtypeCode }).txt(typeCode).up()
             .ele('cbc:Note').txt(invoice.instructionNote || 'This is a computer generated invoice').up()
-            .ele('cbc:DocumentCurrencyCode').txt(invoice.currencyCode || 'SAR').up()
-            .ele('cbc:TaxCurrencyCode').txt('SAR').up();
+            .ele('cbc:DocumentCurrencyCode').txt(invoice.currencyCode || 'SAR').up();
+
+        if (invoice.currencyCode && invoice.currencyCode !== 'SAR') {
+            xml.ele('cbc:TaxCurrencyCode').txt('SAR').up();
+        }
 
         // Billing Reference (Mandatory for Credit/Debit Notes — MUST precede AdditionalDocumentReference in UBL 2.1 XSD)
         if (invoice.billingReference) {
