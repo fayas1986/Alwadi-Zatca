@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
+import { exec } from 'child_process';
 
 const router = Router();
 console.log('[Admin] Admin routes initializing...');
@@ -615,7 +616,7 @@ router.delete('/users/:id', requireSuperAdmin, async (req, res) => {
 
 // ALL /api/admin/system/deploy-pull - Pull latest code on VPS host
 router.all('/system/deploy-pull', requireSuperAdmin, (req, res) => {
-    const { exec } = require('child_process');
+    // exec already imported at top of file
     exec('git pull origin master', (err: any, stdout: string, stderr: string) => {
         if (err) {
             console.error('[Deploy Pull] Error:', err);
@@ -652,7 +653,7 @@ router.post('/system/update-env', requireSuperAdmin, async (req, res) => {
         process.env.DATABASE_URL = databaseUrl;
 
         // Restart PM2 process if pm2 is available
-        const { exec } = require('child_process');
+        // exec already imported at top of file
         exec('pm2 restart all || pm2 restart zatca-backend', (err: any, stdout: string) => {
             console.log('[Update Env] PM2 restart output:', stdout);
         });
