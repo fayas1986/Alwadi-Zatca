@@ -98,11 +98,8 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .ele('cbc:IssueTime').txt(timePart).up()
             .ele('cbc:InvoiceTypeCode', { name: subtypeCode }).txt(typeCode).up()
             .ele('cbc:Note').txt(invoice.instructionNote || 'This is a computer generated invoice').up()
-            .ele('cbc:DocumentCurrencyCode').txt(invoice.currencyCode || 'SAR').up();
-
-        if (invoice.currencyCode && invoice.currencyCode !== 'SAR') {
-            xml.ele('cbc:TaxCurrencyCode').txt('SAR').up();
-        }
+            .ele('cbc:DocumentCurrencyCode').txt(invoice.currencyCode || 'SAR').up()
+            .ele('cbc:TaxCurrencyCode').txt('SAR').up();
 
         // Billing Reference (Mandatory for Credit/Debit Notes — MUST precede AdditionalDocumentReference in UBL 2.1 XSD)
         if (invoice.billingReference) {
