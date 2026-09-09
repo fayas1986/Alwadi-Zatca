@@ -12,20 +12,32 @@ export default async (req: any, res: any) => {
 
     const targetUrl = `${HOSTINGER_VPS_URL}${url}`;
     
-    // Copy incoming headers, avoiding host & content-length mismatch
-    const headers: any = { ...req.headers };
-    delete headers.host;
-    delete headers['content-length'];
+    // Copy incoming headers, filtering out hop-by-hop & Vercel internal headers
+    const headers: Record<string, string> = {};
+    for (const [key, val] of Object.entries(req.headers)) {
+      const lower = key.toLowerCase();
+      if (
+        !lower.startsWith('x-vercel-') &&
+        !['host', 'content-length', 'transfer-encoding', 'connection', 'accept-encoding'].includes(lower) &&
+        val !== undefined
+      ) {
+        headers[key] = Array.isArray(val) ? val.join(', ') : (val as string);
+      }
+    }
 
     const options: any = {
       method: req.method,
       headers
     };
 
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && req.body) {
-      options.body = typeof req.body === 'string' || Buffer.isBuffer(req.body) 
-        ? req.body 
-        : JSON.stringify(req.body);
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+      if (req.body !== undefined && req.body !== null) {
+        if (typeof req.body === 'string' || Buffer.isBuffer(req.body)) {
+          options.body = req.body;
+        } else {
+          options.body = JSON.stringify(req.body);
+        }
+      }
     }
 
     const response = await fetch(targetUrl, options);
@@ -40,9 +52,10 @@ export default async (req: any, res: any) => {
     return res.send(Buffer.from(arrayBuffer));
   } catch (error: any) {
     console.error("Vercel Proxy Failure:", error);
-    return res.status(500).json({ error: "VPS Proxy Failure", message: error.message });
+    return res.status(502).json({ error: "Bad Gateway - VPS Proxy Failure", message: error.message });
   }
 };
+
 
 
 
