@@ -26,24 +26,40 @@ const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 const App: React.FC = () => {
   const checkInitialAuth = () => {
-    let email = localStorage.getItem('userEmail');
+    // Session authentication flag must be present in current browser session
+    const isSessionAuth = sessionStorage.getItem('isAuthenticated');
+    
+    if (isSessionAuth !== 'true') {
+      // Clear legacy storage items from previous auto-seeding
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('companyId');
+      localStorage.removeItem('lastActivity');
+      sessionStorage.clear();
+      return false;
+    }
+
+    let email = localStorage.getItem('userEmail') || sessionStorage.getItem('userEmail');
     let lastActivity = localStorage.getItem('lastActivity');
     
     if (!email || !lastActivity) {
-      // Seed default active session for fresh domain visits
-      localStorage.setItem('userEmail', 'mahesh@easylease.ae');
-      localStorage.setItem('userRole', 'IT_ADMIN');
-      localStorage.setItem('userName', 'Mahesh');
-      localStorage.setItem('companyId', '1');
-      localStorage.setItem('lastActivity', Date.now().toString());
-      return true;
+      return false;
     }
 
     if (Date.now() - parseInt(lastActivity) > SESSION_TIMEOUT_MS) {
-      // Session expired - auto refresh session
-      localStorage.setItem('lastActivity', Date.now().toString());
-      return true;
+      // Session expired
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('companyId');
+      localStorage.removeItem('lastActivity');
+      sessionStorage.clear();
+      return false;
     }
+
+    // Update last activity timestamp
+    localStorage.setItem('lastActivity', Date.now().toString());
     return true;
   };
 
@@ -53,9 +69,9 @@ const App: React.FC = () => {
   
   // Auth State
   const [userRole, setUserRole] = useState<UserRole>(() => (localStorage.getItem('userRole') as UserRole) || 'IT_ADMIN');
-  const [userName, setUserName] = useState<string>(() => localStorage.getItem('userName') || 'Mahesh');
-  const [userEmail, setUserEmail] = useState<string>(() => localStorage.getItem('userEmail') || 'mahesh@easylease.ae');
-  const [companyId, setCompanyId] = useState<number | null>(() => localStorage.getItem('companyId') ? parseInt(localStorage.getItem('companyId')!) : 1);
+  const [userName, setUserName] = useState<string>(() => localStorage.getItem('userName') || '');
+  const [userEmail, setUserEmail] = useState<string>(() => localStorage.getItem('userEmail') || '');
+  const [companyId, setCompanyId] = useState<number | null>(() => localStorage.getItem('companyId') ? parseInt(localStorage.getItem('companyId')!) : null);
 
   // Multi-Tenancy State
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -179,12 +195,17 @@ const App: React.FC = () => {
       setUserRole(role);
       setUserName(name);
       setUserEmail(email);
+      sessionStorage.setItem('isAuthenticated', 'true');
+      sessionStorage.setItem('userRole', role);
+      sessionStorage.setItem('userName', name);
+      sessionStorage.setItem('userEmail', email);
       localStorage.setItem('userRole', role);
       localStorage.setItem('userName', name);
       localStorage.setItem('userEmail', email);
       localStorage.setItem('lastActivity', Date.now().toString());
       if (cid) {
           setCompanyId(cid);
+          sessionStorage.setItem('companyId', cid.toString());
           localStorage.setItem('companyId', cid.toString());
       }
       setIsAuthenticated(true);
@@ -192,6 +213,7 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+      sessionStorage.clear();
       localStorage.removeItem('userRole');
       localStorage.removeItem('userName');
       localStorage.removeItem('userEmail');

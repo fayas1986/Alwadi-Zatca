@@ -35,7 +35,7 @@ export const getCertificates = async (companyId: string, headers: any = {}) => {
     const response = await fetch(`${API_BASE_URL}/certificates?companyId=${companyId}`, {
         headers: {
             'x-user-role': headers.role || localStorage.getItem('userRole') || 'IT_ADMIN',
-            'x-user-email': headers.email || localStorage.getItem('userEmail') || 'mahesh@easylease.ae',
+            'x-user-email': headers.email || localStorage.getItem('userEmail') || '',
             ...headers
         }
     });
@@ -49,7 +49,7 @@ export const getInvoices = async (companyId: string, headers: any = {}) => {
     const response = await fetch(`${API_BASE_URL}/invoices?companyId=${companyId}`, {
         headers: {
             'x-user-role': headers.role || localStorage.getItem('userRole') || 'IT_ADMIN',
-            'x-user-email': headers.email || localStorage.getItem('userEmail') || 'mahesh@easylease.ae',
+            'x-user-email': headers.email || localStorage.getItem('userEmail') || '',
             ...headers
         }
     });
