@@ -17,6 +17,7 @@ import { AuditService } from '../services/auditService.js';
 import { invoice_status } from '@prisma/client';
 import { getSafeString } from '../utils/stringUtils.js';
 import { InvoiceService } from '../services/invoiceService.js';
+import { ZatcaMappingService } from '../services/zatcaMappingService.js';
 const router = Router();
 // ISOLATION_FALLBACK_EMAILS removed - Access now strictly database and role-driven
 
@@ -367,7 +368,7 @@ const mapInvoiceToFrontend = (inv: any) => {
                 return { status: 'ERROR', message: 'Malformed ZATCA response stored in DB' };
             }
         })(),
-        history: [], 
+        history: ZatcaMappingService.buildInvoiceHistory(inv), 
         raw_metadata: inv.metadata
     };
 };
