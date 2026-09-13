@@ -202,10 +202,30 @@ router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
 
         // Apply Date Range if provided
         if (dateRange && dateRange.start && dateRange.end) {
-            where.created_at = {
-                gte: new Date(dateRange.start),
-                lte: new Date(dateRange.end)
-            };
+            const startDate = new Date(dateRange.start);
+            if (typeof dateRange.start === 'string' && !dateRange.start.includes('T')) {
+                startDate.setUTCHours(0, 0, 0, 0);
+            }
+
+            const endDate = new Date(dateRange.end);
+            if (typeof dateRange.end === 'string' && !dateRange.end.includes('T')) {
+                endDate.setUTCHours(23, 59, 59, 999);
+            }
+
+            if (sourceModel === 'invoice') {
+                where.AND = where.AND || [];
+                where.AND.push({
+                    OR: [
+                        { created_at: { gte: startDate, lte: endDate } },
+                        { date: { gte: startDate, lte: endDate } }
+                    ]
+                });
+            } else {
+                where.created_at = {
+                    gte: startDate,
+                    lte: endDate
+                };
+            }
         }
 
         // Fetch Data Dynamically
