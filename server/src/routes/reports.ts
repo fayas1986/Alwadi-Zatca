@@ -24,6 +24,25 @@ const requireAnyAdmin = (req: any, res: any, next: any) => {
 };
 
 
+const formatKsaValue = (val: any) => {
+    if (val === null || val === undefined) return '';
+    if (val instanceof Date || (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}(T|\s)\d{2}:\d{2}/.test(val))) {
+        const dateObj = new Date(val);
+        if (!isNaN(dateObj.getTime())) {
+            return new Intl.DateTimeFormat('sv-SE', {
+                timeZone: 'Asia/Riyadh',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }).format(dateObj);
+        }
+    }
+    return val;
+};
+
 // POST /api/admin/reports/datapreview - Preview report data without saving
 router.post('/datapreview', requireAnyAdmin, async (req, res) => {
     try {
@@ -87,7 +106,7 @@ router.post('/datapreview', requireAnyAdmin, async (req, res) => {
             const row: any = {};
             config.columns.forEach((col: any) => {
                 const value = col.key.split('.').reduce((obj: any, key: string) => obj?.[key], item);
-                row[col.label || col.key] = value || '';
+                row[col.label || col.key] = formatKsaValue(value);
             });
             return row;
         });
@@ -200,16 +219,20 @@ router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
             }
         }
 
-        // Apply Date Range if provided
+        // Apply Date Range if provided (KSA timezone UTC+3)
         if (dateRange && dateRange.start && dateRange.end) {
-            const startDate = new Date(dateRange.start);
+            let startDate: Date;
             if (typeof dateRange.start === 'string' && !dateRange.start.includes('T')) {
-                startDate.setUTCHours(0, 0, 0, 0);
+                startDate = new Date(`${dateRange.start}T00:00:00.000+03:00`);
+            } else {
+                startDate = new Date(dateRange.start);
             }
 
-            const endDate = new Date(dateRange.end);
+            let endDate: Date;
             if (typeof dateRange.end === 'string' && !dateRange.end.includes('T')) {
-                endDate.setUTCHours(23, 59, 59, 999);
+                endDate = new Date(`${dateRange.end}T23:59:59.999+03:00`);
+            } else {
+                endDate = new Date(dateRange.end);
             }
 
             if (sourceModel === 'invoice') {
@@ -229,7 +252,6 @@ router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
         }
 
         // Fetch Data Dynamically
-        // Note: In a real app we'd use a more robust dynamic query builder
         let data: any[] = [];
         if (sourceModel === 'invoice') {
             data = await prisma.invoice.findMany({
@@ -257,7 +279,7 @@ router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
             config.columns.forEach((col: any) => {
                 // Handle nested paths like company.registered_name
                 const value = col.key.split('.').reduce((obj: any, key: string) => obj?.[key], item);
-                row[col.label] = value || '';
+                row[col.label] = formatKsaValue(value);
             });
             return row;
         });
