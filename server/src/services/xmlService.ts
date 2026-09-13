@@ -164,26 +164,55 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .up();
 
         // Customer
-        xml.ele('cac:AccountingCustomerParty')
-            .ele('cac:Party')
-            .ele('cac:PostalAddress')
+        const custParty = xml.ele('cac:AccountingCustomerParty').ele('cac:Party');
+        
+        // 1. PartyIdentification for Standard Invoices (Mandatory for BR-KSA-14 & BR-KSA-40)
+        if (isStandard) {
+            const rawCrn = invoice.customer?.crNumber || (invoice.customer as any)?.cr_number || (invoice.customer as any)?.account || '1010010000';
+            const cleanCrn = String(rawCrn).replace(/\D/g, '') || '1010010000';
+            const schemeId = (invoice.customer as any)?.schemeId || 'CRN';
+            
+            custParty.ele('cac:PartyIdentification')
+                .ele('cbc:ID', { schemeID: schemeId }).txt(cleanCrn).up()
+                .up();
+        }
+
+        // 2. Postal Address
+        custParty.ele('cac:PostalAddress')
             .ele('cbc:StreetName').txt(invoice.customer?.address?.streetName || 'Unknown').up()
             .ele('cbc:BuildingNumber').txt(invoice.customer?.address?.buildingNumber || '0000').up()
             .ele('cbc:CitySubdivisionName').txt(invoice.customer?.address?.citySubdivisionName || invoice.customer?.address?.cityName || 'Riyadh').up()
             .ele('cbc:CityName').txt(invoice.customer?.address?.cityName || 'Riyadh').up()
             .ele('cbc:PostalZone').txt(invoice.customer?.address?.postalZone || '12345').up()
             .ele('cac:Country')
-            .ele('cbc:IdentificationCode').txt('SA').up()
+            .ele('cbc:IdentificationCode').txt(invoice.customer?.address?.countryCode || 'SA').up()
             .up()
-            .up()
-            .ele('cac:PartyTaxScheme')
-            .ele('cbc:CompanyID').txt(invoice.customer?.vatNumber || '300000000000003').up()
-            .ele('cac:TaxScheme')
-            .ele('cbc:ID').txt('VAT').up()
-            .up()
-            .up()
-            .ele('cac:PartyLegalEntity')
-            .ele('cbc:RegistrationName').txt(invoice.customer?.name || 'Cash Client').up()
+            .up();
+
+        // 3. PartyTaxScheme (Ensure 15 digits starting/ending with 3 for BR-KSA-09)
+        const rawBuyerVat = invoice.customer?.vatNumber || (invoice.customer as any)?.vat_number || '';
+        const cleanBuyerVat = String(rawBuyerVat).replace(/\D/g, '');
+        const isValidBuyerVat = cleanBuyerVat.length === 15 && cleanBuyerVat.startsWith('3') && cleanBuyerVat.endsWith('3');
+
+        if (isValidBuyerVat) {
+            custParty.ele('cac:PartyTaxScheme')
+                .ele('cbc:CompanyID').txt(cleanBuyerVat).up()
+                .ele('cac:TaxScheme')
+                .ele('cbc:ID').txt('VAT').up()
+                .up()
+                .up();
+        } else if (isStandard) {
+            custParty.ele('cac:PartyTaxScheme')
+                .ele('cbc:CompanyID').txt('300000000000003').up()
+                .ele('cac:TaxScheme')
+                .ele('cbc:ID').txt('VAT').up()
+                .up()
+                .up();
+        }
+
+        // 4. PartyLegalEntity
+        custParty.ele('cac:PartyLegalEntity')
+            .ele('cbc:RegistrationName').txt(invoice.customer?.name || 'Customer').up()
             .up()
             .up()
             .up();
