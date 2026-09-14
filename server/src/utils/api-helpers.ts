@@ -120,7 +120,21 @@ export const calculateInvoiceTotals = (payload: any) => {
         const allowance = Number(item.allowanceAmount !== undefined ? item.allowanceAmount : (item.discount || 0));
         const charge = Number(item.chargeAmount || 0);
         
-        const grossHalala = toHalala(qty * price);
+        // Reconcile ERP rounding: if explicit line subtotal is provided by ERP (e.g. 52.18 vs 5*10.44=52.20), use explicit line net within tolerance
+        const explicitLineNet = item.subtotal !== undefined ? Number(item.subtotal) :
+                                item.lineAmount !== undefined ? Number(item.lineAmount) :
+                                item.LineAmount !== undefined ? Number(item.LineAmount) :
+                                item.lineTotal !== undefined ? Number(item.lineTotal) : undefined;
+        
+        let grossHalala = toHalala(qty * price);
+        if (explicitLineNet !== undefined && !isNaN(explicitLineNet) && explicitLineNet > 0) {
+            const explicitHalala = toHalala(explicitLineNet);
+            const expectedHalala = grossHalala - toHalala(allowance) + toHalala(charge);
+            if (Math.abs(explicitHalala - expectedHalala) <= 10) { // Up to 10 halalas ERP rounding tolerance
+                grossHalala = explicitHalala + toHalala(allowance) - toHalala(charge);
+            }
+        }
+
         const allowanceHalala = toHalala(allowance);
         const chargeHalala = toHalala(charge);
 
@@ -304,11 +318,11 @@ export const injectComplianceFields = (payload: any, type: string) => {
         district = district || city;
 
         if (!building || building === '0000' || building === '0') {
-            const explicitMatch = street.match(/(?:building|bldg|no|#|رقم\s*المبنى)[\s.:#]*(\d{4,5})/i);
+            const explicitMatch = street.match(/(?:building|bldg|no|#|رقم\s*المبنى)[\s.:#]*(\d{1,5})/i);
             if (explicitMatch) {
                 building = explicitMatch[1];
             } else {
-                const numMatch = street.match(/\b(\d{4,5})\b/);
+                const numMatch = street.match(/\b(\d{3,5})\b/);
                 if (numMatch) {
                     building = numMatch[1];
                 }
@@ -316,7 +330,10 @@ export const injectComplianceFields = (payload: any, type: string) => {
         }
 
         if (!building || building === '0') building = '0000';
-        if (building.length > 4 && building !== '0000') building = building.substring(0, 4);
+        if (/^\d+$/.test(building) && building !== '0000') {
+            building = building.padStart(4, '0');
+            if (building.length > 4) building = building.substring(0, 4);
+        }
 
         injected.customer.address = {
             streetName: street || 'Main Street',
@@ -429,7 +446,19 @@ export const validateHardenedCompliance = (invoice: any) => {
             
             // a. Discount Guard (Check signs consistency for Credit Notes)
             // If Credit Note uses positive values with reversal logic, keep them positive here for the math check
-            const grossHalala = toHalala(quantity * unitPrice);
+            let grossHalala = toHalala(quantity * unitPrice);
+            const explicitLineNet = item.subtotal !== undefined ? Number(item.subtotal) :
+                                    item.lineAmount !== undefined ? Number(item.lineAmount) :
+                                    item.LineAmount !== undefined ? Number(item.LineAmount) :
+                                    item.lineTotal !== undefined ? Number(item.lineTotal) : undefined;
+            if (explicitLineNet !== undefined && !isNaN(explicitLineNet) && explicitLineNet > 0) {
+                const explicitHalala = toHalala(explicitLineNet);
+                const expectedHalala = grossHalala - toHalala(discount);
+                if (Math.abs(explicitHalala - expectedHalala) <= 10) {
+                    grossHalala = explicitHalala + toHalala(discount);
+                }
+            }
+
             const discountHalala = toHalala(discount);
 
             if (Math.abs(discountHalala) > Math.abs(grossHalala)) {
