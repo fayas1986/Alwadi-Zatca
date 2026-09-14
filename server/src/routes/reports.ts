@@ -43,6 +43,125 @@ const formatKsaValue = (val: any) => {
     return val;
 };
 
+const extractInvoiceItems = (item: any): any[] => {
+    if (item.metadata?.items && Array.isArray(item.metadata.items)) {
+        return item.metadata.items;
+    }
+    if (item.metadata?.payload?.invoiceLines && Array.isArray(item.metadata.payload.invoiceLines)) {
+        return item.metadata.payload.invoiceLines.map((line: any) => ({
+            name: line.itemName || line.name || line.description || 'Item',
+            description: line.description || line.itemName || line.name || '',
+            quantity: Number(line.quantity || 1),
+            unitPrice: Number(line.unitPrice || 0),
+            vatAmount: Number(line.taxAmount || 0),
+            subtotal: Number(line.lineExtensionAmount || 0),
+            total: Number(line.lineExtensionAmount || 0) + Number(line.taxAmount || 0)
+        }));
+    }
+    if (item.xml_payload) {
+        try {
+            const xml = item.xml_payload.startsWith('PD')
+                ? Buffer.from(item.xml_payload, 'base64').toString('utf-8')
+                : item.xml_payload;
+            const lines: any[] = [];
+            const lineMatches = xml.matchAll(/<cac:InvoiceLine>([\s\S]*?)<\/cac:InvoiceLine>/g);
+            for (const match of lineMatches) {
+                const content = match[1];
+                const name = content.match(/<cbc:Name>([\s\S]*?)<\/cbc:Name>/)?.[1] || 'Item';
+                const qty = content.match(/<cbc:InvoicedQuantity[^>]*>([\s\S]*?)<\/cbc:InvoicedQuantity>/)?.[1] || '1';
+                const subtotal = content.match(/<cbc:LineExtensionAmount[^>]*>([\s\S]*?)<\/cbc:LineExtensionAmount>/)?.[1] || '0';
+                lines.push({ name: name.trim(), description: name.trim(), quantity: Number(qty), subtotal: Number(subtotal) });
+            }
+            if (lines.length > 0) return lines;
+        } catch (e) {
+            // ignore XML extraction errors
+        }
+    }
+    return [];
+};
+
+const resolveInvoiceFieldValue = (item: any, key: string): any => {
+    const directVal = key.split('.').reduce((obj: any, k: string) => obj?.[k], item);
+
+    switch (key) {
+        case 'taxable_amount':
+        case 'subtotal':
+        case 'tax_exclusive_amount':
+        case 'line_extension_amount': {
+            if (item.metadata?.taxable_amount !== undefined) return item.metadata.taxable_amount;
+            if (item.metadata?.taxExclusiveAmount !== undefined) return item.metadata.taxExclusiveAmount;
+            const total = Number(item.total_amount || 0);
+            const tax = Number(item.tax_amount || 0);
+            return (total - tax).toFixed(2);
+        }
+        case 'description':
+        case 'item_description':
+        case 'nature_of_goods':
+        case 'items': {
+            const items = extractInvoiceItems(item);
+            if (items.length > 0) {
+                const names = items.map(i => i.name || i.description || i.itemName).filter(Boolean);
+                if (names.length > 0) return names.join('; ');
+            }
+            if (item.metadata?.description) return item.metadata.description;
+            if (item.metadata?.note) return item.metadata.note;
+            return directVal !== undefined && directVal !== null ? directVal : 'N/A';
+        }
+        case 'items_summary': {
+            const items = extractInvoiceItems(item);
+            if (items.length > 0) {
+                return items.map(i => `${i.name || i.description || 'Item'} (Qty: ${i.quantity || 1}, Price: ${i.unitPrice || 0}, Taxable: ${i.subtotal || 0}, VAT: ${i.vatAmount || 0})`).join(' | ');
+            }
+            return 'N/A';
+        }
+        case 'total_quantity':
+        case 'quantity': {
+            const items = extractInvoiceItems(item);
+            if (items.length > 0) {
+                return items.reduce((sum, i) => sum + Number(i.quantity || 1), 0);
+            }
+            return 1;
+        }
+        case 'unit_price': {
+            const items = extractInvoiceItems(item);
+            if (items.length > 0) {
+                return items.map(i => i.unitPrice || 0).join(', ');
+            }
+            return 'N/A';
+        }
+        case 'vat_rate':
+        case 'tax_rate':
+        case 'tax_category': {
+            const items = extractInvoiceItems(item);
+            if (items.length > 0 && items[0].vatRate !== undefined) {
+                const rate = items[0].vatRate;
+                return `${(rate * (rate <= 1 ? 100 : 1))}%`;
+            }
+            return item.metadata?.vatRate ? `${item.metadata.vatRate}%` : '15%';
+        }
+        case 'document_type': {
+            return item.metadata?.documentType || item.metadata?.document_type || item.type || 'INVOICE';
+        }
+        case 'customer.address': {
+            return item.customer?.address || item.customer?.street_name || (directVal !== undefined ? directVal : '');
+        }
+        case 'customer.city': {
+            return item.customer?.city || (directVal !== undefined ? directVal : '');
+        }
+        case 'company.cr_number': {
+            return item.company?.cr_number || (directVal !== undefined ? directVal : '');
+        }
+        case 'company.address': {
+            return item.company?.address || item.company?.street_name || (directVal !== undefined ? directVal : '');
+        }
+        case 'company.city': {
+            return item.company?.city || (directVal !== undefined ? directVal : '');
+        }
+        default:
+            return directVal;
+    }
+};
+
 // POST /api/admin/reports/datapreview - Preview report data without saving
 router.post('/datapreview', requireAnyAdmin, async (req, res) => {
     try {
@@ -105,7 +224,9 @@ router.post('/datapreview', requireAnyAdmin, async (req, res) => {
         const mappedData = data.map(item => {
             const row: any = {};
             config.columns.forEach((col: any) => {
-                const value = col.key.split('.').reduce((obj: any, key: string) => obj?.[key], item);
+                const value = sourceModel === 'invoice'
+                    ? resolveInvoiceFieldValue(item, col.key)
+                    : col.key.split('.').reduce((obj: any, key: string) => obj?.[key], item);
                 row[col.label || col.key] = formatKsaValue(value);
             });
             return row;
@@ -277,9 +398,11 @@ router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
         const mappedData = data.map(item => {
             const row: any = {};
             config.columns.forEach((col: any) => {
-                // Handle nested paths like company.registered_name
-                const value = col.key.split('.').reduce((obj: any, key: string) => obj?.[key], item);
-                row[col.label] = formatKsaValue(value);
+                // Handle nested paths like company.registered_name & dynamic fields
+                const value = sourceModel === 'invoice'
+                    ? resolveInvoiceFieldValue(item, col.key)
+                    : col.key.split('.').reduce((obj: any, key: string) => obj?.[key], item);
+                row[col.label || col.key] = formatKsaValue(value);
             });
             return row;
         });
