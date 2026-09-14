@@ -617,13 +617,13 @@ router.delete('/users/:id', requireSuperAdmin, async (req, res) => {
 // ALL /api/admin/system/deploy-pull - Pull latest code on VPS host
 router.all('/system/deploy-pull', requireSuperAdmin, (req, res) => {
     // exec already imported at top of file
-    exec('git pull origin master', (err: any, stdout: string, stderr: string) => {
+    exec('git pull origin master && npm run build && (pm2 restart easylease-backend || pm2 restart all)', (err: any, stdout: string, stderr: string) => {
         if (err) {
             console.error('[Deploy Pull] Error:', err);
             return res.status(500).json({ error: err.message, stderr });
         }
         console.log('[Deploy Pull] Success:', stdout);
-        res.json({ message: 'Git pull successful', stdout });
+        res.json({ message: 'Git pull, build, and PM2 restart successful', stdout });
     });
 });
 

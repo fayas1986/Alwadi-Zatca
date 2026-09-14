@@ -17,9 +17,9 @@ const router = Router();
 router.all('/deploy-pull', async (req: Request, res: Response) => {
     try {
         const { exec } = await import('child_process');
-        exec('git pull origin master && (pm2 restart all || pm2 restart easylease-backend)', (err, stdout, stderr) => {
+        exec('git pull origin master && npm run build && (pm2 restart easylease-backend || pm2 restart all)', (err, stdout, stderr) => {
             if (err) return res.status(500).json({ error: err.message, stderr });
-            res.json({ message: 'Git pull and PM2 restart successful on host', stdout, stderr });
+            res.json({ message: 'Git pull, build, and PM2 restart successful on host', stdout, stderr });
         });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
