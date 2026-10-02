@@ -18,6 +18,28 @@ const normalizeTaxCategory = (cat: string | undefined, vatRate: number): string 
     return vatRate > 0 ? 'S' : 'Z';
 };
 
+const normalizeCountryCode = (code: string | undefined): string => {
+    if (!code) return 'SA';
+    const clean = code.trim().toUpperCase();
+    if (clean === 'SAU' || clean === 'KSA' || clean === 'SAUDI ARABIA') return 'SA';
+    if (clean === 'ARE' || clean === 'UAE') return 'AE';
+    if (clean === 'USA') return 'US';
+    if (clean === 'GBR') return 'GB';
+    if (clean === 'BHR') return 'BH';
+    if (clean === 'KWT') return 'KW';
+    if (clean === 'QAT') return 'QA';
+    if (clean === 'OMN') return 'OM';
+    if (clean === 'JOR') return 'JO';
+    if (clean === 'EGY') return 'EG';
+    return clean.length === 2 ? clean : 'SA';
+};
+
+const normalizeBuildingNumber = (num: string | undefined): string => {
+    if (!num) return '0000';
+    const clean = String(num).replace(/\D/g, '');
+    return clean.length === 4 ? clean : '0000';
+};
+
 export const generateInvoiceXML = (invoice: Invoice) => {
     // 1. Unified Math (Halala-based to avoid float drift)
     const toHalala = (n: number) => Math.round((n + Number.EPSILON) * 100);
@@ -180,12 +202,12 @@ export const generateInvoiceXML = (invoice: Invoice) => {
         // 2. Postal Address
         custParty.ele('cac:PostalAddress')
             .ele('cbc:StreetName').txt(invoice.customer?.address?.streetName || 'Unknown').up()
-            .ele('cbc:BuildingNumber').txt(invoice.customer?.address?.buildingNumber || '0000').up()
+            .ele('cbc:BuildingNumber').txt(normalizeBuildingNumber(invoice.customer?.address?.buildingNumber)).up()
             .ele('cbc:CitySubdivisionName').txt(invoice.customer?.address?.citySubdivisionName || invoice.customer?.address?.cityName || 'Riyadh').up()
             .ele('cbc:CityName').txt(invoice.customer?.address?.cityName || 'Riyadh').up()
             .ele('cbc:PostalZone').txt(invoice.customer?.address?.postalZone || '12345').up()
             .ele('cac:Country')
-            .ele('cbc:IdentificationCode').txt(invoice.customer?.address?.countryCode || 'SA').up()
+            .ele('cbc:IdentificationCode').txt(normalizeCountryCode(invoice.customer?.address?.countryCode)).up()
             .up()
             .up();
 
