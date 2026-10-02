@@ -346,7 +346,6 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
                 throw new Error(`SDK failed to sign invoice. Output: ${stdout}`);
             }
 
-            signedXml = fs.readFileSync(signedXmlPath, 'utf-8');
             const realInvoiceHashMatch = stdout.match(/\*\*\* INVOICE HASH = ([^\s\r\n]+)/);
             hash = realInvoiceHashMatch ? realInvoiceHashMatch[1] : (signedXml.match(/<ds:DigestValue>([^<]+)<\/ds:DigestValue>/)?.[1] || '');
             qr = extractQR(signedXml);

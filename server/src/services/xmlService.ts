@@ -218,7 +218,12 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .up();
 
         // Delivery / Supply Date (Mandatory for Standard Tax Invoices to satisfy BR-KSA-15)
-        const supplyDateStr = String((invoice as any).supplyDate || (invoice as any).deliveryDate || invoice.issueDate || datePart).split('T')[0];
+        const rawSupplyDate = String((invoice as any).supplyDate || (invoice as any).deliveryDate || invoice.issueDate || datePart).split('T')[0].split(' ')[0];
+        let supplyDateStr = rawSupplyDate;
+        const ddmmyyyy = rawSupplyDate.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+        if (ddmmyyyy) {
+            supplyDateStr = `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, '0')}-${ddmmyyyy[1].padStart(2, '0')}`;
+        }
         xml.ele('cac:Delivery')
             .ele('cbc:ActualDeliveryDate').txt(supplyDateStr).up()
             .up();

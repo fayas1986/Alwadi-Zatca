@@ -173,6 +173,11 @@ export const reportInvoice = async (env: string, csid: string, secret: string, x
         return response.data;
     } catch (error: any) {
         if (error.response?.status >= 500) await FailoverManager.markFailure();
+        if (error.response?.data) {
+            const dataStr = typeof error.response.data === 'string' ? error.response.data : JSON.stringify(error.response.data);
+            console.error('[ZATCA Reporting Error Response]:', dataStr);
+            error.message = `ZATCA Error (${error.response.status}): ${dataStr}`;
+        }
         throw error;
     }
 };
@@ -209,6 +214,11 @@ export const clearInvoice = async (env: string, csid: string, secret: string, xm
         return response.data;
     } catch (error: any) {
         if (error.response?.status >= 500) await FailoverManager.markFailure();
+        if (error.response?.data) {
+            const dataStr = typeof error.response.data === 'string' ? error.response.data : JSON.stringify(error.response.data);
+            console.error('[ZATCA Clearance Error Response]:', dataStr);
+            error.message = `ZATCA Error (${error.response.status}): ${dataStr}`;
+        }
         throw error;
     }
 };

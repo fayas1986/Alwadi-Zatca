@@ -197,10 +197,11 @@ export class QueueService {
             }
 
             // Explicit ZATCA Flow Routing:
-            // STANDARD -> Clearance (ClearInvoice)
-            // SIMPLIFIED -> Reporting (ReportInvoice)
+            // STANDARD (B2B) -> Clearance (ClearInvoice)
+            // SIMPLIFIED (B2C) -> Reporting (ReportInvoice)
             const submitStart = Date.now();
-            const useClearance = (invoice.invoice_subtype === 'STANDARD');
+            const isStandardInvoice = invoice.type === 'B2B' || (invoice as any).invoice_subtype === 'STANDARD' || ((invoice.metadata as any)?.invoiceSubtype)?.toUpperCase() === 'STANDARD';
+            const useClearance = isStandardInvoice;
             const result = await (useClearance ? clearInvoice : reportInvoice)(
                 company.environment,
                 cert.csid!,
