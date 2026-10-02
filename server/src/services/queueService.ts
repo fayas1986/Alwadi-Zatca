@@ -207,7 +207,7 @@ export class QueueService {
                 cert.csid!,
                 decryptedSecret,
                 localHash,
-                Buffer.from(signedXml).toString('base64'),
+                Buffer.from(signedXml.replace(/\r\n/g, '\n')).toString('base64'),
                 invoice.uuid
             );
             const submitDuration = Date.now() - submitStart;

@@ -237,6 +237,12 @@ export const generateInvoiceXML = (invoice: Invoice) => {
         }
 
         // Tax Total Section
+        // 1. First TaxTotal (Overall Tax Amount in SAR - required by ZATCA rule BR-KSA-EN16931-09)
+        xml.ele('cac:TaxTotal')
+           .ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(fromHalala(totalVatHalala)).up()
+           .up();
+
+        // 2. Second TaxTotal (Tax Amount with Subtotals in SAR)
         const taxTotalNode = xml.ele('cac:TaxTotal');
         taxTotalNode.ele('cbc:TaxAmount', { currencyID: 'SAR' }).txt(fromHalala(totalVatHalala)).up();
         

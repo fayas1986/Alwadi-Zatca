@@ -346,8 +346,24 @@ export const signInvoice = async (xmlContent: string, certificate: string, priva
                 throw new Error(`SDK failed to sign invoice. Output: ${stdout}`);
             }
 
-            const realInvoiceHashMatch = stdout.match(/\*\*\* INVOICE HASH = ([^\s\r\n]+)/);
-            hash = realInvoiceHashMatch ? realInvoiceHashMatch[1] : (signedXml.match(/<ds:DigestValue>([^<]+)<\/ds:DigestValue>/)?.[1] || '');
+            signedXml = fs.readFileSync(signedXmlPath, 'utf-8');
+            
+            // Generate exact canonical hash for signedXml
+            try {
+                const hashArgs = sdkPath.toLowerCase().endsWith('.jar')
+                    ? ['-jar', sdkPath, '--globalVersion', '3.0.8', '-generateHash', '-invoice', signedXmlPath]
+                    : ['--globalVersion', '3.0.8', '-generateHash', '-invoice', signedXmlPath];
+                const hashRes = await runCommand(baseCmd, hashArgs, { cwd: sdkDir });
+                const genHashMatch = hashRes.stdout.match(/\*\*\* INVOICE HASH = ([^\s\r\n]+)/);
+                if (genHashMatch) {
+                    hash = genHashMatch[1];
+                }
+            } catch (hashErr) {
+                console.warn('[SDK] Failed to generate post-sign hash via SDK, falling back to stdout match:', hashErr);
+                const realInvoiceHashMatch = stdout.match(/\*\*\* INVOICE HASH = ([^\s\r\n]+)/);
+                hash = realInvoiceHashMatch ? realInvoiceHashMatch[1] : (signedXml.match(/<ds:DigestValue>([^<]+)<\/ds:DigestValue>/)?.[1] || '');
+            }
+
             qr = extractQR(signedXml);
         } finally {
             // Always restore the original config.json and default cert files
@@ -406,7 +422,7 @@ export const validateInvoice = async (xmlContent: string, isSimulation: boolean 
         fs.writeFileSync(xmlPathInSdk, xmlContent);
 
         const relativeXmlPath = path.join('temp', xmlFilename);
-        const args = ['-jar', sdkPath, '-v', '-invoice', relativeXmlPath];
+        const args = ['-jar', sdkPath, '--globalVersion', '3.0.8', '-validate', '-invoice', relativeXmlPath];
         if (isSimulation) {
             args.push('-sim');
         }
