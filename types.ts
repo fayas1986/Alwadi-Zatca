@@ -1,5 +1,5 @@
 
-export type InvoiceStatus = 'Cleared' | 'Reported' | 'Rejected' | 'Pending' | 'Failed' | 'Pending Sync';
+export type InvoiceStatus = 'Cleared' | 'Reported' | 'Rejected' | 'Pending' | 'Failed' | 'Pending Sync' | 'DLQ';
 
 // RBAC Roles
 export type UserRole = 'IT_ADMIN' | 'FINANCE_ADMIN' | 'TAX_OFFICER' | 'SUPER_ADMIN';

@@ -159,7 +159,9 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
       (inv.customer && inv.customer.vatNumber && inv.customer.vatNumber.toLowerCase().includes(searchTerm.toLowerCase()));
     
     // Dropdown Filters
-    const matchesStatus = statusFilter === 'All' || inv.status === statusFilter;
+    const matchesStatus = statusFilter === 'All' || 
+      inv.status === statusFilter || 
+      String(inv.status).toUpperCase() === statusFilter.toUpperCase();
     const matchesType = typeFilter === 'All' || inv.invoiceSubtype === typeFilter;
 
     // Date Range Filter
@@ -310,6 +312,8 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
                     <option value="Reported">Reported</option>
                     <option value="Rejected">Rejected</option>
                     <option value="Pending">Pending</option>
+                    <option value="DLQ">DLQ</option>
+                    <option value="Failed">Failed</option>
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
@@ -424,11 +428,14 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
                             inv.status === 'Cleared' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                             inv.status === 'Reported' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                             inv.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                            inv.status === 'DLQ' || inv.status === 'dlq' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            inv.status === 'Failed' || inv.status === 'FAILED' ? 'bg-red-50 text-red-700 border-red-200' :
                             'bg-amber-50 text-amber-700 border-amber-200'
                         }`}>
                             {inv.status === 'Cleared' && <ShieldCheck size={12} className="mr-1.5" />}
                             {inv.status === 'Reported' && <CheckCircle size={12} className="mr-1.5" />}
                             {inv.status === 'Rejected' && <ShieldAlert size={12} className="mr-1.5" />}
+                            {(inv.status === 'DLQ' || inv.status === 'dlq' || inv.status === 'Failed' || inv.status === 'FAILED') && <ShieldAlert size={12} className="mr-1.5" />}
                             {inv.status}
                         </span>
                     </td>
