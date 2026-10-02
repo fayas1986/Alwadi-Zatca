@@ -1,10 +1,11 @@
 import './env.js';
 import { PrismaClient } from '@prisma/client';
 
-const DEFAULT_NEON_URL = "postgresql://neondb_owner:npg_MStg5qT3uFbc@ep-spring-hat-a18pmkyp-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
-
 const prismaClientSingleton = () => {
-  let url = process.env.DATABASE_URL || DEFAULT_NEON_URL;
+  let url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('DATABASE_URL environment variable is missing.');
+  }
   
   if (url.includes('neon.tech')) {
     if (!url.includes('-pooler.')) {
