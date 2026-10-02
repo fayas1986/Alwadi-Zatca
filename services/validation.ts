@@ -154,14 +154,17 @@ export const validateZatcaInvoice = (invoice: Invoice): ValidationResult => {
       // O (Out of scope) = 0%
       
       const category = item.taxCategory || 'S';
-      
+      const rawRate = item.vatRate ?? (item as any).taxRate ?? 0.15;
+      const rateFraction = rawRate > 1 ? rawRate / 100 : rawRate;
+      const ratePercent = Math.round(rateFraction * 100);
+
       if (category === 'S') {
-          if (item.vatRate !== 0.15) {
-              results.push({ type: 'ERROR', code: 'BR-KSA-EN-163', message: `${lineRef}: Tax Category 'S' must have a VAT rate of 15%. Found ${(item.vatRate * 100)}%.` });
+          if (Math.abs(rateFraction - 0.15) > 0.001) {
+              results.push({ type: 'ERROR', code: 'BR-KSA-EN-163', message: `${lineRef}: Tax Category 'S' must have a VAT rate of 15%. Found ${ratePercent}%.` });
           }
       } else if (['Z', 'E', 'O'].includes(category)) {
-          if (item.vatRate !== 0) {
-              results.push({ type: 'ERROR', code: 'BR-KSA-EN-163', message: `${lineRef}: Tax Category '${category}' must have a VAT rate of 0%.` });
+          if (rateFraction !== 0) {
+              results.push({ type: 'ERROR', code: 'BR-KSA-EN-163', message: `${lineRef}: Tax Category '${category}' must have a VAT rate of 0%. Found ${ratePercent}%.` });
           }
       } else {
           results.push({ type: 'ERROR', code: 'BR-KSA-EN-163', message: `${lineRef}: Invalid Tax Category '${category}'. Must be S, Z, E, or O.` });
@@ -177,7 +180,7 @@ export const validateZatcaInvoice = (invoice: Invoice): ValidationResult => {
       }
 
       // BR-DEC-12: VAT Amount per line
-      const expectedVat = round2(item.subtotal * item.vatRate);
+      const expectedVat = round2(item.subtotal * rateFraction);
       if (Math.abs(expectedVat - item.vatAmount) > 0.05) {
         results.push({ type: 'ERROR', code: 'BR-DEC-12', message: `${lineRef}: Calculated VAT (${expectedVat}) does not match provided VAT (${item.vatAmount}).` });
       }

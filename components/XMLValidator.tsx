@@ -160,14 +160,23 @@ export const XMLValidator: React.FC = () => {
                     <div className="p-8">
                         {validationResult.errors.length > 0 && (
                             <div className="mb-8">
-                                <h5 className="text-sm font-bold text-rose-700 flex items-center mb-4">
-                                    <XCircle size={16} className="mr-2" /> Critical Errors
+                                <h5 className="text-sm font-bold text-rose-700 flex items-center justify-between mb-4">
+                                    <span className="flex items-center">
+                                        <XCircle size={16} className="mr-2" /> Critical Errors ({validationResult.errors.length})
+                                    </span>
+                                    <span className="text-xs font-normal text-rose-600 bg-rose-100/60 px-2.5 py-1 rounded-full">
+                                        Realtime ZATCA Analysis
+                                    </span>
                                 </h5>
                                 <div className="space-y-3">
                                     {validationResult.errors.map((err: string, i: number) => (
-                                        <div key={i} className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-800 flex items-start">
-                                            <span className="font-mono font-bold mr-3 text-rose-900/50">0{i+1}</span>
-                                            {err}
+                                        <div key={i} className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-800 flex items-start leading-relaxed shadow-sm">
+                                            <span className="font-mono font-bold mr-3 text-rose-900/60 bg-rose-200/50 px-2 py-0.5 rounded text-xs">
+                                                {String(i + 1).padStart(2, '0')}
+                                            </span>
+                                            <div className="flex-1 font-mono text-xs text-rose-900 break-words">
+                                                {err}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
