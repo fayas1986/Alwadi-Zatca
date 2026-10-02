@@ -29,6 +29,30 @@ export const XMLValidator: React.FC = () => {
         try {
             setValidationResult({ isValid: true, errors: [], warnings: [], loading: true });
             
+            const errors: string[] = [];
+            const warnings: string[] = [];
+
+            // 1. Client-Side Realtime ZATCA Standardization Checks
+            let parsedJson: any = null;
+            try { parsedJson = JSON.parse(xml); } catch (e) {}
+
+            if (parsedJson && typeof parsedJson === 'object') {
+                const localCheck = validateZatcaInvoice(parsedJson);
+                localCheck.validationResults.forEach(r => {
+                    if (r.type === 'ERROR') errors.push(`[${r.code}] ${r.message}`);
+                    if (r.type === 'WARNING') warnings.push(`[${r.code}] ${r.message}`);
+                });
+            } else {
+                if (xml.includes('SAU')) {
+                    errors.push('[BR-KSA-09] Country Code "SAU" is invalid. ZATCA requires 2-character ISO country code "SA".');
+                }
+                const badDate = xml.match(/\b\d{2}\.\d{2}\.\d{4}\b/);
+                if (badDate) {
+                    errors.push(`[BR-KSA-F-01] Date format "${badDate[0]}" is invalid. ZATCA requires ISO 8601 format YYYY-MM-DD (e.g. 2026-09-30).`);
+                }
+            }
+
+            // 2. Server-Side ZATCA Validation SDK Check
             const response = await fetch('/api/zatca/validate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -37,24 +61,22 @@ export const XMLValidator: React.FC = () => {
 
             const result = await response.json();
             
-            if (result.success) {
-                setValidationResult({
-                    isValid: result.isValid,
-                    errors: result.errors || [],
-                    warnings: result.warnings || []
-                });
-            } else {
-                setValidationResult({
-                    isValid: false,
-                    errors: [result.error || 'Validation failed on server'],
-                    warnings: []
-                });
-            }
+            const serverErrors = result.errors || [];
+            const serverWarnings = result.warnings || [];
+            const combinedErrors = Array.from(new Set([...errors, ...serverErrors]));
+            const combinedWarnings = Array.from(new Set([...warnings, ...serverWarnings]));
+            const isValid = combinedErrors.length === 0;
+
+            setValidationResult({
+                isValid,
+                errors: combinedErrors,
+                warnings: combinedWarnings
+            });
         } catch (error: any) {
             console.error('Validation Error:', error);
             setValidationResult({
                 isValid: false,
-                errors: ['Network error while validating XML'],
+                errors: ['Network error while validating invoice payload'],
                 warnings: []
             });
         }
@@ -100,7 +122,7 @@ export const XMLValidator: React.FC = () => {
                 
                 <input 
                     type="file" 
-                    accept=".xml" 
+                    accept=".xml,.json,.txt" 
                     onChange={handleFileChange} 
                     className="hidden" 
                     id="xml-upload"

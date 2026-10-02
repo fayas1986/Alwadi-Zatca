@@ -86,12 +86,53 @@ router.post('/validate', async (req, res) => {
     try {
         const { xml, environment } = req.body;
         if (!xml) {
-            return res.status(400).json({ success: false, error: 'Missing XML content' });
+            return res.status(400).json({ success: false, error: 'Missing XML or JSON payload content' });
+        }
+
+        const errors: string[] = [];
+        const warnings: string[] = [];
+
+        // Check if JSON payload
+        let parsed: any = null;
+        try { parsed = typeof xml === 'string' ? JSON.parse(xml) : xml; } catch (e) {}
+
+        if (parsed && typeof parsed === 'object') {
+            const { validateZatcaInvoice } = await import('../services/validation.js');
+            const localResult = validateZatcaInvoice(parsed);
+            localResult.validationResults.forEach(r => {
+                if (r.type === 'ERROR') errors.push(`[${r.code}] ${r.message}`);
+                if (r.type === 'WARNING') warnings.push(`[${r.code}] ${r.message}`);
+            });
+        } else if (typeof xml === 'string') {
+            if (xml.includes('"SAU"') || xml.includes("countryCode: 'SAU'") || xml.includes('>SAU<')) {
+                errors.push('[BR-KSA-09] Country Code "SAU" is invalid. ZATCA requires 2-character ISO country code "SA".');
+            }
+            const badDateMatch = xml.match(/\b\d{2}\.\d{2}\.\d{4}\b/);
+            if (badDateMatch) {
+                errors.push(`[BR-KSA-F-01] Date format "${badDateMatch[0]}" is invalid. ZATCA requires ISO 8601 date format YYYY-MM-DD.`);
+            }
         }
 
         const isSimulation = environment?.toLowerCase() === 'simulation';
-        const result = await validateInvoice(xml, isSimulation);
-        res.json({ success: true, ...result });
+        let sdkResult: any = { isValid: true, errors: [], warnings: [] };
+        if (typeof xml === 'string' && xml.trim().startsWith('<')) {
+            try {
+                sdkResult = await validateInvoice(xml, isSimulation);
+            } catch (e: any) {
+                sdkResult.errors.push(e.message);
+                sdkResult.isValid = false;
+            }
+        }
+
+        const allErrors = Array.from(new Set([...errors, ...(sdkResult.errors || [])]));
+        const allWarnings = Array.from(new Set([...warnings, ...(sdkResult.warnings || [])]));
+
+        res.json({
+            success: true,
+            isValid: allErrors.length === 0 && (sdkResult.isValid !== false),
+            errors: allErrors,
+            warnings: allWarnings
+        });
 
     } catch (error: any) {
         console.error('Validation Route Error:', error);
