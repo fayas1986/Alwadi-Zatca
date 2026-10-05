@@ -7,7 +7,6 @@ import prisma from '../lib/prisma.js';
 import { decrypt } from '../utils/crypto.js';
 
 // ─── Fallback users (mirrors actual Neon DB accounts — used when DB sleeps) ──
-// These match the real DB users. Password for all: p// ─── Fallback users (mirrors actual Neon DB accounts — used when DB sleeps) ──
 export const FALLBACK_USERS: Record<string, { id: string; email: string; password: string; name: string; role: string; company_name: string; company_id?: number }> = {
     'superadmin@tech-solutions.sa': {
         id: 'u-001', email: 'superadmin@tech-solutions.sa', password: 'Zatca#Secure!2026@Connect',
@@ -38,8 +37,6 @@ export const FALLBACK_USERS: Record<string, { id: string; email: string; passwor
         name: 'Mahesh', role: 'IT_ADMIN', company_name: 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.', company_id: 1
     },
 };
-
-const VALID_PASSWORDS = ['Zatca#Secure!2026@Connect', 'password123', 'admin', 'easylease123'];
 
 /**
  * @swagger
@@ -101,33 +98,25 @@ router.post('/login', async (req, res) => {
         const normalizedEmail = email.toLowerCase().trim();
         console.log(`[Auth] Login attempt: ${normalizedEmail}`);
 
-        // ── Step 1: PRE-EMPTIVE Fallback Check (Instant) ───────────────────────
-        const fallback = FALLBACK_USERS[normalizedEmail];
-        if (fallback && (fallback.password === password || VALID_PASSWORDS.includes(password))) {
-            console.log(`[Auth] Success via Fallback: ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
-            return res.json({
-                id: fallback.id,
-                email: fallback.email,
-                name: fallback.name,
-                role: fallback.role,
-                companyName: fallback.company_name,
-                companyId: (fallback as any).company_id,
-                source: 'fallback'
-            });
-        }
-
-        // ── Step 2: Database Lookup (with strict timeout) ─────────────────────
+        // ── Step 1: Database Lookup (Primary Source of Truth) ──────────────────
         let dbUser: any = null;
         try {
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 15000));
-            const queryPromise = prisma.user.findUnique({ where: { email: normalizedEmail } });
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 10000));
+            const queryPromise = prisma.user.findFirst({
+                where: {
+                    email: {
+                        equals: normalizedEmail,
+                        mode: 'insensitive'
+                    }
+                }
+            });
             
             dbUser = await Promise.race([queryPromise, timeoutPromise]);
         } catch (dbErr: any) {
-            console.warn(`[Auth] DB ignored for ${normalizedEmail}: ${dbErr.message}`);
+            console.warn(`[Auth] DB lookup error/timeout for ${normalizedEmail}: ${dbErr.message}`);
         }
 
-        // ── Step 3: Handle DB Result ──────────────────────────────────────────
+        // ── Step 2: Handle DB User Authentication ─────────────────────────────
         if (dbUser) {
             let isMatch = false;
             try {
@@ -138,7 +127,7 @@ router.post('/login', async (req, res) => {
                 isMatch = false;
             }
 
-            if (isMatch || VALID_PASSWORDS.includes(password)) {
+            if (isMatch) {
                 // Fetch the first company associated with the user (Direct Ownership)
                 let company = await prisma.company.findFirst({
                     where: { user_id: dbUser.id }
@@ -165,6 +154,35 @@ router.post('/login', async (req, res) => {
                     companyName: company?.registered_name || dbUser.company_name || 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.',
                     companyId: company?.id || 1,
                     source: 'database'
+                });
+            } else {
+                console.warn(`[Auth] Password mismatch for DB user ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
+                return res.status(401).json({ error: 'Invalid credentials' });
+            }
+        }
+
+        // ── Step 3: Fallback Check (Only if user is NOT in Database) ─────────
+        const fallback = FALLBACK_USERS[normalizedEmail];
+        if (fallback) {
+            let fallbackMatch = false;
+            try {
+                fallbackMatch = fallback.password.includes(':')
+                    ? decrypt(fallback.password) === password
+                    : fallback.password === password;
+            } catch (e) {
+                fallbackMatch = fallback.password === password;
+            }
+
+            if (fallbackMatch) {
+                console.log(`[Auth] Success via Fallback: ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
+                return res.json({
+                    id: fallback.id,
+                    email: fallback.email,
+                    name: fallback.name,
+                    role: fallback.role,
+                    companyName: fallback.company_name,
+                    companyId: (fallback as any).company_id,
+                    source: 'fallback'
                 });
             }
         }
