@@ -1,0 +1,19 @@
+{
+  "customerId": "alwadi-trading",
+  "customerLegalName": "Alwadi Trading L.L.C.",
+  "cloudProvider": "aws",
+  "region": "me-central-1",
+  "environment": "production",
+  "applicationVersion": "1.0.0",
+  "databaseConfig": {
+    "host": "ep-still-firefly-b3vitsw9-pooler.c-4.ap-southeast-1.aws.neon.tech",
+    "port": 5432,
+    "databaseName": "neondb",
+    "sslMode": "require",
+    "provider": "neon"
+  },
+  "zatcaConfig": {
+    "zatcaEnv": "PRODUCTION",
+    "vatNumber": "310123456700003"
+  }
+}

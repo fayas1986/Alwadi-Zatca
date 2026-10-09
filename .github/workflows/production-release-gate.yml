@@ -1,0 +1,73 @@
+name: Alwadi-Zatca Production Release Gate & CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master, main, feat/*, chore/* ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  quality-gate:
+    name: Code Quality & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma validate
+      - run: npx tsc --noEmit
+
+  security-scan:
+    name: Secret & Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm audit --audit-level=high || true
+
+  test-suite:
+    name: Unit, Integration & Isolation Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx vitest run
+
+  regional-compliance:
+    name: Saudi Arabia Data Residency & Spec Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npx tsx scripts/verify_saudi_region.ts config/alwadi-production-spec.json
+
+  docker-build:
+    name: Build & Verify Docker Image
+    needs: [quality-gate, test-suite, regional-compliance]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Production Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: alwadi-zatca:latest

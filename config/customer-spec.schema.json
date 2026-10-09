@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CustomerDeploymentSpecification",
+  "type": "object",
+  "required": [
+    "customerId",
+    "customerLegalName",
+    "cloudProvider",
+    "region",
+    "environment",
+    "applicationVersion",
+    "databaseConfig"
+  ],
+  "properties": {
+    "customerId": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "customerLegalName": {
+      "type": "string"
+    },
+    "cloudProvider": {
+      "type": "string",
+      "enum": ["aws", "azure"]
+    },
+    "region": {
+      "type": "string",
+      "enum": ["me-central-1", "me-south-1", "saudiarabiaeast"]
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["development", "testing", "simulation", "sandbox", "production"]
+    },
+    "applicationVersion": {
+      "type": "string"
+    },
+    "databaseConfig": {
+      "type": "object",
+      "required": ["host", "port", "databaseName", "sslMode", "provider"],
+      "properties": {
+        "host": { "type": "string" },
+        "port": { "type": "integer", "default": 5432 },
+        "databaseName": { "type": "string" },
+        "sslMode": { "type": "string", "enum": ["require", "verify-full", "disable"] },
+        "provider": { "type": "string", "enum": ["neon", "aws_rds", "azure_postgresql"] }
+      }
+    },
+    "zatcaConfig": {
+      "type": "object",
+      "properties": {
+        "zatcaEnv": { "type": "string", "enum": ["SIMULATION", "SANDBOX", "PRODUCTION"] },
+        "vatNumber": { "type": "string", "pattern": "^3[0-9]{13}3$" }
+      }
+    }
+  }
+}
