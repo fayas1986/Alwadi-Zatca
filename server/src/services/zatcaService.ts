@@ -223,12 +223,50 @@ export const clearInvoice = async (env: string, csid: string, secret: string, xm
     }
 };
 
-export const getProductionCredentials = async (vatOrCompanyId: string | number) => {
+export interface CredentialLookupParams {
+    companyId?: number;
+    vatNumber?: string;
+    environment?: 'PRODUCTION' | 'SIMULATION' | 'SANDBOX' | string;
+    authContext?: {
+        companyId: number;
+        role?: string;
+    };
+}
+
+export const getProductionCredentials = async (
+    identifierOrOptions: string | number | CredentialLookupParams,
+    optionalAuthContext?: { companyId: number; role?: string }
+) => {
+    let companyId: number | undefined;
+    let vatNumber: string | undefined;
+    let requestedEnv: string | undefined;
+    let authContext = optionalAuthContext;
+
+    if (typeof identifierOrOptions === 'object' && identifierOrOptions !== null) {
+        companyId = identifierOrOptions.companyId;
+        vatNumber = identifierOrOptions.vatNumber;
+        requestedEnv = identifierOrOptions.environment;
+        authContext = identifierOrOptions.authContext || optionalAuthContext;
+    } else if (typeof identifierOrOptions === 'number') {
+        companyId = identifierOrOptions;
+    } else if (typeof identifierOrOptions === 'string') {
+        if (/^\d+$/.test(identifierOrOptions) && identifierOrOptions.length < 10) {
+            companyId = Number(identifierOrOptions);
+        } else {
+            vatNumber = identifierOrOptions;
+        }
+    }
+
+    if (companyId === undefined && !vatNumber) {
+        throw new Error('Credential lookup requires an explicit companyId or vatNumber.');
+    }
+
+    // 1. Fetch target company by unambiguous primary key or VAT
     let whereClause: any = {};
-    if (typeof vatOrCompanyId === 'number' || /^\d+$/.test(String(vatOrCompanyId)) && String(vatOrCompanyId).length < 10) {
-        whereClause = { id: Number(vatOrCompanyId) };
-    } else {
-        whereClause = { vat_number: String(vatOrCompanyId) };
+    if (companyId !== undefined) {
+        whereClause = { id: companyId };
+    } else if (vatNumber !== undefined) {
+        whereClause = { vat_number: String(vatNumber) };
     }
 
     const company = await prisma.company.findFirst({
@@ -237,15 +275,33 @@ export const getProductionCredentials = async (vatOrCompanyId: string | number) 
     });
 
     if (!company) {
-        throw new Error(`Company not found for identifier: ${vatOrCompanyId}`);
+        throw new Error(`Company not found for identifier: ${companyId || vatNumber}`);
     }
 
-    // Look for active PRODUCTION certificate first, fallback to active certificate
-    const activeCert = company.certificates.find((c: any) => c.is_active && c.type === 'PRODUCTION')
-        || company.certificates.find((c: any) => c.is_active);
+    // 2. Strict Tenant Authorization Verification
+    if (authContext) {
+        const isSuperAdmin = authContext.role === 'SUPER_ADMIN';
+        if (!isSuperAdmin && authContext.companyId !== company.id) {
+            throw new Error(`UNAUTHORIZED_TENANT_ACCESS: Authenticated company ID ${authContext.companyId} is not authorized to access credentials for company ${company.id} (${company.registered_name}).`);
+        }
+    }
+
+    // 3. Strict Environment Matching — Zero Implicit Fallback
+    const targetEnv = (requestedEnv || company.environment || 'PRODUCTION').toString().toUpperCase();
+
+    const activeCert = company.certificates.find((c: any) => 
+        c.is_active === true && 
+        c.company_id === company.id && 
+        c.type === targetEnv
+    );
 
     if (!activeCert || !activeCert.csid || !activeCert.secret || !activeCert.private_key) {
-        throw new Error(`Active ZATCA credentials (CSID, secret, private_key) not found for company ${company.registered_name} (${company.vat_number}).`);
+        throw new Error(`Active ZATCA ${targetEnv} credentials (CSID, secret, private_key) not found for company ${company.registered_name} (${company.vat_number}). Implicit fallback across environments is prohibited.`);
+    }
+
+    // 4. Ensure binding consistency
+    if (activeCert.company_id !== company.id || activeCert.type !== targetEnv || activeCert.is_active !== true) {
+        throw new Error(`CREDENTIAL_BINDING_MISMATCH: Certificate ID ${activeCert.id} binding mismatch for company ${company.id} and environment ${targetEnv}.`);
     }
 
     const { SecurityService } = await import('./securityService.js');
@@ -254,7 +310,7 @@ export const getProductionCredentials = async (vatOrCompanyId: string | number) 
         companyId: company.id,
         vatNumber: company.vat_number,
         companyName: company.registered_name,
-        environment: company.environment || activeCert.type,
+        environment: targetEnv,
         csid: activeCert.csid,
         certificate: activeCert.certificate || activeCert.csid,
         secret: SecurityService.decrypt(activeCert.secret),
@@ -271,7 +327,12 @@ export const ZatcaService = {
     clearInvoice,
     getProductionCredentials,
     report: async (params: any) => {
-        const credentials = await getProductionCredentials(params.companyId || params.vat);
+        const credentials = await getProductionCredentials({
+            companyId: params.companyId,
+            vatNumber: params.vat,
+            environment: params.environment,
+            authContext: params.authContext
+        });
         const env = credentials.environment || 'PRODUCTION';
         return await reportInvoice(
             env,

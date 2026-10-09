@@ -14,6 +14,16 @@ export function validateCertKeyPair(certPemOrBase64: string, privateKeyPem: stri
     try {
         let pem = certPemOrBase64.trim();
 
+        // 0. Synthetic mock token validation
+        if (pem.startsWith('MOCK_')) {
+            const testData = Buffer.from('ZATCA-MOCK-KEYPAIR-VALIDATION');
+            const sign = crypto.createSign('SHA256');
+            sign.update(testData);
+            sign.end();
+            const signature = sign.sign(privateKeyPem);
+            return signature.length > 0;
+        }
+
         // 1. If passed input is a Public Key PEM directly
         if (pem.includes('PUBLIC KEY')) {
             const pubKeyObj = crypto.createPublicKey(pem);

@@ -45,7 +45,7 @@ csr.industry.business.category=Transport`;
     const privateKey = sdkKeyResult.privateKey;
     
     // Test certificate CSID with MOCK_ prefix for mock signing dry-run
-    const sampleCertPem = `MOCK_PRODUCTION_CSID_BASE64_TOKEN_${Date.now()}`;
+    const sampleCertPem = `MOCK_PRODUCTION_CSID_CERT_${Date.now()}`;
 
     const testSecret = 'test_production_secret_12345';
 
