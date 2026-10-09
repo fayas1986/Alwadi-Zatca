@@ -45,10 +45,11 @@ export const InvoiceService = {
     },
 
     /**
-     * Creates a new invoice record with standardized metadata.
+     * Creates a new invoice record with standardized metadata and branch validation.
      */
     async createInvoice(data: {
         company_id: number;
+        branch_id?: number;
         customer_id?: number;
         customer?: { name: string; vatNumber?: string | null };
         invoice_number: string;
@@ -74,19 +75,37 @@ export const InvoiceService = {
             customerId = await this.getOrCreateCustomerId(data.company_id, data.customer) || undefined;
         }
 
-        // 2. Ensure consistent metadata structure
+        // 2. Strict Active Branch & Ownership Validation
+        let validatedBranchId: number | null = data.branch_id || null;
+        if (validatedBranchId) {
+            const branch = await prisma.branch.findUnique({
+                where: { id: validatedBranchId }
+            });
+
+            if (!branch || branch.is_deleted) {
+                throw new Error(`INVALID_BRANCH_ID: Branch ID ${validatedBranchId} does not exist or is deleted.`);
+            }
+
+            if (!branch.is_active) {
+                throw new Error(`INACTIVE_BRANCH: Cannot create new invoice for inactive branch ${branch.code} (${branch.name}).`);
+            }
+
+            if (branch.company_id !== data.company_id) {
+                throw new Error(`INVOICE_BRANCH_OWNERSHIP_MISMATCH: Branch ID ${validatedBranchId} (Company ${branch.company_id}) does not belong to invoice company ID ${data.company_id}.`);
+            }
+        }
+
+        // 3. Ensure consistent metadata structure
         const metadata = {
             ...(data.metadata || {}),
-            // Prioritize items passed directly
+            branch_id: validatedBranchId,
             items: data.items || (data.metadata as any)?.items || [],
-            // Redundant customer info for UI fallback
             customer: data.customer || (data.metadata as any)?.customer || null,
-            // Keep track of source/raw data
             erp_raw: (data.metadata as any)?.erp_raw || (data.metadata as any)?.originalPayload || null,
             processed_at: new Date().toISOString()
         };
 
-        console.log(`[InvoiceService] Saving invoice ${data.invoice_number} (Customer: ${customerId || 'Unknown'}, Items: ${metadata.items.length})`);
+        console.log(`[InvoiceService] Saving invoice ${data.invoice_number} (Company: ${data.company_id}, Branch: ${validatedBranchId || 'Legal Entity HQ'}, Customer: ${customerId || 'Unknown'}, Items: ${metadata.items.length})`);
 
         const existingInvoice = await prisma.invoice.findFirst({
             where: {
@@ -97,6 +116,7 @@ export const InvoiceService = {
 
         const invoiceDataToSave = {
             company_id: data.company_id,
+            branch_id: validatedBranchId,
             customer_id: customerId,
             invoice_number: data.invoice_number,
             uuid: data.uuid,

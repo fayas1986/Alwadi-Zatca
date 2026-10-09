@@ -9,6 +9,9 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
   let branchAIds: number[] = [];
   let branchBId: number;
 
+  const VAT_B = '397777777700003';
+  const USER_B_EMAIL = 'seven_branches_owner_b_unique@alwadi.local';
+
   beforeAll(async () => {
     // 1. Seed or get Alwadi Company A (Company ID 1 or freshly created)
     let companyA = await prisma.company.findFirst({
@@ -45,22 +48,22 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
 
     // 2. Setup Company B with a single branch
     const userB = await prisma.user.upsert({
-      where: { email: 'seven_branches_owner_b@alwadi.local' },
+      where: { email: USER_B_EMAIL },
       update: {},
       create: {
-        id: 'user_branch_b_id',
-        email: 'seven_branches_owner_b@alwadi.local',
+        id: 'user_seven_branch_b_id',
+        email: USER_B_EMAIL,
         role: 'IT_ADMIN',
         company_name: 'Competitor B Corp'
       }
     });
 
     const companyB = await prisma.company.upsert({
-      where: { vat_number: '399999999900003' },
+      where: { vat_number: VAT_B },
       update: {},
       create: {
         user_id: userB.id,
-        vat_number: '399999999900003',
+        vat_number: VAT_B,
         cr_number: '1010998877',
         registered_name: 'Competitor B Corp L.L.C.',
         environment: 'PRODUCTION'
@@ -85,7 +88,7 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
     await prisma.invoice.deleteMany({ where: { company_id: companyBId } });
     await prisma.branch.deleteMany({ where: { company_id: companyBId } });
     await prisma.company.deleteMany({ where: { id: companyBId } });
-    await prisma.user.deleteMany({ where: { email: 'seven_branches_owner_b@alwadi.local' } });
+    await prisma.user.deleteMany({ where: { email: USER_B_EMAIL } });
   });
 
   it('1. Persisted 7 Branches Verification: Company A has exactly 7 active branches in DB', async () => {
@@ -190,4 +193,96 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
     // Cleanup
     await prisma.branch.delete({ where: { id: tempBranch.id } });
   });
+
+  it('7. Mismatched Invoice Branch Ownership: Rejects invoice when branch_id does not belong to company_id', async () => {
+    const { InvoiceService } = await import('../services/invoiceService.js');
+
+    const companyBBranch = await prisma.branch.create({
+      data: {
+        company_id: companyBId,
+        code: 'BR-MISMATCH-OWNERSHIP',
+        name: 'Company B Branch for Mismatch Test'
+      }
+    });
+
+    await expect(
+      InvoiceService.createInvoice({
+        company_id: companyAId, // Company A
+        branch_id: companyBBranch.id, // Branch B (Company B) -> MISMATCH!
+        invoice_number: `INV-MISMATCH-${Date.now()}`,
+        uuid: '550e8400-e29b-41d4-a716-446655440099',
+        date: new Date(),
+        total_amount: 100,
+        tax_amount: 15,
+        status: 'PENDING',
+        type: 'B2B',
+        hash: `hash-mismatch-${Date.now()}`,
+        qr_code: 'qr'
+      })
+    ).rejects.toThrow(/INVOICE_BRANCH_OWNERSHIP_MISMATCH/);
+
+    await prisma.branch.delete({ where: { id: companyBBranch.id } });
+  });
+
+  it('8. Inactive Branch Invoice Rejection: Rejects new invoice creation for inactive branch', async () => {
+    const { InvoiceService } = await import('../services/invoiceService.js');
+
+    const inactiveBranch = await prisma.branch.create({
+      data: {
+        company_id: companyAId,
+        code: 'BR-INACTIVE-TEST',
+        name: 'Inactive Branch Test',
+        is_active: false
+      }
+    });
+
+    await expect(
+      InvoiceService.createInvoice({
+        company_id: companyAId,
+        branch_id: inactiveBranch.id, // Inactive!
+        invoice_number: `INV-INACTIVE-${Date.now()}`,
+        uuid: '550e8400-e29b-41d4-a716-446655440088',
+        date: new Date(),
+        total_amount: 100,
+        tax_amount: 15,
+        status: 'PENDING',
+        type: 'B2B',
+        hash: `hash-inactive-${Date.now()}`,
+        qr_code: 'qr'
+      })
+    ).rejects.toThrow(/INACTIVE_BRANCH/);
+
+    await prisma.branch.delete({ where: { id: inactiveBranch.id } });
+  });
+
+  it('9. Historical Unassigned Invoice Preservation: Invoices with branch_id = null are preserved without error', async () => {
+    const { InvoiceService } = await import('../services/invoiceService.js');
+
+    const historicalInv = await InvoiceService.createInvoice({
+      company_id: companyAId,
+      branch_id: undefined, // Unassigned / Legal Entity level
+      invoice_number: `INV-HISTORICAL-${Date.now()}`,
+      uuid: '550e8400-e29b-41d4-a716-446655440077',
+      date: new Date(),
+      total_amount: 500,
+      tax_amount: 75,
+      status: 'CLEARED',
+      type: 'B2B',
+      hash: `hash-hist-${Date.now()}`,
+      qr_code: 'qr'
+    });
+
+    expect(historicalInv.branch_id).toBeNull();
+
+    const fetched = await prisma.invoice.findUnique({
+      where: { id: historicalInv.id },
+      include: { branch: true }
+    });
+
+    expect(fetched?.branch).toBeNull();
+
+    // Cleanup
+    await prisma.invoice.delete({ where: { id: historicalInv.id } });
+  });
 });
+

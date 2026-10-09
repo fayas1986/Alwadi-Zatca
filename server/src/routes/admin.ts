@@ -705,18 +705,27 @@ router.get('/branches', requireAnyAdmin, async (req, res) => {
         const userRole = req.headers['x-user-role'];
 
         let whereClause: any = { is_deleted: false };
-        if (companyId) {
-            whereClause.company_id = companyId;
-        }
 
         if (userRole !== 'SUPER_ADMIN' && userEmail) {
-            const user = await prisma.user.findFirst({ where: { email: userEmail } });
+            const user = await prisma.user.findFirst({ 
+                where: { email: userEmail },
+                include: { companies: true }
+            });
             if (user && user.companies && user.companies.length > 0) {
                 const userCompanyIds = user.companies.map(c => c.id);
-                if (companyId && !userCompanyIds.includes(companyId)) {
-                    return res.status(403).json({ error: 'UNAUTHORIZED_BRANCH_ACCESS: Cannot view branches outside assigned company' });
+                if (companyId) {
+                    if (!userCompanyIds.includes(companyId)) {
+                        return res.status(403).json({ error: 'UNAUTHORIZED_BRANCH_ACCESS: Cannot view branches outside assigned company' });
+                    }
+                    whereClause.company_id = companyId;
+                } else {
+                    whereClause.company_id = { in: userCompanyIds };
                 }
+            } else if (companyId) {
+                whereClause.company_id = companyId;
             }
+        } else if (companyId) {
+            whereClause.company_id = companyId;
         }
 
         const branches = await prisma.branch.findMany({
@@ -762,7 +771,7 @@ router.post('/branches', requireAnyAdmin, async (req, res) => {
         const userRole = req.headers['x-user-role'];
 
         if (userRole !== 'SUPER_ADMIN' && userEmail) {
-            const user = await prisma.user.findFirst({ where: { email: userEmail } });
+            const user = await prisma.user.findFirst({ where: { email: userEmail }, include: { companies: true } });
             if (user && user.companies && user.companies.length > 0) {
                 const userCompanyIds = user.companies.map(c => c.id);
                 if (!userCompanyIds.includes(cid)) {
@@ -810,6 +819,9 @@ router.post('/branches', requireAnyAdmin, async (req, res) => {
 router.get('/branches/:id', requireAnyAdmin, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
+        const userEmail = (req.headers['x-user-email'] as string)?.toLowerCase();
+        const userRole = req.headers['x-user-role'];
+
         const branch = await prisma.branch.findUnique({
             where: { id },
             include: { company: true }
@@ -817,6 +829,16 @@ router.get('/branches/:id', requireAnyAdmin, async (req, res) => {
 
         if (!branch || branch.is_deleted) {
             return res.status(404).json({ error: 'Branch not found' });
+        }
+
+        if (userRole !== 'SUPER_ADMIN' && userEmail) {
+            const user = await prisma.user.findFirst({ where: { email: userEmail }, include: { companies: true } });
+            if (user && user.companies && user.companies.length > 0) {
+                const userCompanyIds = user.companies.map(c => c.id);
+                if (!userCompanyIds.includes(branch.company_id)) {
+                    return res.status(403).json({ error: 'UNAUTHORIZED_BRANCH_ACCESS: Cannot view branch belonging to another organization' });
+                }
+            }
         }
 
         res.json(branch);
@@ -835,6 +857,9 @@ router.get('/branches/:id', requireAnyAdmin, async (req, res) => {
 router.put('/branches/:id', requireAnyAdmin, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
+        const userEmail = (req.headers['x-user-email'] as string)?.toLowerCase();
+        const userRole = req.headers['x-user-role'];
+
         const {
             name,
             city,
@@ -849,6 +874,16 @@ router.put('/branches/:id', requireAnyAdmin, async (req, res) => {
         const branch = await prisma.branch.findUnique({ where: { id } });
         if (!branch || branch.is_deleted) {
             return res.status(404).json({ error: 'Branch not found' });
+        }
+
+        if (userRole !== 'SUPER_ADMIN' && userEmail) {
+            const user = await prisma.user.findFirst({ where: { email: userEmail }, include: { companies: true } });
+            if (user && user.companies && user.companies.length > 0) {
+                const userCompanyIds = user.companies.map(c => c.id);
+                if (!userCompanyIds.includes(branch.company_id)) {
+                    return res.status(403).json({ error: 'UNAUTHORIZED_BRANCH_ACCESS: Cannot update branch belonging to another organization' });
+                }
+            }
         }
 
         const updated = await prisma.branch.update({

@@ -499,8 +499,12 @@ export const fetchAndProcessInvoices = async (
                 // Save to Database
                 console.log(`[Integration] Saving invoice ${inv.invoiceNumber} to DB (Update: ${!!existing})`);
 
+                const rawBranchId = (rawInv as any).branchId || (rawInv as any).branch_id || (typeof (rawInv as any).branch === 'number' ? (rawInv as any).branch : null);
+                const parsedBranchId = rawBranchId ? parseInt(String(rawBranchId)) : undefined;
+
                 const invoiceData = {
                     company_id: company.id,
+                    branch_id: parsedBranchId,
                     invoice_number: inv.invoiceNumber,
                     uuid: zatcaInvoice.uuid,
                     date: parsedDate,
@@ -516,6 +520,7 @@ export const fetchAndProcessInvoices = async (
                     submission_response: JSON.stringify(result),
                     metadata: {
                         erp_raw: rawInv as any,
+                        branch_id: parsedBranchId || null,
                         items: zatcaInvoice.items,
                         customer: zatcaInvoice.customer,
                         updated_at: new Date().toISOString()
