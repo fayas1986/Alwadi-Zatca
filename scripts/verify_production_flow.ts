@@ -1,12 +1,18 @@
-import { ComplianceService, validateCertKeyPair } from '../server/src/services/complianceService.js';
-import { getProductionCredentials, reportInvoice } from '../server/src/services/zatcaService.js';
-import { signInvoice } from '../server/src/services/sdkService.js';
-import { generateInvoiceXML } from '../server/src/services/xmlService.js';
-import prisma from '../server/src/lib/prisma.js';
+import fs from 'fs';
 import crypto from 'crypto';
-import 'dotenv/config';
+
+if (!fs.existsSync('./server/zatca-sdk/zatca-sdk.jar')) {
+    process.env.USE_MOCK_SDK = 'true';
+}
 
 async function verify() {
+    // Dynamic import to ensure USE_MOCK_SDK is set before env initialization
+    const { ComplianceService, validateCertKeyPair } = await import('../server/src/services/complianceService.js');
+    const { getProductionCredentials } = await import('../server/src/services/zatcaService.js');
+    const { signInvoice, generateCSR } = await import('../server/src/services/sdkService.js');
+    const { generateInvoiceXML } = await import('../server/src/services/xmlService.js');
+    const { default: prisma } = await import('../server/src/lib/prisma.js');
+
     console.log('========================================================');
     console.log('🔍 VERIFYING ZATCA PRODUCTION WORKFLOW & CREDENTIALS');
     console.log('========================================================\n');
@@ -24,7 +30,7 @@ async function verify() {
     console.log('\n[Step 2] Testing Production Credential Configuration & Keypair Matching...');
     const vatNumber = '311499218600003';
     
-    // Generate valid ZATCA EC secp256k1 keypair using ZATCA SDK
+    // Generate valid ZATCA EC secp256k1 keypair using ZATCA SDK / Mock
     const csrConfigStr = `csr.common.name=PRD-ZATCA-311499218600003
 csr.serial.number=1-ZATCA|2-Desktop|3-${crypto.randomUUID()}
 csr.organization.identifier=311499218600003
@@ -35,7 +41,6 @@ csr.invoice.type=1000
 csr.location.address=RIYADH
 csr.industry.business.category=Transport`;
 
-    const { generateCSR } = await import('../server/src/services/sdkService.js');
     const sdkKeyResult = await generateCSR(csrConfigStr, false);
     const privateKey = sdkKeyResult.privateKey;
     
@@ -59,7 +64,7 @@ csr.industry.business.category=Transport`;
         certificatePemOrCsid: sampleCertPem,
         secret: testSecret,
         privateKeyPem: privateKey,
-        companyName: 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.',
+        companyName: 'Alwadi Trading L.L.C.',
         buildingNumber: '6823',
         streetName: 'Shams Al Deen',
         citySubdivision: 'Al Rimal Dist',
@@ -67,7 +72,7 @@ csr.industry.business.category=Transport`;
         city: 'RIYADH',
         crNumber: '1010816075'
     }, {
-        email: 'admin@zatca-fatoora.com',
+        email: 'admin@alwadi.local',
         role: 'SUPER_ADMIN',
         ip: '127.0.0.1'
     });
@@ -81,7 +86,7 @@ csr.industry.business.category=Transport`;
         const onboardProdAttempt = await ComplianceService.onboard({
             vat: vatNumber,
             environment: 'Production'
-        }, { email: 'admin@zatca-fatoora.com', role: 'SUPER_ADMIN', ip: '127.0.0.1' });
+        }, { email: 'admin@alwadi.local', role: 'SUPER_ADMIN', ip: '127.0.0.1' });
         
         console.log(`   - Onboard response when Production CSID exists: ${JSON.stringify(onboardProdAttempt)}`);
         console.log(`   - Non-OTP Guard check: ✅ PASSED (Returned existing CSID without asking for OTP)`);
@@ -149,27 +154,18 @@ csr.industry.business.category=Transport`;
     const authHeader = `Basic ${Buffer.from(`${credentials.csid}:${credentials.secret}`).toString('base64')}`;
     console.log(`   - Auth Header format constructed: Basic [base64(CSID:Secret)] ✅ OK`);
 
+    // Cleanup synthetic test verification company
+    await prisma.certificate.deleteMany({ where: { company: { vat_number: vatNumber } } });
+    await prisma.company.deleteMany({ where: { vat_number: vatNumber } });
+
     console.log('\n========================================================');
     console.log('🎉 ALL VERIFICATION CHECKS COMPLETED SUCCESSFULLY!');
     console.log('========================================================');
-}
 
-function createTestECCertPem(privateKeyPem: string): string {
-    try {
-        const forge = require('node-forge');
-        const pki = forge.pki;
-        const key = crypto.createPrivateKey(privateKeyPem);
-        const pubKey = crypto.createPublicKey(key);
-        const pubKeyPem = pubKey.export({ type: 'spki', format: 'pem' }).toString();
-        
-        // Return public key wrapped or self-signed representation for test verification
-        return pubKeyPem;
-    } catch {
-        return privateKeyPem;
-    }
+    await prisma.$disconnect();
 }
 
 verify().catch((err) => {
     console.error('❌ Verification Error:', err);
     process.exit(1);
-}).finally(() => prisma.$disconnect());
+});

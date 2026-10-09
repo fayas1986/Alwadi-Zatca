@@ -2,7 +2,7 @@
   "customerId": "alwadi-trading",
   "customerLegalName": "Alwadi Trading L.L.C.",
   "cloudProvider": "aws",
-  "region": "me-central-1",
+  "region": "me-south-2",
   "environment": "production",
   "applicationVersion": "1.0.0",
   "databaseConfig": {

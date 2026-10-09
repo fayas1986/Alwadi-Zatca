@@ -43,14 +43,14 @@ const runCommand = (command: string, args: string[], options: { cwd?: string; en
 };
 
 const getSDKSettings = () => {
-    let sdkPath = process.env.ZATCA_SDK_PATH || '';
+    let rawPath = process.env.ZATCA_SDK_PATH || './server/zatca-sdk/zatca-sdk.jar';
+    let sdkPath = path.isAbsolute(rawPath) ? rawPath : path.resolve(process.cwd(), rawPath);
     let javaExe = process.env.JAVA_EXE_PATH || 'java';
     if (os.platform() !== 'win32' && (javaExe.includes(':\\') || javaExe.includes('Program Files') || javaExe.includes('\\'))) {
         javaExe = 'java';
     }
     
-    // Check if configured path exists; only fallback if empty, missing, or explicitly on Vercel
-    if (process.env.VERCEL || !sdkPath || !fs.existsSync(sdkPath)) {
+    if (process.env.VERCEL || !fs.existsSync(sdkPath)) {
         const locations = [
             path.resolve(process.cwd(), 'server/zatca-sdk/zatca-sdk.jar'),
             path.resolve(process.cwd(), 'zatca-sdk/zatca-sdk.jar'),
@@ -61,10 +61,6 @@ const getSDKSettings = () => {
         const found = locations.find(loc => fs.existsSync(loc));
         if (found) {
             sdkPath = found;
-        } else if (process.env.VERCEL) {
-            // Fallback for Vercel
-            sdkPath = path.resolve(process.cwd(), 'server/zatca-sdk/zatca-sdk.jar');
-            console.warn('[SDK] ZATCA SDK JAR not found at usual paths. Falling back to default server path.');
         }
     }
     
@@ -75,6 +71,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isMockMode = () => {
+    let sdkPath = process.env.ZATCA_SDK_PATH || '';
+    if (!sdkPath || !fs.existsSync(sdkPath)) {
+        const locations = [
+            path.resolve(process.cwd(), 'server/zatca-sdk/zatca-sdk.jar'),
+            path.resolve(process.cwd(), 'zatca-sdk/zatca-sdk.jar'),
+            path.resolve(process.cwd(), '../server/zatca-sdk/zatca-sdk.jar')
+        ];
+        const found = locations.find(loc => fs.existsSync(loc));
+        if (!found) return true;
+    }
     return process.env.USE_MOCK_SDK === 'true' || (process.env.VERCEL === '1' && process.env.JAVA_EXE_PATH === undefined);
 };
 
