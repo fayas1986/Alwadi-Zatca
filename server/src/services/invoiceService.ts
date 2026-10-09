@@ -150,8 +150,27 @@ export const InvoiceService = {
 
     /**
      * Updates an existing invoice, preserving existing metadata items if not provided.
+     * Enforces active branch & company ownership validation.
      */
     async updateInvoice(id: number, data: Partial<any>) {
+        if (data.branch_id) {
+            const existing = await prisma.invoice.findUnique({ where: { id } });
+            const targetCompanyId = data.company_id || existing?.company_id;
+            const branch = await prisma.branch.findUnique({ where: { id: data.branch_id } });
+
+            if (!branch || branch.is_deleted) {
+                throw new Error(`INVALID_BRANCH_ID: Branch ID ${data.branch_id} does not exist or is deleted.`);
+            }
+
+            if (!branch.is_active) {
+                throw new Error(`INACTIVE_BRANCH: Cannot assign inactive branch ${branch.code} (${branch.name}) to invoice.`);
+            }
+
+            if (targetCompanyId && branch.company_id !== targetCompanyId) {
+                throw new Error(`INVOICE_BRANCH_OWNERSHIP_MISMATCH: Branch ID ${data.branch_id} (Company ${branch.company_id}) does not belong to invoice company ID ${targetCompanyId}.`);
+            }
+        }
+
         if (data.metadata || data.items) {
             const existing = await prisma.invoice.findUnique({ where: { id } });
             const existingMetadata = (existing?.metadata as any) || {};

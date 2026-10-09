@@ -284,5 +284,172 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
     // Cleanup
     await prisma.invoice.delete({ where: { id: historicalInv.id } });
   });
+
+  it('10. Negative Test: Missing Authentication Header Fails Closed with 401', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const req = { headers: {} };
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(true);
+    if ('errorStatus' in auth) {
+      expect(auth.errorStatus).toBe(401);
+      expect(auth.errorMessage).toContain('AUTHENTICATION_REQUIRED');
+    }
+  });
+
+  it('11. Negative Test: Unknown Principal Email Fails Closed with 401', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const req = { headers: { 'x-user-email': 'unknown_hacker_user_999@evil.com' } };
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(true);
+    if ('errorStatus' in auth) {
+      expect(auth.errorStatus).toBe(401);
+      expect(auth.errorMessage).toContain('INVALID_PRINCIPAL');
+    }
+  });
+
+  it('12. Negative Test: Forged SUPER_ADMIN Role Header is Overridden by Server DB Role', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+
+    // Create a regular IT_ADMIN user
+    const forgedUser = await prisma.user.upsert({
+      where: { email: 'regular_admin_test@alwadi.local' },
+      update: { role: 'IT_ADMIN' },
+      create: {
+        id: 'u-regular-test-id',
+        email: 'regular_admin_test@alwadi.local',
+        role: 'IT_ADMIN',
+        company_name: 'Alwadi Trading L.L.C.'
+      }
+    });
+
+    // Associate user with Company A
+    await prisma.company.update({
+      where: { id: companyAId },
+      data: { user_id: forgedUser.id }
+    });
+
+    // Client attempts to forge x-user-role: SUPER_ADMIN header
+    const req = {
+      headers: {
+        'x-user-email': forgedUser.email,
+        'x-user-role': 'SUPER_ADMIN' // FORGED HEADER!
+      }
+    };
+
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(false);
+    if (!('errorStatus' in auth)) {
+      // Server MUST derive real role from DB ('IT_ADMIN'), ignoring forged header
+      expect(auth.role).toBe('IT_ADMIN');
+      expect(auth.isSuperAdmin).toBe(false);
+    }
+
+    // Cleanup user_id link on companyA
+    await prisma.company.update({
+      where: { id: companyAId },
+      data: { user_id: 'system_admin' }
+    });
+    await prisma.user.delete({ where: { id: forgedUser.id } });
+  });
+
+  it('13. Negative Test: User with Zero Authorized Companies Fails with 403', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+
+    const noCompanyUser = await prisma.user.create({
+      data: {
+        id: `user-no-company-${Date.now()}`,
+        email: `unassigned_user_${Date.now()}@alwadi.local`,
+        role: 'TAX_OFFICER',
+        company_name: 'Unassigned Enterprise'
+      }
+    });
+
+    const req = { headers: { 'x-user-email': noCompanyUser.email } };
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(true);
+    if ('errorStatus' in auth) {
+      expect(auth.errorStatus).toBe(403);
+      expect(auth.errorMessage).toContain('UNAUTHORIZED_BRANCH_ACCESS');
+    }
+
+    await prisma.user.delete({ where: { id: noCompanyUser.id } });
+  });
+
+  it('14. Negative Test: Cross-Company Branch Scoping Rejects Unauthorized Access', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+
+    // Create user scoped exclusively to Company B
+    const userCompanyB = await prisma.user.create({
+      data: {
+        id: `user-comp-b-${Date.now()}`,
+        email: `comp_b_only_${Date.now()}@alwadi.local`,
+        role: 'IT_ADMIN',
+        company_name: 'Competitor B Corp'
+      }
+    });
+
+    // Associate user with Company B only
+    await prisma.company.update({
+      where: { id: companyBId },
+      data: { user_id: userCompanyB.id }
+    });
+
+    const req = { headers: { 'x-user-email': userCompanyB.email } };
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(false);
+    if (!('errorStatus' in auth)) {
+      expect(auth.authorizedCompanyIds).toContain(companyBId);
+      expect(auth.authorizedCompanyIds.includes(companyAId)).toBe(false);
+    }
+
+    // Cleanup user_id link on companyB
+    await prisma.company.update({
+      where: { id: companyBId },
+      data: { user_id: 'system_admin' }
+    });
+    await prisma.user.delete({ where: { id: userCompanyB.id } });
+  });
+
+  it('15. Negative Test: Invoice Update Rejects Inactive Branch Assignment', async () => {
+    const { InvoiceService } = await import('../services/invoiceService.js');
+
+    const activeInv = await InvoiceService.createInvoice({
+      company_id: companyAId,
+      invoice_number: `INV-UPDATE-TEST-${Date.now()}`,
+      uuid: '550e8400-e29b-41d4-a716-446655440055',
+      date: new Date(),
+      total_amount: 200,
+      tax_amount: 30,
+      status: 'PENDING',
+      type: 'B2B',
+      hash: `hash-upd-${Date.now()}`,
+      qr_code: 'qr'
+    });
+
+    const inactiveBranch = await prisma.branch.create({
+      data: {
+        company_id: companyAId,
+        code: 'BR-INACTIVE-UPD',
+        name: 'Inactive Branch Update Test',
+        is_active: false
+      }
+    });
+
+    await expect(
+      InvoiceService.updateInvoice(activeInv.id, {
+        branch_id: inactiveBranch.id // Inactive!
+      })
+    ).rejects.toThrow(/INACTIVE_BRANCH/);
+
+    // Cleanup
+    await prisma.invoice.delete({ where: { id: activeInv.id } });
+    await prisma.branch.delete({ where: { id: inactiveBranch.id } });
+  });
 });
+
 
