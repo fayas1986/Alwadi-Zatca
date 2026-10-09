@@ -106,9 +106,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                         ZATCA Phase 2 Simulation Environment • v2.4.0
                     </div>
-                    <div className="text-xs text-slate-500">
-                        &copy; 2026 Tech Solutions Ltd. All rights reserved.
-                    </div>
+
                 </div>
             </div>
         </div>
@@ -223,7 +221,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </p>
                 <div className="flex flex-col gap-2 items-center">
                   <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">Contact Support</span>
-                  <span className="text-lg font-bold text-slate-900">support@tech-solutions.sa</span>
+                  <span className="text-lg font-bold text-slate-900">support@alwadi.sa</span>
                 </div>
               </div>
 
@@ -235,7 +233,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </button>
               
               <p className="mt-6 text-center text-xs text-slate-400 font-medium">
-                Tech Solutions ZATCA Platform • Secure Access Control
+                Alwadi ZATCA Platform • Secure Access Control
               </p>
             </div>
           </div>

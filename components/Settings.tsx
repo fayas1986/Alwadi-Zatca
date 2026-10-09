@@ -189,7 +189,7 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
   const [complianceConfig, setComplianceConfig] = useState({
       environment: 'Simulation',
       csrCommonName: 'TS-RYD-01',
-      csrOrganization: 'Tech Solutions Ltd',
+      csrOrganization: 'Alwadi Trading L.L.C.',
       autoArchive: true,
       clearanceEnabled: true
   });

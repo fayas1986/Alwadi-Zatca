@@ -235,7 +235,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
                   "address": { "countryCode": "SA" } // Minimal address for B2C
               },
               "supplier": {
-                  "name": "Tech Solutions Ltd",
+                  "name": "Alwadi Trading L.L.C.",
                   "vatNumber": "300000000000003",
                   "address": { "streetName": "Olaya", "buildingNumber": "1234", "cityName": "Riyadh", "postalZone": "12211", "countryCode": "SA" }
               }
@@ -273,7 +273,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
                 }
             },
             "supplier": {
-                "name": "Tech Solutions Ltd",
+                "name": "Alwadi Trading L.L.C.",
                 "vatNumber": "300000000000003",
                 "address": { "streetName": "Olaya", "buildingNumber": "1234", "cityName": "Riyadh", "postalZone": "12211", "countryCode": "SA" }
             }
