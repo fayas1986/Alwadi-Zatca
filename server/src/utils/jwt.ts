@@ -73,7 +73,7 @@ export interface VerifiedJwtPayload {
 }
 
 /**
- * Verifies a JWT token's signature, algorithm, issuer, audience, and expiration using jsonwebtoken.
+ * Verifies a JWT token's signature, algorithm, issuer, audience, schema, and expiration using jsonwebtoken.
  * Returns decoded payload if valid, or null if tampered, expired, or invalid.
  */
 export function verifyJwt(token: string): VerifiedJwtPayload | null {
@@ -90,12 +90,19 @@ export function verifyJwt(token: string): VerifiedJwtPayload | null {
 
         const decoded = jwt.verify(cleanToken, secret, options) as VerifiedJwtPayload;
 
-        if (!decoded || !decoded.sub || !decoded.email) {
-            return null; // Missing required claims
+        if (!decoded || typeof decoded !== 'object') {
+            return null;
         }
 
+        // Enforce required claims & claim types
+        if (!decoded.sub || typeof decoded.sub !== 'string') return null;
+        if (!decoded.userId || typeof decoded.userId !== 'string') return null;
+        if (!decoded.email || typeof decoded.email !== 'string') return null;
+        if (!decoded.role || typeof decoded.role !== 'string') return null;
+        if (!decoded.exp || typeof decoded.exp !== 'number') return null;
+
         // Enforce sub === userId consistency
-        if (decoded.userId && decoded.sub !== decoded.userId) {
+        if (decoded.sub !== decoded.userId) {
             console.warn(`[JWT] Token claim mismatch: sub (${decoded.sub}) !== userId (${decoded.userId})`);
             return null;
         }
@@ -105,3 +112,4 @@ export function verifyJwt(token: string): VerifiedJwtPayload | null {
         return null;
     }
 }
+

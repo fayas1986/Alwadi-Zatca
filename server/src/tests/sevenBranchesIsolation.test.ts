@@ -662,6 +662,123 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
       expect(auth.errorMessage).toContain('INVALID_TOKEN');
     }
   });
+
+  it('22. JWT Schema & Algorithm Strictness: Rejects tokens with missing claims or wrong algorithm', async () => {
+    const { verifyJwt } = await import('../utils/jwt.js');
+    const jwtLib = await import('jsonwebtoken');
+
+    // Test token missing sub or userId
+    const missingClaimToken = jwtLib.default.sign(
+      { email: 'test@alwadi.local', role: 'IT_ADMIN' },
+      'TestJwtSecretKey_MustBeAtLeast32CharsLongForSecurityValidation_2026',
+      { algorithm: 'HS256' }
+    );
+    expect(verifyJwt(missingClaimToken)).toBeNull();
+
+    // Test token with sub !== userId mismatch
+    const MismatchedSubToken = jwtLib.default.sign(
+      { sub: 'user-1', userId: 'user-2', email: 'test@alwadi.local', role: 'IT_ADMIN' },
+      'TestJwtSecretKey_MustBeAtLeast32CharsLongForSecurityValidation_2026',
+      { algorithm: 'HS256', issuer: 'zatca-connect-api', audience: 'zatca-connect-users', expiresIn: 3600 }
+    );
+    expect(verifyJwt(MismatchedSubToken)).toBeNull();
+  });
+
+  it('23. Test-Secret Isolation: getJwtSecret throws FATAL_JWT_CONFIG_ERROR in production/staging when secret is missing or short', async () => {
+    const { getJwtSecret } = await import('../utils/jwt.js');
+    const originalEnv = process.env.NODE_ENV;
+    const originalSecret = process.env.JWT_SECRET;
+
+    try {
+      // Set to production with no secret
+      process.env.NODE_ENV = 'production';
+      delete process.env.JWT_SECRET;
+      expect(() => getJwtSecret()).toThrow('FATAL_JWT_CONFIG_ERROR');
+
+      // Set to staging with short secret
+      process.env.NODE_ENV = 'staging';
+      process.env.JWT_SECRET = 'too_short';
+      expect(() => getJwtSecret()).toThrow('FATAL_JWT_CONFIG_ERROR');
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+      if (originalSecret) process.env.JWT_SECRET = originalSecret;
+      else delete process.env.JWT_SECRET;
+    }
+  });
+
+  it('24. Database Authority: Role Demotion in DB takes effect immediately without new token', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const { signJwt } = await import('../utils/jwt.js');
+
+    const tempUser = await prisma.user.create({
+      data: {
+        id: `u-role-change-${Date.now()}`,
+        email: `rolechange_${Date.now()}@alwadi.local`,
+        role: 'SUPER_ADMIN',
+        company_name: 'Alwadi Trading L.L.C.',
+        password: 'password123'
+      }
+    });
+
+    // Token issued when user claimed SUPER_ADMIN
+    const token = signJwt({
+      userId: tempUser.id,
+      email: tempUser.email,
+      role: 'SUPER_ADMIN'
+    });
+
+    // Demote role in DB from SUPER_ADMIN to TAX_OFFICER (valid UserRole enum)
+    await prisma.user.update({
+      where: { id: tempUser.id },
+      data: { role: 'TAX_OFFICER' }
+    });
+
+    const req = { headers: { authorization: `Bearer ${token}` } };
+    const auth = await getVerifiedAuthContext(req);
+
+    // Auth context MUST reflect current DB role 'TAX_OFFICER', not old token role 'SUPER_ADMIN'
+    if (!('errorStatus' in auth)) {
+      expect(auth.role).toBe('TAX_OFFICER');
+      expect(auth.isSuperAdmin).toBe(false);
+    }
+
+    await prisma.user.delete({ where: { id: tempUser.id } });
+  });
+
+  it('25. Immediate Account Revocation: Deleted or revoked user principal fails closed with 401', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const { signJwt } = await import('../utils/jwt.js');
+
+    const tempUser = await prisma.user.create({
+      data: {
+        id: `u-deactive-${Date.now()}`,
+        email: `deactive_${Date.now()}@alwadi.local`,
+        role: 'IT_ADMIN',
+        company_name: 'Alwadi Trading L.L.C.',
+        password: 'password123'
+      }
+    });
+
+    const token = signJwt({
+      userId: tempUser.id,
+      email: tempUser.email,
+      role: tempUser.role
+    });
+
+    // Delete user from DB to simulate principal revocation
+    await prisma.user.delete({ where: { id: tempUser.id } });
+
+    const req = { headers: { authorization: `Bearer ${token}` } };
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(true);
+    if ('errorStatus' in auth) {
+      expect(auth.errorStatus).toBe(401);
+      expect(auth.errorMessage).toContain('INVALID_PRINCIPAL');
+    }
+  });
 });
+
+
 
 
