@@ -80,6 +80,9 @@ describe('Real Database Multi-Tenant Isolation (Integration Test)', () => {
     if (invoiceBId) {
       await prisma.invoice.deleteMany({ where: { id: invoiceBId } });
     }
+    if (companyAId && companyBId) {
+      await prisma.branch.deleteMany({ where: { company_id: { in: [companyAId, companyBId] } } });
+    }
     await prisma.company.deleteMany({ where: { vat_number: { in: [TEST_COMPANY_A_VAT, TEST_COMPANY_B_VAT] } } });
     await prisma.user.deleteMany({ where: { email: { in: ['tenant_a_test@alwadi.local', 'tenant_b_test@alwadi.local'] } } });
   });

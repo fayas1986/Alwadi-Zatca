@@ -188,7 +188,11 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
                 include: {
                     user: true,
                     certificates: true,
-                    group: true
+                    group: true,
+                    branches: {
+                        where: { is_deleted: false },
+                        orderBy: { id: 'asc' }
+                    }
                 },
                 orderBy: { id: 'asc' }
             });
@@ -201,36 +205,60 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
             throw dbErr;
         }
         
-        const organizations = companies.map(c => ({
-            id: c.id.toString(),
-            name: c.registered_name,
-            vatNumber: c.vat_number,
-            crNumber: c.cr_number,
-            groupName: c.group?.name || 'Unassigned',
-            groupId: c.group_id,
-            branches: [{
-                id: `br-${c.id}`,
-                organizationId: c.id.toString(),
-                name: cleanBranchName(c.branch_name),
-                type: 'HQ',
-                environment: c.environment,
-                settings: c.settings || {},
-                address: {
-                    streetName: c.street_name || c.address || '',
-                    buildingNumber: c.building_number || '',
-                    cityName: c.city || '',
-                    citySubdivisionName: c.city_subdivision || '',
-                    postalZone: c.postal_zone || '',
-                    countryCode: c.country || 'SA'
-                }
-            }]
-        }));
+        const organizations = companies.map(c => {
+            const mappedBranches = c.branches && c.branches.length > 0
+                ? c.branches.map((b: any) => ({
+                    id: b.id.toString(),
+                    code: b.code,
+                    organizationId: c.id.toString(),
+                    name: b.name,
+                    type: b.code === 'BR-001' ? 'HQ' : 'BRANCH',
+                    environment: c.environment,
+                    settings: b.settings || {},
+                    address: {
+                        streetName: b.street_name || b.address || '',
+                        buildingNumber: b.building_number || '',
+                        cityName: b.city || '',
+                        citySubdivisionName: b.city_subdivision || '',
+                        postalZone: b.postal_zone || '',
+                        countryCode: b.country || 'SA'
+                    }
+                }))
+                : [{
+                    id: `br-${c.id}`,
+                    code: 'HQ',
+                    organizationId: c.id.toString(),
+                    name: cleanBranchName(c.branch_name),
+                    type: 'HQ',
+                    environment: c.environment,
+                    settings: c.settings || {},
+                    address: {
+                        streetName: c.street_name || c.address || '',
+                        buildingNumber: c.building_number || '',
+                        cityName: c.city || '',
+                        citySubdivisionName: c.city_subdivision || '',
+                        postalZone: c.postal_zone || '',
+                        countryCode: c.country || 'SA'
+                    }
+                }];
+
+            return {
+                id: c.id.toString(),
+                name: c.registered_name,
+                vatNumber: c.vat_number,
+                crNumber: c.cr_number,
+                groupName: c.group?.name || 'Unassigned',
+                groupId: c.group_id,
+                branches: mappedBranches
+            };
+        });
 
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         res.setHeader('x-isolation-status', 'active-v2');
         res.setHeader('x-debug-role', userRole || 'NONE');
         res.setHeader('x-debug-email', userEmail || 'NONE');
         res.json(organizations);
+
     } catch (error: any) {
         console.error('Error fetching companies:', error);
         res.status(500).json({ error: 'Failed to fetch companies', details: error?.message || String(error) });
@@ -660,13 +688,217 @@ router.post('/system/update-env', requireSuperAdmin, async (req, res) => {
             console.log('[Update Env] PM2 restart output:', stdout);
         });
 
-        res.json({ message: 'DATABASE_URL updated successfully and PM2 restart triggered' });
+// ─── BRANCH MANAGEMENT APIS ───────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /api/admin/branches:
+ *   get:
+ *     summary: List branches for an organization
+ *     tags: [Admin - Branches]
+ */
+router.get('/branches', requireAnyAdmin, async (req, res) => {
+    try {
+        const rawCompanyId = req.query.companyId as string;
+        const companyId = rawCompanyId ? parseInt(rawCompanyId) : undefined;
+        const userEmail = (req.headers['x-user-email'] as string)?.toLowerCase();
+        const userRole = req.headers['x-user-role'];
+
+        let whereClause: any = { is_deleted: false };
+        if (companyId) {
+            whereClause.company_id = companyId;
+        }
+
+        if (userRole !== 'SUPER_ADMIN' && userEmail) {
+            const user = await prisma.user.findFirst({ where: { email: userEmail } });
+            if (user && user.companies && user.companies.length > 0) {
+                const userCompanyIds = user.companies.map(c => c.id);
+                if (companyId && !userCompanyIds.includes(companyId)) {
+                    return res.status(403).json({ error: 'UNAUTHORIZED_BRANCH_ACCESS: Cannot view branches outside assigned company' });
+                }
+            }
+        }
+
+        const branches = await prisma.branch.findMany({
+            where: whereClause,
+            orderBy: { id: 'asc' },
+            include: { company: true }
+        });
+
+        res.json(branches);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to fetch branches', details: err.message });
+    }
+});
+
+/**
+ * @swagger
+ * /api/admin/branches:
+ *   post:
+ *     summary: Create a new branch
+ *     tags: [Admin - Branches]
+ */
+router.post('/branches', requireAnyAdmin, async (req, res) => {
+    try {
+        const {
+            companyId,
+            code,
+            name,
+            city,
+            address,
+            streetName,
+            buildingNumber,
+            citySubdivision,
+            postalZone,
+            country
+        } = req.body;
+
+        if (!companyId || !code || !name) {
+            return res.status(400).json({ error: 'companyId, code, and name are required' });
+        }
+
+        const cid = parseInt(companyId);
+        const userEmail = (req.headers['x-user-email'] as string)?.toLowerCase();
+        const userRole = req.headers['x-user-role'];
+
+        if (userRole !== 'SUPER_ADMIN' && userEmail) {
+            const user = await prisma.user.findFirst({ where: { email: userEmail } });
+            if (user && user.companies && user.companies.length > 0) {
+                const userCompanyIds = user.companies.map(c => c.id);
+                if (!userCompanyIds.includes(cid)) {
+                    return res.status(403).json({ error: 'UNAUTHORIZED_TENANT_ACCESS: Cannot create branch for another organization' });
+                }
+            }
+        }
+
+        const existing = await prisma.branch.findFirst({
+            where: { company_id: cid, code: code.toUpperCase().trim(), is_deleted: false }
+        });
+        if (existing) {
+            return res.status(400).json({ error: `Branch code '${code}' already exists for this company` });
+        }
+
+        const branch = await prisma.branch.create({
+            data: {
+                company_id: cid,
+                code: code.toUpperCase().trim(),
+                name: name.trim(),
+                city: city || 'Riyadh',
+                address: address || null,
+                street_name: streetName || null,
+                building_number: buildingNumber || null,
+                city_subdivision: citySubdivision || null,
+                postal_zone: postalZone || null,
+                country: country || 'SA',
+                is_active: true
+            }
+        });
+
+        res.status(201).json(branch);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to create branch', details: err.message });
+    }
+});
+
+/**
+ * @swagger
+ * /api/admin/branches/{id}:
+ *   get:
+ *     summary: Get branch by ID
+ *     tags: [Admin - Branches]
+ */
+router.get('/branches/:id', requireAnyAdmin, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const branch = await prisma.branch.findUnique({
+            where: { id },
+            include: { company: true }
+        });
+
+        if (!branch || branch.is_deleted) {
+            return res.status(404).json({ error: 'Branch not found' });
+        }
+
+        res.json(branch);
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }
 });
 
+/**
+ * @swagger
+ * /api/admin/branches/{id}:
+ *   put:
+ *     summary: Update branch by ID
+ *     tags: [Admin - Branches]
+ */
+router.put('/branches/:id', requireAnyAdmin, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const {
+            name,
+            city,
+            address,
+            streetName,
+            buildingNumber,
+            citySubdivision,
+            postalZone,
+            isActive
+        } = req.body;
+
+        const branch = await prisma.branch.findUnique({ where: { id } });
+        if (!branch || branch.is_deleted) {
+            return res.status(404).json({ error: 'Branch not found' });
+        }
+
+        const updated = await prisma.branch.update({
+            where: { id },
+            data: {
+                name: name !== undefined ? name : branch.name,
+                city: city !== undefined ? city : branch.city,
+                address: address !== undefined ? address : branch.address,
+                street_name: streetName !== undefined ? streetName : branch.street_name,
+                building_number: buildingNumber !== undefined ? buildingNumber : branch.building_number,
+                city_subdivision: citySubdivision !== undefined ? citySubdivision : branch.city_subdivision,
+                postal_zone: postalZone !== undefined ? postalZone : branch.postal_zone,
+                is_active: isActive !== undefined ? Boolean(isActive) : branch.is_active
+            }
+        });
+
+        res.json(updated);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to update branch', details: err.message });
+    }
+});
+
+/**
+ * @swagger
+ * /api/admin/branches/{id}:
+ *   delete:
+ *     summary: Soft delete / deactivate branch by ID
+ *     tags: [Admin - Branches]
+ */
+router.delete('/branches/:id', requireSuperAdmin, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const branch = await prisma.branch.findUnique({ where: { id } });
+        if (!branch) {
+            return res.status(404).json({ error: 'Branch not found' });
+        }
+
+        const deactivated = await prisma.branch.update({
+            where: { id },
+            data: { is_active: false, is_deleted: true, deleted_at: new Date() }
+        });
+
+        res.json({ message: 'Branch deactivated successfully', branch: deactivated });
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to delete branch', details: err.message });
+    }
+});
+
 export default router;
+
 
 
 
