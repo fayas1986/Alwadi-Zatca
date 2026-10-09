@@ -699,9 +699,9 @@ router.post('/system/update-env', requireSuperAdmin, async (req, res) => {
 // ─── BRANCH MANAGEMENT APIS & AUTHORIZATION ───────────────────────────────────────
 
 /**
- * Verified Server-Side Authorization Helper
- * Resolves principal identity, role, and authorized company IDs directly from validated JWT tokens or verified sessions.
- * Rejects missing authentication (401), invalid/tampered JWT tokens (401), forged roles, unknown users, and zero company memberships (403).
+ * Verified Server-Side Authorization Engine
+ * Resolves principal identity, role, and authorized company IDs strictly from validated JWT tokens and active database state.
+ * Rejects unauthenticated requests (401), missing/invalid JWT tokens (401), tampered algorithms (401), revoked accounts (401), and mismatched claim identities (401).
  */
 export async function getVerifiedAuthContext(req: any): Promise<{
     user: any;
@@ -709,61 +709,44 @@ export async function getVerifiedAuthContext(req: any): Promise<{
     isSuperAdmin: boolean;
     authorizedCompanyIds: number[];
 } | { errorStatus: number; errorMessage: string }> {
-    let verifiedEmail: string | null = null;
-    let verifiedUserId: string | null = null;
-
-    // 1. Extract and verify JWT Bearer token from Authorization or x-auth-token header
+    // 1. Extract Bearer token from Authorization or x-auth-token header ONLY
     const authHeader = req.headers['authorization'] || req.headers['x-auth-token'];
-    if (authHeader && typeof authHeader === 'string') {
-        const payload = verifyJwt(authHeader);
-        if (payload) {
-            verifiedEmail = payload.email?.toLowerCase().trim() || null;
-            verifiedUserId = payload.userId || null;
-        } else {
-            return { errorStatus: 401, errorMessage: 'INVALID_TOKEN: JWT authentication token is invalid or expired' };
-        }
+    
+    if (!authHeader || typeof authHeader !== 'string') {
+        return { errorStatus: 401, errorMessage: 'AUTHENTICATION_REQUIRED: Valid Bearer JWT token is required' };
     }
 
-    // 2. Fallback check for x-user-email header in non-production environment ONLY
-    if (!verifiedEmail) {
-        const rawEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
-        
-        // In production, unverified x-user-email header without valid JWT signature is STRICTLY REJECTED
-        if (process.env.NODE_ENV === 'production') {
-            return { errorStatus: 401, errorMessage: 'AUTHENTICATION_REQUIRED: Valid Bearer JWT token required in production' };
-        }
-
-        if (rawEmail) {
-            verifiedEmail = rawEmail;
-        }
+    // 2. Validate JWT signature, HS256 algorithm, claims, issuer, audience, and exp
+    const payload = verifyJwt(authHeader);
+    if (!payload || !payload.sub || !payload.email) {
+        return { errorStatus: 401, errorMessage: 'INVALID_TOKEN: JWT authentication token is invalid, tampered, or expired' };
     }
 
-    if (!verifiedEmail && !verifiedUserId) {
-        return { errorStatus: 401, errorMessage: 'AUTHENTICATION_REQUIRED: Missing user identity or Bearer token' };
-    }
+    const tokenUserId = payload.sub;
+    const tokenEmail = payload.email.toLowerCase().trim();
 
-    // 3. Retrieve principal from database using verified identity
+    // 3. Query current database state using verified tokenUserId
     let user: any = null;
     try {
-        if (verifiedUserId) {
+        if (tokenUserId) {
             user = await prisma.user.findFirst({
-                where: { id: verifiedUserId },
+                where: { id: tokenUserId },
                 include: { companies: true }
             });
         }
-        if (!user && verifiedEmail) {
+        if (!user && tokenEmail) {
             user = await prisma.user.findFirst({
-                where: { email: { equals: verifiedEmail, mode: 'insensitive' } },
+                where: { email: { equals: tokenEmail, mode: 'insensitive' } },
                 include: { companies: true }
             });
         }
     } catch (dbErr) {
-        console.warn(`[AuthContext] DB user lookup error:`, dbErr);
+        console.warn(`[AuthContext] DB user lookup error for ${tokenUserId}:`, dbErr);
     }
 
-    // Fallback lookup ONLY in non-production environments
-    if (!user && process.env.NODE_ENV !== 'production' && verifiedEmail) {
-        const fallback = FALLBACK_USERS[verifiedEmail];
+    // Fallback users allowed ONLY in non-production environments for test suite tokens
+    if (!user && process.env.NODE_ENV !== 'production' && tokenEmail) {
+        const fallback = FALLBACK_USERS[tokenEmail];
         if (fallback) {
             user = {
                 id: fallback.id,
@@ -777,20 +760,26 @@ export async function getVerifiedAuthContext(req: any): Promise<{
     }
 
     if (!user) {
-        return { errorStatus: 401, errorMessage: 'INVALID_PRINCIPAL: User identity not found in system database' };
+        return { errorStatus: 401, errorMessage: 'INVALID_PRINCIPAL: Token principal does not exist in system database' };
     }
 
-    // 4. SERVER-SIDE DERIVED ROLE & MEMBERSHIPS (Ignore any client-supplied x-user-role header if forged)
-    const derivedRole = user.role;
-    const clientSuppliedRole = req.headers['x-user-role'];
-
-    if (clientSuppliedRole && clientSuppliedRole !== derivedRole) {
-        console.warn(`[SECURITY AUDIT] Forged role header detected for ${user.email}: client claimed '${clientSuppliedRole}', verified DB role is '${derivedRole}'`);
+    // 4. Enforce Identity Claim Consistency (token email MUST match current DB email)
+    if (user.email.toLowerCase().trim() !== tokenEmail) {
+        console.warn(`[SECURITY AUDIT] Identity mismatch for user ID ${tokenUserId}: token claimed '${tokenEmail}', DB email is '${user.email}'`);
+        return { errorStatus: 401, errorMessage: 'IDENTITY_MISMATCH: JWT claims inconsistent with database user identity' };
     }
 
-    const isSuperAdmin = derivedRole === 'SUPER_ADMIN';
+    // 5. Check if user account was soft-deleted or revoked
+    if ((user as any).is_deleted || (user as any).is_active === false) {
+        return { errorStatus: 401, errorMessage: 'ACCOUNT_REVOKED: User account has been deactivated or revoked' };
+    }
 
-    // Find all company IDs owned by or assigned to this user
+    // 6. SERVER-SIDE DERIVED ROLES & MEMBERSHIPS FROM CURRENT DB STATE
+    // The current database role ALWAYS governs authorization (revokes privileged access immediately even if token claimed SUPER_ADMIN)
+    const currentDbRole = user.role;
+    const isSuperAdmin = currentDbRole === 'SUPER_ADMIN';
+
+    // Retrieve active company memberships directly from database
     let authorizedCompanyIds: number[] = [];
     if (user.companies && Array.isArray(user.companies)) {
         authorizedCompanyIds = user.companies.map((c: any) => c.id);
@@ -815,7 +804,7 @@ export async function getVerifiedAuthContext(req: any): Promise<{
 
     return {
         user,
-        role: derivedRole,
+        role: currentDbRole,
         isSuperAdmin,
         authorizedCompanyIds
     };

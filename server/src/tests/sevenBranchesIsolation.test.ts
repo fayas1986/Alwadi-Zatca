@@ -297,9 +297,17 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
     }
   });
 
-  it('11. Negative Test: Unknown Principal Email Fails Closed with 401', async () => {
+  it('11. Negative Test: Unknown Principal Token Fails Closed with 401', async () => {
     const { getVerifiedAuthContext } = await import('../routes/admin.js');
-    const req = { headers: { 'x-user-email': 'unknown_hacker_user_999@evil.com' } };
+    const { signJwt } = await import('../utils/jwt.js');
+
+    const unknownToken = signJwt({
+      userId: 'u-unknown-principal-999',
+      email: 'unknown_hacker_user_999@evil.com',
+      role: 'IT_ADMIN'
+    });
+
+    const req = { headers: { authorization: `Bearer ${unknownToken}` } };
     const auth = await getVerifiedAuthContext(req);
 
     expect('errorStatus' in auth).toBe(true);
@@ -311,6 +319,7 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
 
   it('12. Negative Test: Forged SUPER_ADMIN Role Header is Overridden by Server DB Role', async () => {
     const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const { signJwt } = await import('../utils/jwt.js');
 
     // Create a regular IT_ADMIN user
     const forgedUser = await prisma.user.upsert({
@@ -330,11 +339,18 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
       data: { user_id: forgedUser.id }
     });
 
+    const token = signJwt({
+      userId: forgedUser.id,
+      email: forgedUser.email,
+      role: forgedUser.role,
+      companyId: companyAId
+    });
+
     // Client attempts to forge x-user-role: SUPER_ADMIN header
     const req = {
       headers: {
-        'x-user-email': forgedUser.email,
-        'x-user-role': 'SUPER_ADMIN' // FORGED HEADER!
+        authorization: `Bearer ${token}`,
+        'x-user-role': 'SUPER_ADMIN' // FORGED ROLE HEADER!
       }
     };
 
@@ -357,6 +373,7 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
 
   it('13. Negative Test: User with Zero Authorized Companies Fails with 403', async () => {
     const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const { signJwt } = await import('../utils/jwt.js');
 
     const noCompanyUser = await prisma.user.create({
       data: {
@@ -367,7 +384,13 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
       }
     });
 
-    const req = { headers: { 'x-user-email': noCompanyUser.email } };
+    const token = signJwt({
+      userId: noCompanyUser.id,
+      email: noCompanyUser.email,
+      role: noCompanyUser.role
+    });
+
+    const req = { headers: { authorization: `Bearer ${token}` } };
     const auth = await getVerifiedAuthContext(req);
 
     expect('errorStatus' in auth).toBe(true);
@@ -381,6 +404,7 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
 
   it('14. Negative Test: Cross-Company Branch Scoping Rejects Unauthorized Access', async () => {
     const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const { signJwt } = await import('../utils/jwt.js');
 
     // Create user scoped exclusively to Company B
     const userCompanyB = await prisma.user.create({
@@ -398,7 +422,14 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
       data: { user_id: userCompanyB.id }
     });
 
-    const req = { headers: { 'x-user-email': userCompanyB.email } };
+    const token = signJwt({
+      userId: userCompanyB.id,
+      email: userCompanyB.email,
+      role: userCompanyB.role,
+      companyId: companyBId
+    });
+
+    const req = { headers: { authorization: `Bearer ${token}` } };
     const auth = await getVerifiedAuthContext(req);
 
     expect('errorStatus' in auth).toBe(false);
@@ -517,6 +548,112 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
       }
     };
 
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(true);
+    if ('errorStatus' in auth) {
+      expect(auth.errorStatus).toBe(401);
+      expect(auth.errorMessage).toContain('INVALID_TOKEN');
+    }
+  });
+
+  it('18. Unauthenticated Request Rejection: Request without Bearer Token Fails Closed with 401', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+
+    // Passing x-user-email header ONLY (No Bearer Token)
+    const req = { headers: { 'x-user-email': 'superadmin@alwadi.local' } };
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(true);
+    if ('errorStatus' in auth) {
+      expect(auth.errorStatus).toBe(401);
+      expect(auth.errorMessage).toContain('AUTHENTICATION_REQUIRED');
+    }
+  });
+
+  it('19. Identity Claim Mismatch Rejection: Token Email Mismatched with DB User Fails Closed with 401', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const { signJwt } = await import('../utils/jwt.js');
+
+    // Create user in DB
+    const dbUser = await prisma.user.upsert({
+      where: { email: 'real_user_email@alwadi.local' },
+      update: {},
+      create: {
+        id: 'u-identity-mismatch-id',
+        email: 'real_user_email@alwadi.local',
+        role: 'IT_ADMIN',
+        company_name: 'Alwadi Trading L.L.C.'
+      }
+    });
+
+    // Token generated with sub = dbUser.id BUT email = forged_claim@evil.com
+    const mismatchedToken = signJwt({
+      userId: dbUser.id,
+      email: 'forged_claim@evil.com',
+      role: 'IT_ADMIN'
+    });
+
+    const req = { headers: { authorization: `Bearer ${mismatchedToken}` } };
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(true);
+    if ('errorStatus' in auth) {
+      expect(auth.errorStatus).toBe(401);
+      expect(auth.errorMessage).toContain('IDENTITY_MISMATCH');
+    }
+
+    await prisma.user.delete({ where: { id: dbUser.id } });
+  });
+
+  it('20. Revoked Account Rejection: Deleted User Token Fails Closed with 401', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const { signJwt } = await import('../utils/jwt.js');
+
+    const tempUser = await prisma.user.create({
+      data: {
+        id: `u-deactivated-${Date.now()}`,
+        email: `deactivated_${Date.now()}@alwadi.local`,
+        role: 'IT_ADMIN',
+        company_name: 'Alwadi Trading L.L.C.',
+        password: 'password123'
+      }
+    });
+
+    const token = signJwt({
+      userId: tempUser.id,
+      email: tempUser.email,
+      role: tempUser.role
+    });
+
+    // Delete user from DB to simulate account revocation
+    await prisma.user.delete({ where: { id: tempUser.id } });
+
+    const req = { headers: { authorization: `Bearer ${token}` } };
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(true);
+    if ('errorStatus' in auth) {
+      expect(auth.errorStatus).toBe(401);
+      expect(auth.errorMessage).toContain('INVALID_PRINCIPAL');
+    }
+  });
+
+  it('21. Expired Token Rejection: Token Expired in Past Fails Closed with 401', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const { signJwt } = await import('../utils/jwt.js');
+
+    // Token signed with expiresInSeconds = -10 (expired 10 seconds ago)
+    const expiredToken = signJwt(
+      {
+        userId: 'u-001',
+        email: 'superadmin@alwadi.local',
+        role: 'SUPER_ADMIN'
+      },
+      -10
+    );
+
+    const req = { headers: { authorization: `Bearer ${expiredToken}` } };
     const auth = await getVerifiedAuthContext(req);
 
     expect('errorStatus' in auth).toBe(true);

@@ -1,90 +1,107 @@
+import jwt, { SignOptions, VerifyOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'Zatca#SuperSecureJwtSecretKey!2026@Alwadi';
+const JWT_ISSUER = 'zatca-connect-api';
+const JWT_AUDIENCE = 'zatca-connect-users';
+const MIN_SECRET_LENGTH = 32;
 
-export interface JwtPayload {
+let testEphemeralSecret: string | null = null;
+
+/**
+ * Returns the securely provisioned JWT secret from environment variables.
+ * Fails startup with FATAL_JWT_CONFIG_ERROR if missing or shorter than 32 characters.
+ */
+export function getJwtSecret(): string {
+    const secret = process.env.JWT_SECRET;
+    
+    if (secret && secret.length >= MIN_SECRET_LENGTH) {
+        return secret;
+    }
+
+    if (process.env.NODE_ENV === 'test') {
+        if (!testEphemeralSecret) {
+            testEphemeralSecret = crypto.randomBytes(64).toString('hex');
+        }
+        return testEphemeralSecret;
+    }
+
+    throw new Error(
+        'FATAL_JWT_CONFIG_ERROR: process.env.JWT_SECRET is missing, unconfigured, or insecure (< 32 characters).'
+    );
+}
+
+export interface AuthenticatedPrincipal {
     userId: string;
     email: string;
     role: string;
     companyId?: number;
+}
+
+/**
+ * Signs a JWT token with explicit HS256 algorithm, issuer, audience, and required claims.
+ */
+export function signJwt(principal: AuthenticatedPrincipal, expiresInSeconds: number = 3600): string {
+    const secret = getJwtSecret();
+    const options: SignOptions = {
+        algorithm: 'HS256',
+        issuer: JWT_ISSUER,
+        audience: JWT_AUDIENCE,
+        expiresIn: expiresInSeconds,
+        subject: principal.userId
+    };
+
+    const payload = {
+        userId: principal.userId,
+        email: principal.email.toLowerCase().trim(),
+        role: principal.role,
+        companyId: principal.companyId
+    };
+
+    return jwt.sign(payload, secret, options);
+}
+
+export interface VerifiedJwtPayload {
+    sub: string;
+    userId: string;
+    email: string;
+    role: string;
+    companyId?: number;
+    iss?: string;
+    aud?: string;
     iat?: number;
     exp?: number;
 }
 
-function base64UrlEncode(str: string | Buffer): string {
-    return Buffer.from(str)
-        .toString('base64')
-        .replace(/=/g, '')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_');
-}
-
-function base64UrlDecode(str: string): string {
-    str = str.replace(/-/g, '+').replace(/_/g, '/');
-    while (str.length % 4 !== 0) {
-        str += '=';
-    }
-    return Buffer.from(str, 'base64').toString('utf8');
-}
-
 /**
- * Signs a JWT payload with HMAC-SHA256 signature.
+ * Verifies a JWT token's signature, algorithm, issuer, audience, and expiration using jsonwebtoken.
+ * Returns decoded payload if valid, or null if tampered, expired, or invalid.
  */
-export function signJwt(payload: Omit<JwtPayload, 'iat' | 'exp'>, expiresInSeconds: number = 86400): string {
-    const header = { alg: 'HS256', typ: 'JWT' };
-    const now = Math.floor(Date.now() / 1000);
-    const fullPayload: JwtPayload = {
-        ...payload,
-        iat: now,
-        exp: now + expiresInSeconds
-    };
-
-    const encodedHeader = base64UrlEncode(JSON.stringify(header));
-    const encodedPayload = base64UrlEncode(JSON.stringify(fullPayload));
-    const dataToSign = `${encodedHeader}.${encodedPayload}`;
-
-    const signature = crypto
-        .createHmac('sha256', JWT_SECRET)
-        .update(dataToSign)
-        .digest();
-    const encodedSignature = base64UrlEncode(signature);
-
-    return `${dataToSign}.${encodedSignature}`;
-}
-
-/**
- * Verifies a JWT token signature and expiration.
- * Returns payload if valid, or null if tampered/invalid/expired.
- */
-export function verifyJwt(token: string): JwtPayload | null {
+export function verifyJwt(token: string): VerifiedJwtPayload | null {
     try {
         if (!token || typeof token !== 'string') return null;
+        const secret = getJwtSecret();
         const cleanToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
-        const parts = cleanToken.split('.');
-        if (parts.length !== 3) return null;
 
-        const [encodedHeader, encodedPayload, encodedSignature] = parts;
-        const dataToSign = `${encodedHeader}.${encodedPayload}`;
+        const options: VerifyOptions = {
+            algorithms: ['HS256'], // Explicitly enforce HS256 algorithm ONLY
+            issuer: JWT_ISSUER,
+            audience: JWT_AUDIENCE
+        };
 
-        const expectedSignature = base64UrlEncode(
-            crypto.createHmac('sha256', JWT_SECRET).update(dataToSign).digest()
-        );
+        const decoded = jwt.verify(cleanToken, secret, options) as VerifiedJwtPayload;
 
-        const sigBuf = Buffer.from(encodedSignature);
-        const expBuf = Buffer.from(expectedSignature);
-
-        if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
-            return null; // Signature mismatch / tampered token
+        if (!decoded || !decoded.sub || !decoded.email) {
+            return null; // Missing required claims
         }
 
-        const payload: JwtPayload = JSON.parse(base64UrlDecode(encodedPayload));
-        const now = Math.floor(Date.now() / 1000);
-        if (payload.exp && payload.exp < now) {
-            return null; // Expired token
+        // Enforce sub === userId consistency
+        if (decoded.userId && decoded.sub !== decoded.userId) {
+            console.warn(`[JWT] Token claim mismatch: sub (${decoded.sub}) !== userId (${decoded.userId})`);
+            return null;
         }
 
-        return payload;
-    } catch (err) {
+        return decoded;
+    } catch (err: any) {
         return null;
     }
 }
