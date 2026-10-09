@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import prisma from '../lib/prisma.js';
 import { ALWADI_7_BRANCHES, seedAlwadiBranches } from '../../../scripts/seed_alwadi_branches.js';
 import { createVerifiedUserContext } from '../services/zatcaService.js';
@@ -777,7 +777,36 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
       expect(auth.errorMessage).toContain('INVALID_PRINCIPAL');
     }
   });
+
+  it('26. Database Error Handling: Database connection failure returns 500 INTERNAL_SERVER_ERROR without exposing internal details', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const { signJwt } = await import('../utils/jwt.js');
+    const { default: prisma } = await import('../lib/prisma.js');
+
+    const validToken = signJwt({
+      userId: 'u-db-error-test',
+      email: 'dberror@alwadi.local',
+      role: 'IT_ADMIN'
+    });
+
+    const req = { headers: { authorization: `Bearer ${validToken}` } };
+
+    // Spy on prisma.user.findFirst and simulate DB outage
+    const findFirstSpy = vi.spyOn(prisma.user, 'findFirst').mockRejectedValueOnce(new Error('FATAL: Database connection timeout'));
+
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(true);
+    if ('errorStatus' in auth) {
+      expect(auth.errorStatus).toBe(500);
+      expect(auth.errorMessage).toContain('INTERNAL_SERVER_ERROR');
+      expect(auth.errorMessage).not.toContain('connection timeout'); // Protect internal details
+    }
+
+    findFirstSpy.mockRestore();
+  });
 });
+
 
 
 

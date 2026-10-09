@@ -727,6 +727,7 @@ export async function getVerifiedAuthContext(req: any): Promise<{
 
     // 3. Query current database state using verified tokenUserId
     let user: any = null;
+    let isDbError = false;
     try {
         if (tokenUserId) {
             user = await prisma.user.findFirst({
@@ -740,11 +741,16 @@ export async function getVerifiedAuthContext(req: any): Promise<{
                 include: { companies: true }
             });
         }
-    } catch (dbErr) {
-        console.warn(`[AuthContext] DB user lookup error for ${tokenUserId}:`, dbErr);
+    } catch (dbErr: any) {
+        console.error(`[AuthContext] Database connection error during user lookup for ${tokenUserId}:`, dbErr?.message || dbErr);
+        isDbError = true;
     }
 
-    // Fallback users allowed ONLY in non-production environments for test suite tokens
+    if (isDbError) {
+        return { errorStatus: 500, errorMessage: 'INTERNAL_SERVER_ERROR: Authentication database service unavailable' };
+    }
+
+    // Fallback users allowed ONLY in non-production environments for test suite tokens when user is not in DB
     if (!user && process.env.NODE_ENV !== 'production' && tokenEmail) {
         const fallback = FALLBACK_USERS[tokenEmail];
         if (fallback) {
@@ -775,7 +781,6 @@ export async function getVerifiedAuthContext(req: any): Promise<{
     }
 
     // 6. SERVER-SIDE DERIVED ROLES & MEMBERSHIPS FROM CURRENT DB STATE
-    // The current database role ALWAYS governs authorization (revokes privileged access immediately even if token claimed SUPER_ADMIN)
     const currentDbRole = user.role;
     const isSuperAdmin = currentDbRole === 'SUPER_ADMIN';
 
@@ -792,7 +797,10 @@ export async function getVerifiedAuthContext(req: any): Promise<{
         });
         const ownedIds = ownedCompanies.map(c => c.id);
         authorizedCompanyIds = Array.from(new Set([...authorizedCompanyIds, ...ownedIds]));
-    } catch (e) {}
+    } catch (e: any) {
+        console.error(`[AuthContext] Database company query error for user ${user.id}:`, e?.message || e);
+        return { errorStatus: 500, errorMessage: 'INTERNAL_SERVER_ERROR: Authorization database service unavailable' };
+    }
 
     if (authorizedCompanyIds.length === 0 && (user as any).company_id) {
         authorizedCompanyIds = [(user as any).company_id];
