@@ -40,7 +40,8 @@
     "swagger-ui-react": "^5.32.0",
     "xml-crypto": "^6.1.2",
     "xmlbuilder2": "^4.0.3",
-    "xpath": "^0.0.34"
+    "xpath": "^0.0.34",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

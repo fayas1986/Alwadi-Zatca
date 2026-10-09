@@ -572,8 +572,7 @@ router.get('/erp/status/:uuid', async (req, res) => {
                     { uuid: uuid.length === 36 ? uuid : undefined },
                     { submission_id: uuid }
                 ]
-            },
-            include: { events: { orderBy: { timestamp: 'asc' } } }
+            }
         });
 
         if (!invoice) {
