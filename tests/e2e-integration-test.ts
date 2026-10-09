@@ -4,7 +4,7 @@ import { createHmac, createHash } from 'crypto';
 const BASE_URL = 'http://localhost:3001/api/erp';
 const ENDPOINT = '/invoices/submit';
 
-const SIM_KEY = 'sk_sim_easylease_mock_v1';
+const SIM_KEY = 'sk_sim_zatcaconnect_mock_v1';
 const SBOX_KEY = 'sk_sbox_zatcaconnect_uat_v1';
 const LIVE_KEY = 'sk_live_zatcaconnect_prod_v1';
 
@@ -28,8 +28,8 @@ async function submitInvoice(apiKey: string, environment: string) {
         totalAmount: 115.00,
         taxAmount: 15.00,
         seller: {
-            name: "EasyLease Transport",
-            registrationName: "EasyLease Transport",
+            name: "Alwadi Trading",
+            registrationName: "Alwadi Trading",
             vatNumber: "300000000000003",
             address: {
                 street: "Olaya St",

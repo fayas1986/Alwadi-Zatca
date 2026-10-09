@@ -1,6 +1,6 @@
 # Quality Assurance (QA) & Testing Documentation
 
-This document serves as a comprehensive reference guide for the testing infrastructure established in the **EasyLease ZATCA Compliance Platform**. It outlines the QA principles, folder structure, available test suites, and instructions on how to run them.
+This document serves as a comprehensive reference guide for the testing infrastructure established in the **ZATCA Compliance Platform**. It outlines the QA principles, folder structure, available test suites, and instructions on how to run them.
 
 ## 1. Testing Philosophy
 
@@ -24,7 +24,7 @@ Our QA strategy follows a **Shift-Left** approach combined with **Test-Driven De
 The tests are organized into distinct directories based on their purpose:
 
 ```text
-c:\Users\Fayas\Downloads\Dev\EasyLease-TaxFilling\
+Alwadi-Zatca/
 ├── server/src/
 │   ├── tests/                  # General Unit and Integration Tests
 │   │   ├── api_v1_hmac.test.ts # Security/Auth fallback verification

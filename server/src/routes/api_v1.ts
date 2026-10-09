@@ -176,7 +176,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
 
         // SIMULATION / SANDBOX / PRODUCTION BYPASS: Create a virtual config if it's a standard key
         if (!erpConfig && (
-            trimmedClientId === 'sk_sim_easylease_mock_v1' ||
+            trimmedClientId === 'sk_sim_zatcaconnect_mock_v1' ||
             trimmedClientId === 'sk_sbox_zatcaconnect_uat_v1' ||
             trimmedClientId === 'sk_live_zatcaconnect_prod_v1' ||
             trimmedClientId === 'zatcaconnect_prod_v1' ||
@@ -201,7 +201,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
                     id: trimmedClientId,
                     api_key: trimmedClientId,
                     is_active: true,
-                    company: { id: '00000000-0000-0000-0000-000000000000', registered_name: 'EasyLease Virtual' } as any
+                    company: { id: '00000000-0000-0000-0000-000000000000', registered_name: 'Virtual Tenant' } as any
                 };
             }
         }
@@ -216,7 +216,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
 
         // FLEXIBLE BYPASS FOR STANDARD KEYS
         if (trimmedClientId && (
-            trimmedClientId === 'sk_sim_easylease_mock_v1' ||
+            trimmedClientId === 'sk_sim_zatcaconnect_mock_v1' ||
             trimmedClientId === 'sk_sbox_zatcaconnect_uat_v1' ||
             trimmedClientId === 'sk_live_zatcaconnect_prod_v1' ||
             trimmedClientId.includes('zatcaconnect_prod')
@@ -322,7 +322,7 @@ const authenticateSimple = async (req: Request, res: Response, next: any) => {
 
         // SIMULATION / SANDBOX / PRODUCTION VIRTUAL BYPASS: Create virtual config if testing with standard keys
         if (!erpConfig && (
-            apiKey === 'sk_sim_easylease_mock_v1' ||
+            apiKey === 'sk_sim_zatcaconnect_mock_v1' ||
             apiKey === 'sk_sbox_zatcaconnect_uat_v1' ||
             apiKey === 'sk_live_zatcaconnect_prod_v1' ||
             apiKey === 'zatcaconnect_prod_v1' ||
@@ -347,7 +347,7 @@ const authenticateSimple = async (req: Request, res: Response, next: any) => {
                     id: apiKey,
                     api_key: apiKey,
                     is_active: true,
-                    company: { id: '00000000-0000-0000-0000-000000000000', registered_name: 'EasyLease Virtual' } as any
+                    company: { id: '00000000-0000-0000-0000-000000000000', registered_name: 'Virtual Tenant' } as any
                 };
             }
         }

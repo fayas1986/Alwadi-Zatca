@@ -491,12 +491,14 @@ router.post('/users', requireSuperAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Email, password, and role are required' });
         }
 
-        const allowedDomains = ['easylease.ae', 'easylease.com.sa', 'easylease.com', 'sakytek.com', 'tech-solutions.sa', 'system.local'];
+        const allowedDomains = process.env.ALLOWED_USER_DOMAINS
+            ? process.env.ALLOWED_USER_DOMAINS.split(',').map(d => d.trim().toLowerCase())
+            : ['alwadi.sa', 'alwadi.com', 'system.local'];
         const userDomain = email.toLowerCase().split('@')[1];
         if (!userDomain || !allowedDomains.includes(userDomain)) {
             console.warn(`[Admin] Rejected user creation with disallowed domain: ${email}`);
             return res.status(400).json({
-                error: 'Access Denied: Only EasyLease domain users (@easylease.ae, @easylease.com.sa, @easylease.com) are allowed.'
+                error: `Access Denied: Only authorized domain users (${allowedDomains.join(', ')}) are allowed.`
             });
         }
 
@@ -617,7 +619,7 @@ router.delete('/users/:id', requireSuperAdmin, async (req, res) => {
 // ALL /api/admin/system/deploy-pull - Pull latest code on VPS host
 router.all('/system/deploy-pull', requireSuperAdmin, (req, res) => {
     // exec already imported at top of file
-    exec('git pull origin master && npm run build && (pm2 restart easylease-backend || pm2 restart all)', (err: any, stdout: string, stderr: string) => {
+    exec('git pull origin master && npm run build && (pm2 restart zatca-backend || pm2 restart all)', (err: any, stdout: string, stderr: string) => {
         if (err) {
             console.error('[Deploy Pull] Error:', err);
             return res.status(500).json({ error: err.message, stderr });

@@ -107,7 +107,7 @@ export class ComplianceService {
                     data: {
                         id: crypto.randomUUID(),
                         email: userContext.email || 'admin@zatca-fatoora.com',
-                        company_name: companyName || 'Easy Lease Transport Services L.L.C.'
+                        company_name: companyName || process.env.COMPANY_REGISTERED_NAME || 'Registered Company'
                     }
                 });
             }
@@ -126,7 +126,7 @@ export class ComplianceService {
                 },
                 create: {
                     vat_number: vatNumber,
-                    registered_name: companyName || 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.',
+                    registered_name: companyName || process.env.COMPANY_REGISTERED_NAME || 'Registered Company',
                     building_number: buildingNumber || '6823',
                     street_name: streetName || 'Shams Al Deen',
                     city_subdivision: citySubdivision || 'Al Rimal Dist',
@@ -167,7 +167,7 @@ export class ComplianceService {
                 data: {
                     company: { connect: { id: dbCompany.id } },
                     type: 'PRODUCTION',
-                    common_name: commonName || `PRD-EasyLease-${vatNumber}`,
+                    common_name: commonName || `PRD-ZATCA-${vatNumber}`,
                     certificate: cleanCertificate,
                     csid: cleanCertificate,
                     public_key: publicKeyStr,
@@ -241,10 +241,10 @@ export class ComplianceService {
             const client = ZatcaClientFactory.getClient('Production');
 
             const numericTIN = (tin && /^\d{10}$/.test(tin)) ? tin : vat.substring(0, 10);
-            const cnValue = `PROD-EasyLease-${vat}`;
+            const cnValue = `PROD-ZATCA-${vat}`;
             const formattedSerial = serialNumber?.includes('|')
                 ? serialNumber
-                : `1-EasyLease|2-Desktop|3-${crypto.randomUUID()}`;
+                : `1-ZATCA|2-Desktop|3-${crypto.randomUUID()}`;
 
             const csrConfig = `csr.common.name=${cnValue}
 csr.serial.number=${formattedSerial}
@@ -474,11 +474,11 @@ csr.industry.business.category=${industry || 'Transport'}`;
         const client = ZatcaClientFactory.getClient('Simulation');
 
         const numericTIN = (tin && /^\d{10}$/.test(tin)) ? tin : vat.substring(0, 10);
-        const cnValue = `TST-EasyLease-${vat}`;
+        const cnValue = `TST-ZATCA-${vat}`;
 
         const formattedSerial = serialNumber?.includes('|')
             ? serialNumber
-            : `1-EasyLease|2-Desktop|3-${crypto.randomUUID()}`;
+            : `1-ZATCA|2-Desktop|3-${crypto.randomUUID()}`;
 
         const csrConfig = `csr.common.name=${cnValue}
 csr.serial.number=${formattedSerial}

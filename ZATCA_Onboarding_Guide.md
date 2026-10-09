@@ -1,5 +1,5 @@
 # ZATCA Onboarding & Operation Guide
-## EasyLease ZatcaConnect — Per-Customer Deployment Manual
+## Alwadi ZatcaConnect — Per-Customer Deployment Manual
 
 This guide describes how to onboard, configure, and maintain customer units on the **ZATCA Fatoora (Phase 2)** integration platform. Follow these steps once per customer for **Simulation** (testing) and **Production** (live filing).
 

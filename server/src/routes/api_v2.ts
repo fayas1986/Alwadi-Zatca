@@ -126,7 +126,7 @@ const authenticateFlexible = async (req: Request, res: Response, next: any) => {
             });
 
             if (!erpConfig && (
-                apiKey === 'sk_sim_easylease_mock_v1' ||
+                apiKey === 'sk_sim_zatcaconnect_mock_v1' ||
                 apiKey === 'sk_sbox_zatcaconnect_uat_v1' ||
                 apiKey === 'sk_live_zatcaconnect_prod_v1' ||
                 apiKey === 'zatcaconnect_prod_v1' ||
@@ -140,7 +140,7 @@ const authenticateFlexible = async (req: Request, res: Response, next: any) => {
                     id: apiKey,
                     api_key: apiKey,
                     is_active: true,
-                    company: fallbackCompany || ({ id: '00000000-0000-0000-0000-000000000000', registered_name: 'EasyLease Virtual' } as any)
+                    company: fallbackCompany || ({ id: '00000000-0000-0000-0000-000000000000', registered_name: 'Virtual Tenant' } as any)
                 };
             }
 
@@ -201,7 +201,7 @@ const authenticateFlexible = async (req: Request, res: Response, next: any) => {
         }
 
         if (!erpConfig && (
-            trimmedClientId === 'sk_sim_easylease_mock_v1' ||
+            trimmedClientId === 'sk_sim_zatcaconnect_mock_v1' ||
             trimmedClientId === 'sk_sbox_zatcaconnect_uat_v1' ||
             trimmedClientId === 'sk_live_zatcaconnect_prod_v1' ||
             trimmedClientId === 'zatcaconnect_prod_v1' ||
@@ -215,7 +215,7 @@ const authenticateFlexible = async (req: Request, res: Response, next: any) => {
                 id: trimmedClientId,
                 api_key: trimmedClientId,
                 is_active: true,
-                company: fallbackCompany || ({ id: '00000000-0000-0000-0000-000000000000', registered_name: 'EasyLease Virtual' } as any)
+                company: fallbackCompany || ({ id: '00000000-0000-0000-0000-000000000000', registered_name: 'Virtual Tenant' } as any)
             };
         }
 

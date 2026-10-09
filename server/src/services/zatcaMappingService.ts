@@ -189,8 +189,8 @@ export class ZatcaMappingService {
         history.push({
             step: 'Created',
             timestamp: createdTime.toISOString(),
-            user: metadata.user || metadata.client_id || 'EasyLease ERP',
-            details: 'Invoice created & ingested into EasyLease',
+            user: metadata.user || metadata.client_id || 'ERP Integration',
+            details: 'Invoice created & ingested into ZATCA Connect',
             status: 'Success'
         });
 

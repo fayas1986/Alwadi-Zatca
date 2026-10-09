@@ -180,7 +180,7 @@ export const generateInvoiceXML = (invoice: Invoice) => {
             .up()
             .up()
             .ele('cac:PartyLegalEntity')
-            .ele('cbc:RegistrationName').txt(invoice.supplier?.name || 'Easy Lease Transport Services LLC').up()
+            .ele('cbc:RegistrationName').txt(invoice.supplier?.name || process.env.COMPANY_REGISTERED_NAME || 'Registered Supplier LLC').up()
             .up()
             .up()
             .up();

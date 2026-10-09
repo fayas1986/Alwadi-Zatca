@@ -25,8 +25,8 @@ async function verify() {
     const vatNumber = '311499218600003';
     
     // Generate valid ZATCA EC secp256k1 keypair using ZATCA SDK
-    const csrConfigStr = `csr.common.name=PRD-EasyLease-311499218600003
-csr.serial.number=1-EasyLease|2-Desktop|3-${crypto.randomUUID()}
+    const csrConfigStr = `csr.common.name=PRD-ZATCA-311499218600003
+csr.serial.number=1-ZATCA|2-Desktop|3-${crypto.randomUUID()}
 csr.organization.identifier=311499218600003
 csr.organization.unit.name=3114992186
 csr.organization.name=3114992186

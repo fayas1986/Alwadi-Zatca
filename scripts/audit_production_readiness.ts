@@ -38,8 +38,8 @@ async function auditProductionReadiness() {
     // 2. Cryptographic Engine Audit
     console.log('\n--- 2. CRYPTOGRAPHIC ENGINE AUDIT ---');
     try {
-        const testCsrConfig = `csr.common.name=PROD-EasyLease-311499218600003
-csr.serial.number=1-EasyLease|2-Desktop|3-test-uuid
+        const testCsrConfig = `csr.common.name=PROD-ZATCA-311499218600003
+csr.serial.number=1-ZATCA|2-Desktop|3-test-uuid
 csr.organization.identifier=311499218600003
 csr.organization.unit.name=3114992186
 csr.organization.name=3114992186

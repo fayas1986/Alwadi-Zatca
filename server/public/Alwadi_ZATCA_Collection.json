@@ -1,0 +1,111 @@
+{
+	"info": {
+		"_postman_id": "alwadi-zatca-integration-suite",
+		"name": "Alwadi ZATCA Tax Compliance API",
+		"description": "Standardized Postman Collection for Alwadi ZATCA Phase 2 E-Invoicing Integration (Simulation, Sandbox & Production).",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Admin Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{adminEmail}}\",\n    \"password\": \"{{adminPassword}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Invoices (ERP Push Integration)",
+			"item": [
+				{
+					"name": "Submit Standard B2B Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "{{apiKey}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"invoiceNumber\": \"INV-B2B-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceTypeCode\": \"388\",\n    \"invoiceSubtype\": \"Standard\",\n    \"issueDate\": \"2026-10-09\",\n    \"issueTime\": \"12:00:00\",\n    \"supplier\": {\n        \"name\": \"Alwadi Trading L.L.C.\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"customer\": {\n        \"name\": \"Standard Client LLC\",\n        \"vatNumber\": \"311111111111113\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Professional Services\",\n            \"quantity\": 1,\n            \"unitPrice\": 100.00,\n            \"taxAmount\": 15.00,\n            \"lineExtensionAmount\": 100.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 100.00,\n        \"taxInclusiveAmount\": 115.00,\n        \"payableAmount\": 115.00\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/erp/invoices/submit",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"erp",
+								"invoices",
+								"submit"
+							]
+						}
+					}
+				},
+				{
+					"name": "Submit Simplified B2C Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "{{apiKey}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"invoiceNumber\": \"INV-B2C-{{$randomInt}}\",\n    \"uuid\": \"{{$guid}}\",\n    \"invoiceTypeCode\": \"388\",\n    \"invoiceSubtype\": \"Simplified\",\n    \"issueDate\": \"2026-10-09\",\n    \"issueTime\": \"12:05:00\",\n    \"supplier\": {\n        \"name\": \"Alwadi Trading L.L.C.\",\n        \"vatNumber\": \"300000000000003\"\n    },\n    \"invoiceLines\": [\n        {\n            \"id\": \"1\",\n            \"itemName\": \"Retail Product\",\n            \"quantity\": 1,\n            \"unitPrice\": 10.00,\n            \"taxAmount\": 1.50,\n            \"lineExtensionAmount\": 10.00,\n            \"taxCategory\": { \"id\": \"S\", \"percent\": 15 }\n        }\n    ],\n    \"legalMonetaryTotal\": {\n        \"taxExclusiveAmount\": 10.00,\n        \"taxInclusiveAmount\": 11.50,\n        \"payableAmount\": 11.50\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/erp/invoices/submit",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"erp",
+								"invoices",
+								"submit"
+							]
+						}
+					}
+				}
+			]
+		}
+	]
+}

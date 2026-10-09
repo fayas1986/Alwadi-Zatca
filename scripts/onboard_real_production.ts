@@ -26,18 +26,18 @@ async function main() {
 
     const vat = dbCompany.vat_number;
     const tin = vat.substring(0, 10);
-    const companyName = dbCompany.registered_name || "Easy Lease Transport Services LLC";
+    const companyName = dbCompany.registered_name || process.env.COMPANY_REGISTERED_NAME || "Alwadi Trading L.L.C.";
 
     const onboardData = {
         vat,
         otp,
         companyName,
-        commonName: dbCompany.registered_name || "Easy Lease Transport Services (Sole Proprietorship) L.L.C.",
+        commonName: dbCompany.registered_name || process.env.COMPANY_REGISTERED_NAME || "Alwadi Trading L.L.C.",
         branchName: dbCompany.branch_name || "HQ",
         location: dbCompany.city || "Riyadh",
-        industry: "Transport",
+        industry: "Services",
         invoiceType: "1000", // Standard Tax Invoices (B2B Clearance)
-        serialNumber: `1-EasyLease|2-Desktop|3-${crypto.randomUUID()}`,
+        serialNumber: `1-ZATCA|2-Desktop|3-${crypto.randomUUID()}`,
         tin,
         buildingNumber: dbCompany.building_number || "1111",
         streetName: dbCompany.street_name || "Test Street",

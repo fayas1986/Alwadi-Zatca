@@ -1,6 +1,6 @@
 # ERP Integration Guide
 
-This document outlines the three stages of ERP integration for the EasyLease Tax application.
+This document outlines the three stages of ERP integration for the ZATCA Tax application.
 
 ## Integration Stages
 
@@ -36,7 +36,7 @@ For Dynamics 365 customers, follow these steps to authorize the application:
 2.  **Permissions**: Grant `OData.FullAccess` or equivalent to the Microsoft Dynamics ERP API.
 3.  **D365 Configuration**: 
     *   Navigate to **System Administration > Setup > Microsoft Entra ID applications**.
-    *   Add the Client ID: `5c8bda30-cff4-4306-a6ef-a94de2ee1162`.
+    *   Add your registered Azure Client ID.
     *   Link it to a user with appropriate permissions to post invoices.
 
 ## Testing with the Simulator

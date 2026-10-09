@@ -1,48 +1,65 @@
-# Logs
-logs
+# Environment files
+.env
+.env.*
+!.env.example
+server/.env
+
+# Logs & Debug Output
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+tsc_errors.txt
+server/tsc_errors.txt
 
-node_modules
-dist
-dist-ssr
-*.local
+# Node & Build Outputs
+node_modules/
+dist/
+dist-ssr/
+.vite/
+tmp/
+scratch/
 
-# Editor directories and files
+# Database Dumps, Exports & Audit Evidence
+*.sql
+*.dump
+db_dump.txt
+invoices_dump.json
+audit_logs.json
+response.json
+test_output.json
+server/zatca-sdk/audit_evidence/
+server/zatca-sdk/Configuration/config.json
+server/zatca-sdk/*.xml
+server/zatca-sdk/test_in.xml
+
+# Certificates, Keys & Secrets
+*.pem
+*.key
+*.csr
+*.crt
+*.p12
+*.pfx
+
+# Editor & System Files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-.env
-server/.env
-.env.*
 
-# Debugging & Scratch
-scratch/
-ZATKSA/
-prisma/seed_mock_data.ts
-*.xml
-*.pem
-server/zatca-sdk/audit_evidence/
-server/zatca-sdk/Configuration/config.json
-server/zatca-sdk/*.xml
-server/zatca-sdk/test_in.xml
-
-# Build and temporary files
-.vite/
-tmp/
-
-# Playwright
+# Playwright & Testing Artifacts
 test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
+temp_test_qr/
+prisma/seed_mock_data.ts
+ZATKSA/
