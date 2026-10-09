@@ -8,6 +8,7 @@ const router = Router();
 console.log('[Admin] Admin routes initializing...');
 import prisma from '../lib/prisma.js';
 import { encrypt } from '../utils/crypto.js';
+import { verifyJwt } from '../utils/jwt.js';
 import { FALLBACK_USERS } from './auth.js';
 import fs from 'fs';
 import path from 'path';
@@ -699,8 +700,8 @@ router.post('/system/update-env', requireSuperAdmin, async (req, res) => {
 
 /**
  * Verified Server-Side Authorization Helper
- * Resolves principal identity, role, and authorized company IDs directly from database / server state.
- * Rejects missing authentication (401), forged roles, unknown users, and zero company memberships (403).
+ * Resolves principal identity, role, and authorized company IDs directly from validated JWT tokens or verified sessions.
+ * Rejects missing authentication (401), invalid/tampered JWT tokens (401), forged roles, unknown users, and zero company memberships (403).
  */
 export async function getVerifiedAuthContext(req: any): Promise<{
     user: any;
@@ -708,25 +709,61 @@ export async function getVerifiedAuthContext(req: any): Promise<{
     isSuperAdmin: boolean;
     authorizedCompanyIds: number[];
 } | { errorStatus: number; errorMessage: string }> {
-    const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
-    
-    if (!userEmail) {
-        return { errorStatus: 401, errorMessage: 'AUTHENTICATION_REQUIRED: Missing user identity header' };
+    let verifiedEmail: string | null = null;
+    let verifiedUserId: string | null = null;
+
+    // 1. Extract and verify JWT Bearer token from Authorization or x-auth-token header
+    const authHeader = req.headers['authorization'] || req.headers['x-auth-token'];
+    if (authHeader && typeof authHeader === 'string') {
+        const payload = verifyJwt(authHeader);
+        if (payload) {
+            verifiedEmail = payload.email?.toLowerCase().trim() || null;
+            verifiedUserId = payload.userId || null;
+        } else {
+            return { errorStatus: 401, errorMessage: 'INVALID_TOKEN: JWT authentication token is invalid or expired' };
+        }
     }
 
-    // Lookup user in DB (or FALLBACK_USERS)
+    // 2. Fallback check for x-user-email header in non-production environment ONLY
+    if (!verifiedEmail) {
+        const rawEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
+        
+        // In production, unverified x-user-email header without valid JWT signature is STRICTLY REJECTED
+        if (process.env.NODE_ENV === 'production') {
+            return { errorStatus: 401, errorMessage: 'AUTHENTICATION_REQUIRED: Valid Bearer JWT token required in production' };
+        }
+
+        if (rawEmail) {
+            verifiedEmail = rawEmail;
+        }
+    }
+
+    if (!verifiedEmail && !verifiedUserId) {
+        return { errorStatus: 401, errorMessage: 'AUTHENTICATION_REQUIRED: Missing user identity or Bearer token' };
+    }
+
+    // 3. Retrieve principal from database using verified identity
     let user: any = null;
     try {
-        user = await prisma.user.findFirst({
-            where: { email: { equals: userEmail, mode: 'insensitive' } },
-            include: { companies: true }
-        });
+        if (verifiedUserId) {
+            user = await prisma.user.findFirst({
+                where: { id: verifiedUserId },
+                include: { companies: true }
+            });
+        }
+        if (!user && verifiedEmail) {
+            user = await prisma.user.findFirst({
+                where: { email: { equals: verifiedEmail, mode: 'insensitive' } },
+                include: { companies: true }
+            });
+        }
     } catch (dbErr) {
-        console.warn(`[AuthContext] DB user lookup failed for ${userEmail}:`, dbErr);
+        console.warn(`[AuthContext] DB user lookup error:`, dbErr);
     }
 
-    if (!user) {
-        const fallback = FALLBACK_USERS[userEmail];
+    // Fallback lookup ONLY in non-production environments
+    if (!user && process.env.NODE_ENV !== 'production' && verifiedEmail) {
+        const fallback = FALLBACK_USERS[verifiedEmail];
         if (fallback) {
             user = {
                 id: fallback.id,
@@ -740,15 +777,15 @@ export async function getVerifiedAuthContext(req: any): Promise<{
     }
 
     if (!user) {
-        return { errorStatus: 401, errorMessage: 'INVALID_PRINCIPAL: User identity not found in system' };
+        return { errorStatus: 401, errorMessage: 'INVALID_PRINCIPAL: User identity not found in system database' };
     }
 
-    // SERVER-SIDE DERIVED ROLE (ignore caller-supplied x-user-role header if forged)
+    // 4. SERVER-SIDE DERIVED ROLE & MEMBERSHIPS (Ignore any client-supplied x-user-role header if forged)
     const derivedRole = user.role;
     const clientSuppliedRole = req.headers['x-user-role'];
 
     if (clientSuppliedRole && clientSuppliedRole !== derivedRole) {
-        console.warn(`[SECURITY AUDIT] Forged role header detected for ${userEmail}: client claimed '${clientSuppliedRole}', verified DB role is '${derivedRole}'`);
+        console.warn(`[SECURITY AUDIT] Forged role header detected for ${user.email}: client claimed '${clientSuppliedRole}', verified DB role is '${derivedRole}'`);
     }
 
     const isSuperAdmin = derivedRole === 'SUPER_ADMIN';

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { decrypt } from '../utils/crypto.js';
+import { signJwt } from '../utils/jwt.js';
 
 const router = Router();
 
@@ -117,11 +118,19 @@ router.post('/login', async (req, res) => {
                 }
 
                 console.log(`[Auth] Success via Database: ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
+                const token = signJwt({
+                    userId: dbUser.id,
+                    email: dbUser.email,
+                    role: dbUser.role,
+                    companyId: company?.id || 1
+                });
+
                 return res.json({
                     id: dbUser.id,
                     email: dbUser.email,
                     name: dbUser.name || dbUser.email.split('@')[0],
                     role: dbUser.role,
+                    token,
                     companyName: company?.registered_name || dbUser.company_name || defaultCompanyName,
                     companyId: company?.id || 1,
                     source: 'database'
@@ -132,7 +141,12 @@ router.post('/login', async (req, res) => {
             }
         }
 
-        // ── Step 3: Fallback Check (Only if user is NOT in Database) ─────────
+        // ── Step 3: Fallback Check (Only in Non-Production / Dev Environments) ───
+        if (process.env.NODE_ENV === 'production') {
+            console.warn(`[Auth] Rejected fallback login attempt for ${normalizedEmail} in production environment.`);
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
         const fallback = FALLBACK_USERS[normalizedEmail];
         if (fallback) {
             let fallbackMatch = false;
@@ -146,11 +160,19 @@ router.post('/login', async (req, res) => {
 
             if (fallbackMatch) {
                 console.log(`[Auth] Success via Fallback: ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
+                const token = signJwt({
+                    userId: fallback.id,
+                    email: fallback.email,
+                    role: fallback.role,
+                    companyId: (fallback as any).company_id || 1
+                });
+
                 return res.json({
                     id: fallback.id,
                     email: fallback.email,
                     name: fallback.name,
                     role: fallback.role,
+                    token,
                     companyName: fallback.company_name,
                     companyId: (fallback as any).company_id,
                     source: 'fallback'

@@ -450,6 +450,81 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
     await prisma.invoice.delete({ where: { id: activeInv.id } });
     await prisma.branch.delete({ where: { id: inactiveBranch.id } });
   });
+
+  it('16. Anti-Spoofing Test: Valid JWT Bearer Token Overrides Impersonated x-user-email Header', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+    const { signJwt } = await import('../utils/jwt.js');
+
+    const regularUser = await prisma.user.upsert({
+      where: { email: 'jwt_regular_user@alwadi.local' },
+      update: { role: 'IT_ADMIN' },
+      create: {
+        id: 'u-jwt-reg-001',
+        email: 'jwt_regular_user@alwadi.local',
+        role: 'IT_ADMIN',
+        company_name: 'Alwadi Trading L.L.C.'
+      }
+    });
+
+    await prisma.company.update({
+      where: { id: companyAId },
+      data: { user_id: regularUser.id }
+    });
+
+    // Valid JWT token signed for regularUser (Company A)
+    const validToken = signJwt({
+      userId: regularUser.id,
+      email: regularUser.email,
+      role: regularUser.role,
+      companyId: companyAId
+    });
+
+    // Caller attempts to spoof x-user-email to superadmin@alwadi.local
+    const req = {
+      headers: {
+        authorization: `Bearer ${validToken}`,
+        'x-user-email': 'superadmin@alwadi.local' // SPOOFED IMPERSONATION HEADER!
+      }
+    };
+
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(false);
+    if (!('errorStatus' in auth)) {
+      // Server MUST authenticate strictly as regularUser derived from JWT token
+      expect(auth.user.email).toBe('jwt_regular_user@alwadi.local');
+      expect(auth.role).toBe('IT_ADMIN');
+      expect(auth.isSuperAdmin).toBe(false);
+      expect(auth.authorizedCompanyIds).toContain(companyAId);
+    }
+
+    // Cleanup
+    await prisma.company.update({
+      where: { id: companyAId },
+      data: { user_id: 'system_admin' }
+    });
+    await prisma.user.delete({ where: { id: regularUser.id } });
+  });
+
+  it('17. Invalid JWT Signature Rejection: Tampered JWT Token Fails Closed with 401', async () => {
+    const { getVerifiedAuthContext } = await import('../routes/admin.js');
+
+    const tamperedToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1LTAwMSIsImVtYWlsIjoic3VwZXJhZG1pbkBhbHdhZGkubG9jYWwiLCJyb2xlIjoiU1VQRVJfQURNSU4ifQ.TAMPERED_INVALID_SIGNATURE';
+
+    const req = {
+      headers: {
+        authorization: `Bearer ${tamperedToken}`
+      }
+    };
+
+    const auth = await getVerifiedAuthContext(req);
+
+    expect('errorStatus' in auth).toBe(true);
+    if ('errorStatus' in auth) {
+      expect(auth.errorStatus).toBe(401);
+      expect(auth.errorMessage).toContain('INVALID_TOKEN');
+    }
+  });
 });
 
 
