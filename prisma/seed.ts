@@ -8,7 +8,8 @@ async function main() {
   console.log('Start seeding...');
 
   const defaultCompanyName = process.env.COMPANY_REGISTERED_NAME || 'Alwadi Trading L.L.C.';
-  const defaultPassword = process.env.INITIAL_ADMIN_PASSWORD || 'Zatca#Secure!2026';
+  const superAdminPassword = process.env.INITIAL_ADMIN_PASSWORD || 'Zatca#Secure!2026';
+  const standardPassword = 'password123';
 
   const users = [
     {
@@ -16,44 +17,49 @@ async function main() {
       email: 'admin@alwadi.local',
       name: 'IT Administrator',
       role: UserRole.IT_ADMIN,
-      company_name: defaultCompanyName
+      company_name: defaultCompanyName,
+      password: encrypt(standardPassword)
     },
     {
       id: crypto.randomUUID(),
       email: 'finance@alwadi.local',
       name: 'Finance Manager',
       role: UserRole.FINANCE_ADMIN,
-      company_name: defaultCompanyName
+      company_name: defaultCompanyName,
+      password: encrypt(standardPassword)
     },
     {
       id: crypto.randomUUID(),
       email: 'tax@alwadi.local',
       name: 'Tax Officer',
       role: UserRole.TAX_OFFICER,
-      company_name: defaultCompanyName
+      company_name: defaultCompanyName,
+      password: encrypt(standardPassword)
     },
     {
       id: crypto.randomUUID(),
       email: 'superadmin@alwadi.local',
       name: 'Super Admin',
       role: UserRole.SUPER_ADMIN,
-      company_name: 'System'
+      company_name: 'System',
+      password: encrypt(superAdminPassword)
     },
     {
       id: 'system_admin',
       email: 'admin@system.local',
       name: 'System Administrator',
       role: UserRole.SUPER_ADMIN,
-      company_name: 'System'
+      company_name: 'System',
+      password: encrypt(superAdminPassword)
     }
   ];
 
   for (const user of users) {
-    const exists = await prisma.user.findUnique({
+    const existing = await prisma.user.findUnique({
       where: { email: user.email }
     });
 
-    if (!exists) {
+    if (!existing) {
       await prisma.user.create({
         data: {
           id: user.id,
@@ -61,12 +67,18 @@ async function main() {
           name: user.name,
           role: user.role,
           company_name: user.company_name,
-          password: encrypt(defaultPassword)
+          password: user.password
         }
       });
       console.log(`Created user: ${user.email}`);
     } else {
-      console.log(`User already exists: ${user.email}`);
+      await prisma.user.update({
+        where: { email: user.email },
+        data: {
+          password: user.password
+        }
+      });
+      console.log(`Updated user password: ${user.email}`);
     }
   }
 

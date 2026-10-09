@@ -15,15 +15,15 @@ export const FALLBACK_USERS: Record<string, { id: string; email: string; passwor
         name: 'Super Admin', role: 'SUPER_ADMIN', company_name: defaultCompanyName, company_id: 1
     },
     'admin@alwadi.local': {
-        id: 'u-002', email: 'admin@alwadi.local', password: defaultAdminPassword,
+        id: 'u-002', email: 'admin@alwadi.local', password: 'password123',
         name: 'IT Administrator', role: 'IT_ADMIN', company_name: defaultCompanyName, company_id: 1
     },
     'finance@alwadi.local': {
-        id: 'u-003', email: 'finance@alwadi.local', password: defaultAdminPassword,
+        id: 'u-003', email: 'finance@alwadi.local', password: 'password123',
         name: 'Finance Manager', role: 'FINANCE_ADMIN', company_name: defaultCompanyName, company_id: 1
     },
     'tax@alwadi.local': {
-        id: 'u-004', email: 'tax@alwadi.local', password: defaultAdminPassword,
+        id: 'u-004', email: 'tax@alwadi.local', password: 'password123',
         name: 'Tax Officer', role: 'TAX_OFFICER', company_name: defaultCompanyName, company_id: 1
     }
 };

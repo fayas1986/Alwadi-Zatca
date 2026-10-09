@@ -4,7 +4,7 @@
 	"values": [
 		{
 			"key": "baseUrl",
-			"value": "http://localhost:3001",
+			"value": "http://localhost:3000",
 			"type": "default",
 			"enabled": true
 		},
@@ -22,7 +22,7 @@
 		},
 		{
 			"key": "adminPassword",
-			"value": "Zatca#Secure!2026",
+			"value": "password123",
 			"type": "secret",
 			"enabled": true
 		}
