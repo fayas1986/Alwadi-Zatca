@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import prisma from '../lib/prisma.js';
-import { getProductionCredentials } from '../services/zatcaService.js';
+import { getProductionCredentials, createVerifiedUserContext } from '../services/zatcaService.js';
 import { ComplianceService, validateCertKeyPair } from '../services/complianceService.js';
 import crypto from 'crypto';
 
@@ -98,11 +98,19 @@ describe('Company Credential & Identity Scoping Regression Suite', () => {
   });
 
   it('1. getProductionCredentials returns credentials strictly matching requested VAT', async () => {
-    const credsA = await getProductionCredentials(COMPANY_A_VAT);
+    const credsA = await getProductionCredentials({
+      vatNumber: COMPANY_A_VAT,
+      environment: 'PRODUCTION',
+      authContext: createVerifiedUserContext(companyAId, 'IT_ADMIN', 'user_scoping_a_id')
+    });
     expect(credsA.companyId).toBe(companyAId);
     expect(credsA.csid).toBe('CSID_SECRET_COMPANY_A_999');
 
-    const credsB = await getProductionCredentials(COMPANY_B_VAT);
+    const credsB = await getProductionCredentials({
+      vatNumber: COMPANY_B_VAT,
+      environment: 'PRODUCTION',
+      authContext: createVerifiedUserContext(companyBId, 'IT_ADMIN', 'user_scoping_b_id')
+    });
     expect(credsB.companyId).toBe(companyBId);
     expect(credsB.csid).toBe('CSID_SECRET_COMPANY_B_888');
 
@@ -111,7 +119,13 @@ describe('Company Credential & Identity Scoping Regression Suite', () => {
   });
 
   it('2. getProductionCredentials throws error if requesting non-existent VAT', async () => {
-    await expect(getProductionCredentials('300000000000000')).rejects.toThrow();
+    await expect(
+      getProductionCredentials({
+        vatNumber: '300000000000000',
+        environment: 'PRODUCTION',
+        authContext: createVerifiedUserContext(companyAId, 'IT_ADMIN')
+      })
+    ).rejects.toThrow();
   });
 
   it('3. validateCertKeyPair rejects mismatched public key / private key pairs', () => {
@@ -125,3 +139,4 @@ describe('Company Credential & Identity Scoping Regression Suite', () => {
     expect(isMatch).toBe(false);
   });
 });
+

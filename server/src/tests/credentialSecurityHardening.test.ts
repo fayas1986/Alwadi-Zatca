@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import prisma from '../lib/prisma.js';
-import { getProductionCredentials } from '../services/zatcaService.js';
+import { 
+  getProductionCredentials, 
+  createVerifiedUserContext, 
+  createVerifiedSuperAdminContext, 
+  createVerifiedSystemWorkerContext 
+} from '../services/zatcaService.js';
 import { SecurityService } from '../services/securityService.js';
 
 describe('Credential Security & Isolation Hardening Suite', () => {
@@ -50,7 +55,7 @@ describe('Credential Security & Isolation Hardening Suite', () => {
       }
     });
 
-    // 2. Setup Company B (Simulation Cert Only)
+    // 2. Setup Company B (Simulation Cert Only + Inactive Prod Cert)
     const userB = await prisma.user.upsert({
       where: { email: 'sec_hardened_b@alwadi.local' },
       update: {},
@@ -75,7 +80,7 @@ describe('Credential Security & Isolation Hardening Suite', () => {
     });
     companyBId = companyB.id;
 
-    // Attach active SIMULATION certificate to Company B (No Production Cert!)
+    // Attach active SIMULATION certificate to Company B
     await prisma.certificate.create({
       data: {
         company_id: companyBId,
@@ -110,8 +115,50 @@ describe('Credential Security & Isolation Hardening Suite', () => {
     await prisma.user.deleteMany({ where: { email: { in: ['sec_hardened_a@alwadi.local', 'sec_hardened_b@alwadi.local'] } } });
   });
 
-  it('1. Cross-Company Authorization Guard: Tenant A auth context cannot query Tenant B credentials', async () => {
-    const tenantAAuthContext = { companyId: companyAId, role: 'IT_ADMIN' };
+  it('1. Missing Auth Context: Fails closed when authContext is omitted', async () => {
+    await expect(
+      getProductionCredentials({
+        companyId: companyAId,
+        environment: 'PRODUCTION'
+      } as any)
+    ).rejects.toThrow(/UNAUTHORIZED_CREDENTIAL_ACCESS/);
+  });
+
+  it('2. Forged Super-Admin Role: Rejects caller-constructed unverified super-admin role', async () => {
+    const forgedSuperAdminContext = {
+      companyId: 999,
+      role: 'SUPER_ADMIN',
+      isSuperAdmin: true,
+      verifiedByServer: false // FORGED!
+    };
+
+    await expect(
+      getProductionCredentials({
+        companyId: companyAId,
+        environment: 'PRODUCTION',
+        authContext: forgedSuperAdminContext as any
+      })
+    ).rejects.toThrow(/FORGED_SUPER_ADMIN_ROLE/);
+  });
+
+  it('3. Forged System Worker Context: Rejects unverified system worker context', async () => {
+    const forgedWorkerContext = {
+      companyId: companyAId,
+      isSystemWorker: true,
+      verifiedByServer: false // FORGED!
+    };
+
+    await expect(
+      getProductionCredentials({
+        companyId: companyAId,
+        environment: 'PRODUCTION',
+        authContext: forgedWorkerContext as any
+      })
+    ).rejects.toThrow(/FORGED_SYSTEM_WORKER_CONTEXT/);
+  });
+
+  it('4. Cross-Company Authorization Guard: Tenant A auth context cannot query Tenant B credentials', async () => {
+    const tenantAAuthContext = createVerifiedUserContext(companyAId, 'IT_ADMIN', 'user_sec_a_id');
 
     // Tenant A attempting to fetch Tenant B's credentials via companyId
     await expect(
@@ -132,44 +179,115 @@ describe('Credential Security & Isolation Hardening Suite', () => {
     ).rejects.toThrow(/UNAUTHORIZED_TENANT_ACCESS/);
   });
 
-  it('2. SUPER_ADMIN Auth Context: Can access credentials for any valid company', async () => {
-    const superAdminContext = { companyId: 99999, role: 'SUPER_ADMIN' };
+  it('5. VERIFIED SUPER_ADMIN Context: Grants access to any company with audit logging', async () => {
+    const verifiedSuperAdmin = createVerifiedSuperAdminContext('audited-superadmin-id');
 
     const credsA = await getProductionCredentials({
       companyId: companyAId,
       environment: 'PRODUCTION',
-      authContext: superAdminContext
+      authContext: verifiedSuperAdmin
     });
 
     expect(credsA.companyId).toBe(companyAId);
     expect(credsA.csid).toBe('CSID_HARDENED_PROD_A');
   });
 
-  it('3. Zero Implicit Environment Fallback: PRODUCTION request fails closed if only SIMULATION cert is active', async () => {
+  it('6. VERIFIED System Worker Context: Grants access strictly to designated company', async () => {
+    const verifiedWorkerA = createVerifiedSystemWorkerContext(companyAId);
+
+    const credsA = await getProductionCredentials({
+      companyId: companyAId,
+      environment: 'PRODUCTION',
+      authContext: verifiedWorkerA
+    });
+
+    expect(credsA.companyId).toBe(companyAId);
+    expect(credsA.csid).toBe('CSID_HARDENED_PROD_A');
+
+    // System worker for Company A attempting to access Company B must be rejected
+    await expect(
+      getProductionCredentials({
+        companyId: companyBId,
+        environment: 'SIMULATION',
+        authContext: verifiedWorkerA
+      })
+    ).rejects.toThrow(/UNAUTHORIZED_TENANT_ACCESS/);
+  });
+
+  it('7. Ambiguous Legacy Positional Invocation: Rejects primitive positional arguments', async () => {
+    await expect(
+      (getProductionCredentials as any)(companyAId)
+    ).rejects.toThrow(/AMBIGUOUS_CREDENTIAL_LOOKUP/);
+
+    await expect(
+      (getProductionCredentials as any)(VAT_HARDENED_A)
+    ).rejects.toThrow(/AMBIGUOUS_CREDENTIAL_LOOKUP/);
+  });
+
+  it('8. Numeric VAT as companyId Type Violation: Rejects non-numeric companyId string', async () => {
+    const verifiedContext = createVerifiedUserContext(companyAId, 'IT_ADMIN');
+    await expect(
+      getProductionCredentials({
+        companyId: '390000000100003' as any,
+        environment: 'PRODUCTION',
+        authContext: verifiedContext
+      })
+    ).rejects.toThrow(/INVALID_COMPANY_ID/);
+  });
+
+  it('9. Invalid Environment Parameter: Rejects empty or invalid environment values', async () => {
+    const verifiedContext = createVerifiedUserContext(companyAId, 'IT_ADMIN');
+
+    await expect(
+      getProductionCredentials({
+        companyId: companyAId,
+        environment: '' as any,
+        authContext: verifiedContext
+      })
+    ).rejects.toThrow(/INVALID_ENVIRONMENT/);
+
+    await expect(
+      getProductionCredentials({
+        companyId: companyAId,
+        environment: 'STAGING' as any,
+        authContext: verifiedContext
+      })
+    ).rejects.toThrow(/INVALID_ENVIRONMENT/);
+  });
+
+  it('10. Zero Implicit Environment Fallback: PRODUCTION request fails closed if only SIMULATION cert is active', async () => {
+    const verifiedContextB = createVerifiedUserContext(companyBId, 'IT_ADMIN');
+
     // Company B has active SIMULATION cert and inactive PRODUCTION cert.
     // Requesting PRODUCTION credentials MUST fail closed and NOT fallback to SIMULATION cert!
     await expect(
       getProductionCredentials({
         companyId: companyBId,
-        environment: 'PRODUCTION'
+        environment: 'PRODUCTION',
+        authContext: verifiedContextB
       })
     ).rejects.toThrow(/Implicit fallback across environments is prohibited/);
   });
 
-  it('4. Inactive Certificate Protection: Inactive certificates are never returned', async () => {
-    // Requesting PRODUCTION credentials when the cert is_active = false
+  it('11. Inactive Certificate Protection: Inactive certificates are never returned', async () => {
+    const verifiedContextB = createVerifiedUserContext(companyBId, 'IT_ADMIN');
+
     await expect(
       getProductionCredentials({
         vatNumber: VAT_HARDENED_B,
-        environment: 'PRODUCTION'
+        environment: 'PRODUCTION',
+        authContext: verifiedContextB
       })
     ).rejects.toThrow(/not found for company/);
   });
 
-  it('5. Exact Environment Matching: SIMULATION request returns SIMULATION cert strictly', async () => {
+  it('12. Exact Environment Matching: SIMULATION request returns SIMULATION cert strictly', async () => {
+    const verifiedContextB = createVerifiedUserContext(companyBId, 'IT_ADMIN');
+
     const credsB = await getProductionCredentials({
       companyId: companyBId,
-      environment: 'SIMULATION'
+      environment: 'SIMULATION',
+      authContext: verifiedContextB
     });
 
     expect(credsB.companyId).toBe(companyBId);
@@ -178,3 +296,4 @@ describe('Credential Security & Isolation Hardening Suite', () => {
     expect(credsB.secret).toBe('secret_sim_b');
   });
 });
+

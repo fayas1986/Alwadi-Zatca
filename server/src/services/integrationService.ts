@@ -2,7 +2,7 @@ import * as crypto from 'crypto';
 import axios from 'axios';
 import { generateInvoiceXML } from './xmlService.js';
 import { signInvoice } from './sdkService.js';
-import { reportInvoice, clearInvoice } from './zatcaService.js';
+import { reportInvoice, clearInvoice, getProductionCredentials, createVerifiedSystemWorkerContext } from './zatcaService.js';
 import { SecurityService } from './securityService.js';
 import prisma from '../lib/prisma.js';
 import { parseInvoiceDate } from '../utils/dateUtils.js';
@@ -178,58 +178,25 @@ export const fetchAndProcessInvoices = async (
         // 2. Process each invoice
         // Get Company Credentials once
         const company = await prisma.company.findUnique({
-            where: { vat_number: vatNumber },
-            include: { certificates: true }
+            where: { vat_number: vatNumber }
         });
 
         if (!company) throw new Error(`Company with VAT ${vatNumber} not found`);
 
-        // Find certificate matching the ERP environment, or fallback to any active cert
-        let cert = company.certificates.find((c: any) => {
-            if (!c.is_active) return false;
-            if (!environment) return true;
-
-            const certType = c.type.toUpperCase();
-            const targetEnv = environment.toUpperCase();
-
-            return certType === targetEnv;
+        const targetEnv = (environment || company.environment || 'PRODUCTION').toUpperCase();
+        const credentials = await getProductionCredentials({
+            vatNumber: vatNumber,
+            environment: targetEnv,
+            authContext: createVerifiedSystemWorkerContext(company.id)
         });
 
-        // If still no exact match, fallback to any active cert
-        if (!cert) cert = company.certificates.find((c: any) => c.is_active);
+        const certPem = credentials.certificate
+            .replace(/-----BEGIN CERTIFICATE-----/g, '')
+            .replace(/-----END CERTIFICATE-----/g, '')
+            .replace(/\s/g, '');
+        const decryptedPrivateKey = credentials.privateKey;
+        const decryptedSecret = credentials.secret;
 
-        if (!cert) {
-            throw new Error(`No active certificate found for VAT ${vatNumber}. Please complete onboarding.`);
-        }
-
-        // Decrypt keys
-        let certPem = '';
-        let decryptedPrivateKey = '';
-        let decryptedSecret = '';
-
-        try {
-            // Check if key is actually encrypted (contains IV separator)
-            if (cert.private_key.includes(':')) {
-                decryptedPrivateKey = SecurityService.decrypt(cert.private_key);
-            } else {
-                decryptedPrivateKey = cert.private_key; // Assume plaintext fallback
-            }
-
-            if (cert.secret && cert.secret.includes(':')) {
-                decryptedSecret = SecurityService.decrypt(cert.secret);
-            } else {
-                decryptedSecret = cert.secret || '';
-            }
-
-            certPem = cert.certificate
-                .replace(/-----BEGIN CERTIFICATE-----/g, '')
-                .replace(/-----END CERTIFICATE-----/g, '')
-                .replace(/\s/g, '');
-
-        } catch (e: any) {
-            console.error("Decryption failed:", e.message);
-            throw new Error("Failed to decrypt credentials. Please re-onboard.");
-        }
 
         // Helper for robust mapping
         const normalizeInvoice = (raw: any): ExternalInvoice => {
@@ -504,7 +471,7 @@ export const fetchAndProcessInvoices = async (
                 if (inv.invoiceSubtype === 'STANDARD') {
                     result = await clearInvoice(
                         targetZatcaEnv,
-                        cert.csid,
+                        credentials.csid,
                         decryptedSecret,
                         hash,
                         Buffer.from(signedXml).toString('base64'),
@@ -513,7 +480,7 @@ export const fetchAndProcessInvoices = async (
                 } else {
                     result = await reportInvoice(
                         targetZatcaEnv,
-                        cert.csid,
+                        credentials.csid,
                         decryptedSecret,
                         hash,
                         Buffer.from(signedXml).toString('base64'),
