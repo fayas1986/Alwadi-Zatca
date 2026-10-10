@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -9,6 +8,7 @@ import {
   Bell,
   Menu,
   ChevronRight,
+  ChevronLeft,
   Plug,
   ChevronDown,
   UserCircle,
@@ -27,9 +27,11 @@ import {
   Layout as LayoutIcon,
   TestTube,
   FlaskConical,
-  X
+  X,
+  Languages
 } from 'lucide-react';
 import { UserRole, Organization, Branch } from '../types';
+import { useLanguage } from '../services/i18n';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -58,17 +60,21 @@ export const Layout: React.FC<LayoutProps> = ({
     onCreateOrganization,
     onDeleteOrganization
 }) => {
-  console.log('Layout rendering. Role:', userRole, 'Orgs:', organizations?.length);
-  const [sidebarOpen, setSidebarOpen] = React.useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
-  const [orgMenuOpen, setOrgMenuOpen] = React.useState(false);
-  const [notificationsOpen, setNotificationsOpen] = React.useState(false);
-  const [notifications, setNotifications] = React.useState<any[]>([]);
-  const [hasUnread, setHasUnread] = React.useState(false);
+  const { language, setLanguage, t, isRTL } = useLanguage();
+  console.log('Layout rendering. Role:', userRole, 'Orgs:', organizations?.length, 'Lang:', language);
+  
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [orgMenuOpen, setOrgMenuOpen] = useState(false);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [hasUnread, setHasUnread] = useState(false);
   
   const notifMenuRef = useRef<HTMLDivElement>(null);
   const orgMenuRef = useRef<HTMLDivElement>(null);
+  const langMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -116,6 +122,9 @@ export const Layout: React.FC<LayoutProps> = ({
       if (notifMenuRef.current && !notifMenuRef.current.contains(event.target as Node)) {
         setNotificationsOpen(false);
       }
+      if (langMenuRef.current && !langMenuRef.current.contains(event.target as Node)) {
+        setLangMenuOpen(false);
+      }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -124,6 +133,7 @@ export const Layout: React.FC<LayoutProps> = ({
         setOrgMenuOpen(false);
         setNotificationsOpen(false);
         setProfileMenuOpen(false);
+        setLangMenuOpen(false);
       }
     };
 
@@ -140,33 +150,33 @@ export const Layout: React.FC<LayoutProps> = ({
     setMobileMenuOpen(false);
   };
 
-  // Define Navigation Items with Role Restrictions
+  // Define Navigation Items with Role Restrictions and Centralized Translations
   const standardNavItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER', 'SUPER_ADMIN'] },
-    { id: 'invoices', label: 'Invoices', icon: FileText, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER'] },
-    { id: 'items', label: 'Item Master', icon: Package, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER'] },
-    { id: 'create-invoice', label: 'New Invoice', icon: PlusCircle, roles: ['IT_ADMIN', 'FINANCE_ADMIN'] },
-    { id: 'validator', label: 'XML Validator', icon: Code, roles: ['IT_ADMIN', 'FINANCE_ADMIN'] },
-    { id: 'certificates', label: 'CSR Settings', icon: ShieldCheck, roles: ['IT_ADMIN'] },
-    { id: 'erp-connectors', label: 'ERP Connectors', icon: Plug, roles: ['IT_ADMIN'] },
-    { id: 'reports', label: 'Report Center', icon: FileBarChart, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER', 'SUPER_ADMIN'] },
-    { id: 'audit', label: 'Audit Log', icon: Activity, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER', 'SUPER_ADMIN'] },
+    { id: 'dashboard', label: t.navDashboard, icon: LayoutDashboard, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER', 'SUPER_ADMIN'] },
+    { id: 'invoices', label: t.navInvoices, icon: FileText, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER'] },
+    { id: 'items', label: t.navItemMaster, icon: Package, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER'] },
+    { id: 'create-invoice', label: t.navNewInvoice, icon: PlusCircle, roles: ['IT_ADMIN', 'FINANCE_ADMIN'] },
+    { id: 'validator', label: t.navXmlValidator, icon: Code, roles: ['IT_ADMIN', 'FINANCE_ADMIN'] },
+    { id: 'certificates', label: t.navCsrSettings, icon: ShieldCheck, roles: ['IT_ADMIN'] },
+    { id: 'erp-connectors', label: t.navErpConnectors, icon: Plug, roles: ['IT_ADMIN'] },
+    { id: 'reports', label: t.navReportCenter, icon: FileBarChart, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER', 'SUPER_ADMIN'] },
+    { id: 'audit', label: t.navAuditLog, icon: Activity, roles: ['IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER', 'SUPER_ADMIN'] },
   ];
 
   const adminNavItems = [
-    { id: 'users', label: 'User Management', icon: UserCircle, roles: ['SUPER_ADMIN'] },
-    { id: 'report-designer', label: 'Report Designer', icon: LayoutIcon, roles: ['SUPER_ADMIN'] },
-    { id: 'api-docs', label: 'API Docs', icon: Code, roles: ['SUPER_ADMIN'] },
+    { id: 'users', label: t.navUserManagement, icon: UserCircle, roles: ['SUPER_ADMIN'] },
+    { id: 'report-designer', label: t.navReportDesigner, icon: LayoutIcon, roles: ['SUPER_ADMIN'] },
+    { id: 'api-docs', label: t.navApiDocs, icon: Code, roles: ['SUPER_ADMIN'] },
   ];
 
   const filteredNavItems = standardNavItems.filter(item => item.roles.includes(userRole));
   const filteredAdminItems = adminNavItems.filter(item => item.roles.includes(userRole));
 
-  const roleLabels = {
-    IT_ADMIN: 'IT Administrator',
-    FINANCE_ADMIN: 'Finance Admin',
-    TAX_OFFICER: 'Tax/Compliance Officer',
-    SUPER_ADMIN: 'Super Administrator'
+  const roleLabels: Record<UserRole, string> = {
+    IT_ADMIN: t.roleItAdmin,
+    FINANCE_ADMIN: t.roleFinanceAdmin,
+    TAX_OFFICER: t.roleTaxOfficer,
+    SUPER_ADMIN: t.roleSuperAdmin
   };
 
   // Find Current Organization for display
@@ -179,19 +189,19 @@ export const Layout: React.FC<LayoutProps> = ({
     
     const configs = {
       SIMULATION: {
-        label: 'Simulation',
+        label: t.envSimulation,
         icon: TestTube,
         styles: 'bg-amber-100 text-amber-700 border-amber-200',
         pulse: 'bg-amber-500'
       },
       SANDBOX: {
-        label: 'Sandbox Replica',
+        label: t.envSandbox,
         icon: FlaskConical,
         styles: 'bg-blue-100 text-blue-700 border-blue-200',
         pulse: 'bg-blue-500'
       },
       PRODUCTION: {
-        label: 'Live Production',
+        label: t.envProduction,
         icon: ShieldCheck,
         styles: 'bg-emerald-100 text-emerald-700 border-emerald-200',
         pulse: 'bg-emerald-500'
@@ -203,15 +213,17 @@ export const Layout: React.FC<LayoutProps> = ({
 
     return (
       <div className={`flex items-center px-4 py-1.5 rounded-full border shadow-sm transition-all ${config.styles} font-bold text-[10px] uppercase tracking-wider`}>
-         <span className={`w-2.5 h-2.5 rounded-full mr-2.5 animate-pulse ${config.pulse} shadow-sm`}></span>
-         <Icon size={12} className="mr-2" />
+         <span className={`w-2.5 h-2.5 rounded-full ${isRTL ? 'ml-2.5' : 'mr-2.5'} animate-pulse ${config.pulse} shadow-sm`}></span>
+         <Icon size={12} className={isRTL ? 'ml-2' : 'mr-2'} />
          {config.label}
       </div>
     );
   };
 
+  const ChevronActive = isRTL ? ChevronLeft : ChevronRight;
+
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+    <div className={`flex h-screen bg-slate-50 overflow-hidden font-sans ${isRTL ? 'rtl' : 'ltr'}`}>
       {/* Mobile Drawer Backdrop Overlay */}
       {mobileMenuOpen && (
         <div 
@@ -223,15 +235,17 @@ export const Layout: React.FC<LayoutProps> = ({
 
       {/* Sidebar - Desktop static collapsible, Mobile off-canvas drawer */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 md:static md:z-30 ${
+        className={`fixed inset-y-0 ${isRTL ? 'right-0 border-l' : 'left-0 border-r'} z-50 md:static md:z-30 ${
           sidebarOpen ? 'w-72' : 'w-20'
-        } bg-[#0f172a] text-white transition-all duration-300 ease-in-out flex flex-col shadow-2xl border-r border-slate-800 ${
-          mobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'
+        } bg-[#0f172a] text-white transition-all duration-300 ease-in-out flex flex-col shadow-2xl border-slate-800 ${
+          mobileMenuOpen 
+            ? 'translate-x-0 w-72' 
+            : (isRTL ? 'translate-x-full md:translate-x-0' : '-translate-x-full md:translate-x-0')
         }`}
       >
         <div className="h-16 flex items-center justify-between px-6 bg-[#0f172a] border-b border-slate-800">
           {(sidebarOpen || mobileMenuOpen) ? (
-            <div className="flex items-center space-x-2.5">
+            <div className="flex items-center space-x-2.5 rtl:space-x-reverse">
               <img src="/alwadi-logo.png" alt="Alwadi Logo" className="w-8 h-8 rounded-lg object-contain bg-white/10 p-0.5" />
               <span className="text-lg font-bold tracking-tight text-white">
                 ZATCA<span className="text-emerald-400">Connect</span>
@@ -246,7 +260,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)} 
             className={`hidden md:block p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors ${!sidebarOpen && 'hidden'}`}
-            title="Collapse Sidebar"
+            title={t.collapseSidebar}
           >
             <Menu size={18} />
           </button>
@@ -254,7 +268,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <button
             onClick={() => setMobileMenuOpen(false)}
             className="md:hidden p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
-            title="Close Menu"
+            title={t.closeMenu}
           >
             <X size={20} />
           </button>
@@ -262,7 +276,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
         {!sidebarOpen && (
            <div className="hidden md:flex justify-center py-4 border-b border-slate-800">
-             <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400" title="Expand Sidebar">
+             <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400" title={t.expandSidebar}>
                <Menu size={20} />
              </button>
            </div>
@@ -276,13 +290,13 @@ export const Layout: React.FC<LayoutProps> = ({
                     className="w-full bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-slate-600 rounded-xl p-3 flex items-center justify-between transition-all group min-h-[44px]"
                 >
                     <div className="flex items-center overflow-hidden">
-                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0 mr-3 shadow-inner">
+                        <div className={`w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0 ${isRTL ? 'ml-3' : 'mr-3'} shadow-inner`}>
                             <Building2 size={16} />
                         </div>
-                        <div className="text-left overflow-hidden">
-                            <p className="text-sm font-bold text-white truncate group-hover:text-indigo-200 transition-colors">{currentOrg?.name || 'Select Org'}</p>
+                        <div className="text-start overflow-hidden">
+                            <p className="text-sm font-bold text-white truncate group-hover:text-indigo-200 transition-colors">{currentOrg?.name || t.selectOrg}</p>
                             <p className="text-[10px] text-slate-400 truncate flex items-center uppercase tracking-wide font-medium mt-0.5">
-                                <MapPin size={10} className="mr-1 shrink-0" /> {currentBranch?.name}
+                                <MapPin size={10} className={`${isRTL ? 'ml-1' : 'mr-1'} shrink-0`} /> {currentBranch?.name}
                             </p>
                         </div>
                     </div>
@@ -305,7 +319,7 @@ export const Layout: React.FC<LayoutProps> = ({
                                                     }
                                                 }}
                                                 className="text-rose-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-800 rounded min-h-[32px] min-w-[32px] flex items-center justify-center"
-                                                title="Delete Organization"
+                                                title={t.deleteOrg}
                                             >
                                                 <Trash2 size={12} />
                                             </button>
@@ -318,11 +332,11 @@ export const Layout: React.FC<LayoutProps> = ({
                                                 onSwitchBranch(branch);
                                                 setOrgMenuOpen(false);
                                             }}
-                                            className={`w-full text-left px-4 py-2.5 text-sm flex items-center hover:bg-slate-700 transition-colors min-h-[44px] ${
+                                            className={`w-full text-start px-4 py-2.5 text-sm flex items-center hover:bg-slate-700 transition-colors min-h-[44px] ${
                                                 currentBranch?.id === branch.id ? 'text-indigo-400 bg-slate-700/50' : 'text-slate-300'
                                             }`}
                                         >
-                                            <div className={`w-1.5 h-1.5 rounded-full mr-3 ${currentBranch?.id === branch.id ? 'bg-indigo-400' : 'bg-slate-600'}`}></div>
+                                            <div className={`w-1.5 h-1.5 rounded-full ${isRTL ? 'ml-3' : 'mr-3'} ${currentBranch?.id === branch.id ? 'bg-indigo-400' : 'bg-slate-600'}`}></div>
                                             {branch.name}
                                         </button>
                                     ))}
@@ -338,7 +352,7 @@ export const Layout: React.FC<LayoutProps> = ({
                                     }}
                                     className="w-full flex items-center justify-center py-2.5 text-xs font-bold text-indigo-400 hover:text-indigo-300 hover:bg-slate-700 rounded-lg transition-colors min-h-[44px]"
                                 >
-                                    <Plus size={14} className="mr-1.5" /> Add New Company
+                                    <Plus size={14} className={isRTL ? 'ml-1.5' : 'mr-1.5'} /> {t.addOrganization}
                                 </button>
                             ) : (
                                 <div className="py-2 text-center">
@@ -352,7 +366,7 @@ export const Layout: React.FC<LayoutProps> = ({
         )}
 
         <div className="flex-1 py-2 px-3 space-y-1 overflow-y-auto dark-scroll">
-          {(sidebarOpen || mobileMenuOpen) && <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 mt-2">Menu</p>}
+          {(sidebarOpen || mobileMenuOpen) && <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 mt-2">{t.menuHeader}</p>}
           {filteredNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentRoute === item.id || (currentRoute === 'invoice-detail' && item.id === 'invoices');
@@ -364,17 +378,17 @@ export const Layout: React.FC<LayoutProps> = ({
                 onClick={() => handleNavClick(item.id)}
                 className={`w-full flex items-center px-3 py-3 rounded-lg transition-all duration-200 group relative min-h-[44px] ${
                   isActive 
-                    ? 'bg-slate-800 text-white shadow-md border-l-4 border-green-500' 
+                    ? `bg-slate-800 text-white shadow-md ${isRTL ? 'border-r-4 border-green-500' : 'border-l-4 border-green-500'}` 
                     : isAction 
                       ? 'text-green-400 hover:bg-slate-800/80 hover:text-green-300 border border-green-900/50 bg-green-900/10 mb-2' 
-                      : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border-l-4 border-transparent'
+                      : `text-slate-400 hover:bg-slate-800/50 hover:text-white ${isRTL ? 'border-r-4 border-transparent' : 'border-l-4 border-transparent'}`
                 }`}
               >
                 <Icon size={20} className={`min-w-[20px] ${isActive ? 'text-green-400' : isAction ? 'text-green-400' : 'text-slate-500 group-hover:text-slate-300 transition-colors'}`} />
                 {(sidebarOpen || mobileMenuOpen) && (
                   <>
-                    <span className="ml-3 font-medium text-sm">{item.label}</span>
-                    {isActive && <ChevronRight size={14} className="ml-auto text-slate-500" />}
+                    <span className={`${isRTL ? 'mr-3' : 'ml-3'} font-medium text-sm`}>{item.label}</span>
+                    {isActive && <ChevronActive size={14} className={`${isRTL ? 'mr-auto' : 'ml-auto'} text-slate-500`} />}
                   </>
                 )}
               </button>
@@ -383,7 +397,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
           {filteredAdminItems.length > 0 && (
             <div className="mt-8 pt-4 border-t border-slate-800/50">
-              {(sidebarOpen || mobileMenuOpen) && <p className="px-3 text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-3">SaaS Console</p>}
+              {(sidebarOpen || mobileMenuOpen) && <p className="px-3 text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-3">{t.saasConsoleHeader}</p>}
               {filteredAdminItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentRoute === item.id;
@@ -394,12 +408,12 @@ export const Layout: React.FC<LayoutProps> = ({
                     onClick={() => handleNavClick(item.id)}
                     className={`w-full flex items-center px-3 py-3 rounded-lg transition-all duration-200 group relative min-h-[44px] ${
                       isActive 
-                        ? 'bg-indigo-900/30 text-indigo-200 border-l-4 border-indigo-500 shadow-inner' 
+                        ? `bg-indigo-900/30 text-indigo-200 ${isRTL ? 'border-r-4 border-indigo-500' : 'border-l-4 border-indigo-500'} shadow-inner` 
                         : 'text-slate-400 hover:bg-slate-800/50 hover:text-indigo-300'
                     }`}
                   >
                     <Icon size={18} className={`min-w-[18px] ${isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-indigo-400 transition-colors'}`} />
-                    {(sidebarOpen || mobileMenuOpen) && <span className="ml-3 font-medium text-sm">{item.label}</span>}
+                    {(sidebarOpen || mobileMenuOpen) && <span className={`${isRTL ? 'mr-3' : 'ml-3'} font-medium text-sm`}>{item.label}</span>}
                   </button>
                 );
               })}
@@ -413,7 +427,7 @@ export const Layout: React.FC<LayoutProps> = ({
             className={`flex items-center w-full p-2.5 rounded-lg transition-colors min-h-[44px] ${currentRoute === 'settings' ? 'bg-slate-800 text-white shadow-inner' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}
           >
             <Settings size={20} />
-            {(sidebarOpen || mobileMenuOpen) && <span className="ml-3 text-sm font-medium">Settings</span>}
+            {(sidebarOpen || mobileMenuOpen) && <span className={`${isRTL ? 'mr-3' : 'ml-3'} text-sm font-medium`}>{t.navSettings}</span>}
           </button>
           
           {(sidebarOpen || mobileMenuOpen) && (
@@ -425,18 +439,18 @@ export const Layout: React.FC<LayoutProps> = ({
                 <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-green-500 to-emerald-600 flex items-center justify-center text-white text-xs font-bold shadow-lg ring-2 ring-slate-800 shrink-0">
                   {userRole.slice(0,2)}
                 </div>
-                <div className="ml-3 text-left flex-1 min-w-0">
+                <div className={`${isRTL ? 'mr-3 text-right' : 'ml-3 text-left'} flex-1 min-w-0`}>
                   <p className="text-sm font-medium text-white truncate">{userName}</p>
                   <p className="text-[10px] text-slate-500 truncate uppercase tracking-wide">{roleLabels[userRole]}</p>
                 </div>
-                <ChevronDown size={14} className="text-slate-400 shrink-0 ml-1" />
+                <ChevronDown size={14} className={`text-slate-400 shrink-0 ${isRTL ? 'mr-1' : 'ml-1'}`} />
               </button>
 
               {/* Profile / Logout Menu */}
               {profileMenuOpen && (
                 <div className="absolute bottom-full left-0 w-full mb-2 bg-slate-800 rounded-xl shadow-xl border border-slate-700 overflow-hidden animate-in slide-in-from-bottom-2 fade-in">
                   <div className="px-4 py-2 bg-slate-900/50 border-b border-slate-700 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    My Account
+                    {t.myAccount}
                   </div>
                   {userRole === 'SUPER_ADMIN' && (
                     <button 
@@ -444,16 +458,16 @@ export const Layout: React.FC<LayoutProps> = ({
                             handleNavClick('users');
                             setProfileMenuOpen(false);
                         }}
-                        className="w-full text-left px-4 py-3 text-sm text-indigo-400 hover:bg-slate-700 hover:text-indigo-300 transition-colors flex items-center border-b border-slate-700 min-h-[44px]"
+                        className="w-full text-start px-4 py-3 text-sm text-indigo-400 hover:bg-slate-700 hover:text-indigo-300 transition-colors flex items-center border-b border-slate-700 min-h-[44px]"
                     >
-                        <ShieldCheck size={14} className="mr-2 shrink-0" /> SaaS Master Console
+                        <ShieldCheck size={14} className={`${isRTL ? 'ml-2' : 'mr-2'} shrink-0`} /> {t.saasMasterConsole}
                     </button>
                   )}
                   <button 
                     onClick={onLogout}
-                    className="w-full text-left px-4 py-3 text-sm text-rose-400 hover:bg-slate-700 hover:text-rose-300 transition-colors flex items-center min-h-[44px]"
+                    className="w-full text-start px-4 py-3 text-sm text-rose-400 hover:bg-slate-700 hover:text-rose-300 transition-colors flex items-center min-h-[44px]"
                   >
-                    <LogOut size={14} className="mr-2 shrink-0" /> Sign Out
+                    <LogOut size={14} className={`${isRTL ? 'ml-2' : 'mr-2'} shrink-0`} /> {t.signOut}
                   </button>
                 </div>
               )}
@@ -471,36 +485,77 @@ export const Layout: React.FC<LayoutProps> = ({
             <button
               onClick={() => setMobileMenuOpen(true)}
               className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg md:hidden shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
-              aria-label="Open Mobile Menu"
+              aria-label={t.openMobileMenu}
             >
               <Menu size={22} />
             </button>
 
             <h1 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight truncate">
-              {currentRoute === 'dashboard' && 'Compliance Overview'}
-              {currentRoute === 'invoices' && 'Invoice Management'}
-              {currentRoute === 'create-invoice' && 'Invoice Generation'}
-              {currentRoute === 'invoice-detail' && 'Invoice Details'}
-              {currentRoute === 'items' && 'Item Master'}
-              {currentRoute === 'certificates' && 'CSR Settings'}
-              {currentRoute === 'erp-connectors' && 'ERP Integration Hub'}
-              {currentRoute === 'audit' && 'System Audit Log'}
-              {currentRoute === 'reports' && 'Report Center'}
-              {currentRoute === 'report-designer' && 'Report Designer'}
-              {currentRoute === 'settings' && 'System Config'}
+              {currentRoute === 'dashboard' && t.titleDashboard}
+              {currentRoute === 'invoices' && t.titleInvoices}
+              {currentRoute === 'create-invoice' && t.titleCreateInvoice}
+              {currentRoute === 'invoice-detail' && t.titleInvoiceDetail}
+              {currentRoute === 'items' && t.titleItems}
+              {currentRoute === 'certificates' && t.titleCertificates}
+              {currentRoute === 'erp-connectors' && t.titleErpConnectors}
+              {currentRoute === 'audit' && t.titleAudit}
+              {currentRoute === 'reports' && t.titleReports}
+              {currentRoute === 'report-designer' && t.titleReportDesigner}
+              {currentRoute === 'settings' && t.titleSettings}
             </h1>
           </div>
 
-          <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
+          <div className="flex items-center space-x-2 sm:space-x-4 rtl:space-x-reverse shrink-0">
             <div className="hidden sm:block">
               {renderEnvironmentBadge()}
             </div>
 
+            {/* Language Selector Controls */}
+            <div className="relative" ref={langMenuRef}>
+              <button
+                onClick={() => setLangMenuOpen(!langMenuOpen)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors min-h-[44px] border border-slate-200/80 shadow-sm"
+                aria-label={t.language}
+                title={t.language}
+              >
+                <Languages size={16} className="text-indigo-600 shrink-0" />
+                <span className="hidden sm:inline">{language === 'ar' ? 'العربية' : 'English'}</span>
+                <span className="sm:hidden">{language === 'ar' ? 'عرب' : 'EN'}</span>
+                <ChevronDown size={12} className="text-slate-400" />
+              </button>
+
+              {langMenuOpen && (
+                <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-36 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-150`}>
+                  <button
+                    onClick={() => {
+                      setLanguage('en');
+                      setLangMenuOpen(false);
+                    }}
+                    className={`w-full text-start px-4 py-2.5 text-xs font-medium flex items-center justify-between transition-colors min-h-[40px] ${language === 'en' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    <span>English</span>
+                    {language === 'en' && <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setLanguage('ar');
+                      setLangMenuOpen(false);
+                    }}
+                    className={`w-full text-start px-4 py-2.5 text-xs font-medium flex items-center justify-between transition-colors min-h-[40px] ${language === 'ar' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    <span>العربية</span>
+                    {language === 'ar' && <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Notifications Menu */}
             <div className="relative" ref={notifMenuRef}>
               <button 
                 onClick={handleNotificationClick}
                 className="relative p-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-full transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-                aria-label="Notifications"
+                aria-label={t.notifications}
               >
                 <Bell size={20} />
                 {hasUnread && (
@@ -509,9 +564,9 @@ export const Layout: React.FC<LayoutProps> = ({
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden flex flex-col max-h-96">
+                <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-72 sm:w-80 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden flex flex-col max-h-96`}>
                   <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 font-medium text-slate-700 flex justify-between items-center">
-                     <span>Notifications</span>
+                     <span>{t.notifications}</span>
                      {notifications.length > 0 && <span className="text-xs bg-indigo-100 text-indigo-700 py-0.5 px-2 rounded-full">{notifications.length}</span>}
                   </div>
                   <div className="flex-1 overflow-y-auto">
