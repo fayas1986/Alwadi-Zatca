@@ -215,7 +215,10 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
                     name: b.name,
                     type: b.code === 'BR-001' ? 'HQ' : 'BRANCH',
                     environment: c.environment,
-                    settings: b.settings || {},
+                    settings: {
+                        ...(c.settings && typeof c.settings === 'object' ? c.settings : {}),
+                        ...(b.settings && typeof b.settings === 'object' ? b.settings : {})
+                    },
                     address: {
                         streetName: b.street_name || b.address || '',
                         buildingNumber: b.building_number || '',
@@ -413,6 +416,17 @@ router.put('/companies/:id', requireAnyAdmin, async (req, res) => {
             where: { id: companyId },
             data: updateData
         });
+
+        if (settings) {
+            try {
+                await (prisma.branch as any).updateMany({
+                    where: { company_id: companyId },
+                    data: { settings }
+                });
+            } catch (bErr: any) {
+                console.error('[Admin] Error updating branch settings:', bErr.message);
+            }
+        }
 
         res.json({
             id: updatedCompany.id.toString(),

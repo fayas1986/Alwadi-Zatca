@@ -22,7 +22,7 @@ import { WifiOff, RefreshCw } from 'lucide-react';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 const App: React.FC = () => {
   const checkInitialAuth = () => {
@@ -47,7 +47,8 @@ const App: React.FC = () => {
       return false;
     }
 
-    if (Date.now() - parseInt(lastActivity) > SESSION_TIMEOUT_MS) {
+    const timeoutEnforced = localStorage.getItem('sessionTimeoutEnforced') !== 'false';
+    if (timeoutEnforced && Date.now() - parseInt(lastActivity) > SESSION_TIMEOUT_MS) {
       // Session expired
       localStorage.removeItem('userEmail');
       localStorage.removeItem('userRole');
@@ -239,11 +240,16 @@ const App: React.FC = () => {
       const checkSession = () => {
           const lastActivity = localStorage.getItem('lastActivity');
           
-          // Use 15 minutes if enforced by organization settings, otherwise default to 30 minutes fallback
-          const isEnforced = currentBranch?.settings?.security?.sessionTimeout;
-          const timeoutMs = isEnforced ? 15 * 60 * 1000 : SESSION_TIMEOUT_MS;
+          // Use 15 minutes if enforced by organization settings (sessionTimeout is true or undefined)
+          // If sessionTimeout is explicitly false, inactivity logout is disabled
+          const isEnforced = currentBranch?.settings?.security?.sessionTimeout !== false;
+          localStorage.setItem('sessionTimeoutEnforced', isEnforced ? 'true' : 'false');
 
-          if (lastActivity && Date.now() - parseInt(lastActivity) > timeoutMs) {
+          if (!isEnforced) {
+              return;
+          }
+
+          if (lastActivity && Date.now() - parseInt(lastActivity) > SESSION_TIMEOUT_MS) {
               handleLogout();
               alert("Your session has expired due to inactivity. Please log in again.");
           }
