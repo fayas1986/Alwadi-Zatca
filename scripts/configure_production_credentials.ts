@@ -42,7 +42,7 @@ async function main() {
             certificatePemOrCsid: csid,
             secret,
             privateKeyPem: privateKey,
-            companyName: company?.registered_name || 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.',
+            companyName: company?.registered_name || process.env.COMPANY_REGISTERED_NAME || 'Alwadi Trading L.L.C.',
             buildingNumber: company?.building_number || '6823',
             streetName: company?.street_name || 'Shams Al Deen',
             citySubdivision: company?.city_subdivision || 'Al Rimal Dist',

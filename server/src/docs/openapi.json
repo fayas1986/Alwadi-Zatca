@@ -468,7 +468,7 @@
                 "properties": {
                   "email": {
                     "type": "string",
-                    "example": "superadmin@tech-solutions.sa"
+                    "example": "admin@alwadipoultry.com"
                   },
                   "password": {
                     "type": "string",

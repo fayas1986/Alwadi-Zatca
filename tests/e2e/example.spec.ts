@@ -16,7 +16,7 @@ test.describe('Authentication', () => {
     });
 
     await test.step('Fill in login credentials', async () => {
-      await loginPage.emailInput.fill('admin@tech-solutions.sa');
+      await loginPage.emailInput.fill('admin@alwadipoultry.com');
       await loginPage.passwordInput.fill('password123');
     });
 

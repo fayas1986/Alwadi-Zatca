@@ -50,7 +50,7 @@ export async function testLiveProductionCredentials() {
             certificatePemOrCsid: csid,
             secret,
             privateKeyPem: privateKey,
-            companyName: 'Easy Lease Transport Services (Sole Proprietorship) L.L.C.',
+            companyName: process.env.COMPANY_REGISTERED_NAME || 'Alwadi Trading L.L.C.',
             buildingNumber: '6823',
             streetName: 'Shams Al Deen',
             citySubdivision: 'Al Rimal Dist',
