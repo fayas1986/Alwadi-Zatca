@@ -2,7 +2,7 @@ name: Alwadi-Zatca Production Release Gate & CI/CD Pipeline
 
 on:
   push:
-    branches: [ master, main, feat/*, chore/* ]
+    branches: [ master, main, feat/*, chore/*, fix/* ]
   pull_request:
     branches: [ master, main ]
 
@@ -10,6 +10,8 @@ jobs:
   quality-gate:
     name: Code Quality & Type Check
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder_db"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,6 +19,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - run: npx prisma generate
       - run: npx prisma validate
       - run: npx tsc --noEmit
 
@@ -36,6 +39,25 @@ jobs:
   test-suite:
     name: Unit, Integration & Isolation Tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_alwadi_zatca
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: "postgresql://test_user:test_password@localhost:5432/test_alwadi_zatca?schema=public"
+      JWT_SECRET: "ci-testing-jwt-secret-key-32-bytes-long!"
+      ZATCA_SDK_PATH: "/tmp/zatca-sdk"
+      NODE_ENV: "test"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -43,7 +65,9 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npx vitest run
+      - run: npx prisma generate
+      - run: npx prisma db push --accept-data-loss
+      - run: npx vitest run --fileParallelism=false
 
   regional-compliance:
     name: Saudi Arabia Data Residency & Spec Verification

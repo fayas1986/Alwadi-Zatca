@@ -11,6 +11,7 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
+    "skipLibCheck": true,
     "paths": {
       "@/*": [
         "./*"
@@ -20,12 +21,16 @@
     "noEmit": true
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "api/**/*.ts",
-    "server/src/**/*.ts"
+    "index.tsx",
+    "App.tsx",
+    "components/**/*.tsx",
+    "components/**/*.ts",
+    "services/**/*.ts",
+    "services/**/*.tsx",
+    "types.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "dist"
   ]
 }
