@@ -78,15 +78,22 @@ const prismaClientSingleton = () => {
   const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
 
   if (isTest) {
-    const testUrl = process.env.TEST_DATABASE_URL;
-    let targetUrlToValidate = testUrl;
+    let testUrl = process.env.TEST_DATABASE_URL;
+
+    if (!testUrl && process.env.DATABASE_URL) {
+      const dbUrlLower = process.env.DATABASE_URL.toLowerCase();
+      const isProdDb = PROD_DISALLOWED_PATTERNS.some(p => dbUrlLower.includes(p));
+      if (!isProdDb) {
+        testUrl = process.env.DATABASE_URL;
+      }
+    }
 
     if (!testUrl) {
       console.log('[Prisma Guard] Test environment detected without TEST_DATABASE_URL. Defaulting to local test database...');
-      targetUrlToValidate = 'postgresql://postgres:postgrespassword@localhost:5432/alwadi_zatca_local?sslmode=disable';
+      testUrl = 'postgresql://postgres:postgrespassword@localhost:5432/alwadi_zatca_local?sslmode=disable';
     }
 
-    url = validateDatabaseUrlForEnvironment(targetUrlToValidate, true);
+    url = validateDatabaseUrlForEnvironment(testUrl, true);
   } else if (!url) {
     throw new FatalDatabaseSecurityError('DATABASE_URL environment variable is missing.');
   }
