@@ -207,7 +207,7 @@ const App: React.FC = () => {
     window.location.hash = route;
   };
 
-  const handleLogin = (role: UserRole, name: string, email: string, cid?: number) => {
+  const handleLogin = (role: UserRole, name: string, email: string, cid?: number, token?: string) => {
       setUserRole(role);
       setUserName(name);
       setUserEmail(email);
@@ -215,6 +215,10 @@ const App: React.FC = () => {
       sessionStorage.setItem('userRole', role);
       sessionStorage.setItem('userName', name);
       sessionStorage.setItem('userEmail', email);
+      if (token) {
+          sessionStorage.setItem('token', token);
+          localStorage.setItem('token', token);
+      }
       localStorage.setItem('userRole', role);
       localStorage.setItem('userName', name);
       localStorage.setItem('userEmail', email);
@@ -234,6 +238,7 @@ const App: React.FC = () => {
       localStorage.removeItem('userName');
       localStorage.removeItem('userEmail');
       localStorage.removeItem('companyId');
+      localStorage.removeItem('token');
       localStorage.removeItem('lastActivity');
       setIsAuthenticated(false);
       setUserRole('IT_ADMIN'); 
