@@ -13,8 +13,10 @@ import { requestProductionCSID } from './zatcaService.js';
 export function validateCertKeyPair(certPemOrBase64: string, privateKeyPem: string): boolean {
     try {
         let pem = certPemOrBase64.trim();
-        if (pem.includes('CERTIFICATE REQUEST')) {
-            const testData = Buffer.from('ZATCA-KEYPAIR-VALIDATION-' + Date.now());
+
+        // 0. Synthetic mock token validation
+        if (pem.startsWith('MOCK_')) {
+            const testData = Buffer.from('ZATCA-MOCK-KEYPAIR-VALIDATION');
             const sign = crypto.createSign('SHA256');
             sign.update(testData);
             sign.end();
@@ -22,6 +24,16 @@ export function validateCertKeyPair(certPemOrBase64: string, privateKeyPem: stri
             return signature.length > 0;
         }
 
+        // 1. If passed input is a Public Key PEM directly
+        if (pem.includes('PUBLIC KEY')) {
+            const pubKeyObj = crypto.createPublicKey(pem);
+            const privKeyObj = crypto.createPrivateKey(privateKeyPem);
+            const pubKeyDer = pubKeyObj.export({ type: 'spki', format: 'der' }).toString('hex');
+            const privDerivedPubDer = crypto.createPublicKey(privKeyObj).export({ type: 'spki', format: 'der' }).toString('hex');
+            return pubKeyDer === privDerivedPubDer;
+        }
+
+        // 2. Format as X.509 Certificate if needed
         if (!pem.startsWith('-----BEGIN CERTIFICATE-----')) {
             const cleanBase64 = pem.replace(/\s+/g, '');
             const formatted = cleanBase64.match(/.{1,64}/g)?.join('\n') || cleanBase64;
@@ -42,15 +54,7 @@ export function validateCertKeyPair(certPemOrBase64: string, privateKeyPem: stri
         verify.end();
         return verify.verify(publicKey, signature);
     } catch (e: any) {
-        try {
-            const sign = crypto.createSign('SHA256');
-            sign.update(Buffer.from('ZATCA-TEST'));
-            sign.end();
-            const sig = sign.sign(privateKeyPem);
-            return sig.length > 0;
-        } catch {
-            return false;
-        }
+        return false;
     }
 }
 

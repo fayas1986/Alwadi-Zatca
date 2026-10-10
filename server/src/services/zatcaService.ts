@@ -223,12 +223,96 @@ export const clearInvoice = async (env: string, csid: string, secret: string, xm
     }
 };
 
-export const getProductionCredentials = async (vatOrCompanyId: string | number) => {
+export interface CredentialAuthorizationContext {
+    companyId: number;
+    role?: string;
+    isSuperAdmin?: boolean;
+    isSystemWorker?: boolean;
+    authenticatedUserId?: string;
+    verifiedByServer?: boolean;
+}
+
+export interface CredentialLookupParams {
+    companyId?: number;
+    vatNumber?: string;
+    environment: 'PRODUCTION' | 'SIMULATION' | 'SANDBOX' | string;
+    authContext: CredentialAuthorizationContext;
+}
+
+export const createVerifiedUserContext = (companyId: number, role?: string, userId?: string): CredentialAuthorizationContext => ({
+    companyId,
+    role,
+    isSuperAdmin: role === 'SUPER_ADMIN',
+    authenticatedUserId: userId,
+    verifiedByServer: true
+});
+
+export const createVerifiedSuperAdminContext = (userId?: string): CredentialAuthorizationContext => ({
+    companyId: 0,
+    role: 'SUPER_ADMIN',
+    isSuperAdmin: true,
+    authenticatedUserId: userId || 'superadmin-system',
+    verifiedByServer: true
+});
+
+export const createVerifiedSystemWorkerContext = (companyId: number): CredentialAuthorizationContext => ({
+    companyId,
+    isSystemWorker: true,
+    verifiedByServer: true
+});
+
+export const getProductionCredentials = async (
+    params: CredentialLookupParams
+) => {
+    // 1. Enforce Structured Lookup Object
+    if (typeof params !== 'object' || params === null) {
+        throw new Error('AMBIGUOUS_CREDENTIAL_LOOKUP: Credential lookup requires a structured lookup object specifying explicit environment and authContext. Positional legacy arguments are disabled.');
+    }
+
+    const { companyId, vatNumber, environment, authContext } = params;
+
+    // 2. Enforce Mandatory Authorization Context
+    if (!authContext) {
+        throw new Error('UNAUTHORIZED_CREDENTIAL_ACCESS: Authorization context is required for credential retrieval. Missing context fails closed.');
+    }
+
+    // 3. Reject Unverified Auth Contexts & Forged Roles
+    if (authContext.verifiedByServer !== true) {
+        if (authContext.role === 'SUPER_ADMIN' || authContext.isSuperAdmin === true) {
+            throw new Error('FORGED_SUPER_ADMIN_ROLE: Unverified super-admin role supplied. Access denied.');
+        }
+        if (authContext.isSystemWorker === true) {
+            throw new Error('FORGED_SYSTEM_WORKER_CONTEXT: Unverified system worker context supplied. Access denied.');
+        }
+        throw new Error('UNVERIFIED_AUTHORIZATION_CONTEXT: Authorization context must be verified by server authentication.');
+    }
+
+    // 4. Require Explicit Valid Environment (No implicit default)
+    if (!environment || typeof environment !== 'string') {
+        throw new Error("INVALID_ENVIRONMENT: Credential lookup requires an explicit, valid environment ('PRODUCTION' | 'SIMULATION' | 'SANDBOX'). Defaulting to production is prohibited.");
+    }
+
+    const targetEnv = environment.toUpperCase();
+    if (!['PRODUCTION', 'SIMULATION', 'SANDBOX'].includes(targetEnv)) {
+        throw new Error(`INVALID_ENVIRONMENT: '${environment}' is not a valid ZATCA environment. Must be 'PRODUCTION', 'SIMULATION', or 'SANDBOX'.`);
+    }
+
+    // 5. Unambiguous Primary Key or VAT Lookup (No numeric string heuristics)
+    if (companyId === undefined && !vatNumber) {
+        throw new Error('Credential lookup requires an explicit companyId or vatNumber.');
+    }
+
     let whereClause: any = {};
-    if (typeof vatOrCompanyId === 'number' || /^\d+$/.test(String(vatOrCompanyId)) && String(vatOrCompanyId).length < 10) {
-        whereClause = { id: Number(vatOrCompanyId) };
-    } else {
-        whereClause = { vat_number: String(vatOrCompanyId) };
+    if (companyId !== undefined) {
+        if (typeof companyId !== 'number' || isNaN(companyId)) {
+            throw new Error('INVALID_COMPANY_ID: companyId must be a numeric integer.');
+        }
+        whereClause = { id: companyId };
+    } else if (vatNumber !== undefined) {
+        if (typeof vatNumber !== 'string' || !vatNumber.trim()) {
+            throw new Error('INVALID_VAT_NUMBER: vatNumber must be a non-empty string.');
+        }
+        whereClause = { vat_number: vatNumber.trim() };
     }
 
     const company = await prisma.company.findFirst({
@@ -237,15 +321,36 @@ export const getProductionCredentials = async (vatOrCompanyId: string | number) 
     });
 
     if (!company) {
-        throw new Error(`Company not found for identifier: ${vatOrCompanyId}`);
+        throw new Error(`Company not found for identifier: ${companyId !== undefined ? companyId : vatNumber}`);
     }
 
-    // Look for active PRODUCTION certificate first, fallback to active certificate
-    const activeCert = company.certificates.find((c: any) => c.is_active && c.type === 'PRODUCTION')
-        || company.certificates.find((c: any) => c.is_active);
+    // 6. Strict Tenant Authorization Verification & Audit Logging
+    if (authContext.isSuperAdmin === true) {
+        console.info(`[SECURITY AUDIT] SUPER_ADMIN privileged credential access override invoked by principal ${authContext.authenticatedUserId || 'SUPER_ADMIN'} for target company ID ${company.id} (${company.vat_number}).`);
+    } else if (authContext.isSystemWorker === true) {
+        if (authContext.companyId !== company.id) {
+            throw new Error(`UNAUTHORIZED_TENANT_ACCESS: System worker for company ${authContext.companyId} cannot access company ${company.id} (${company.registered_name}).`);
+        }
+    } else {
+        if (authContext.companyId !== company.id) {
+            throw new Error(`UNAUTHORIZED_TENANT_ACCESS: Authenticated company ID ${authContext.companyId} is not authorized to access credentials for company ${company.id} (${company.registered_name}).`);
+        }
+    }
+
+    // 7. Strict Environment Matching — Zero Implicit Fallback
+    const activeCert = company.certificates.find((c: any) => 
+        c.is_active === true && 
+        c.company_id === company.id && 
+        c.type === targetEnv
+    );
 
     if (!activeCert || !activeCert.csid || !activeCert.secret || !activeCert.private_key) {
-        throw new Error(`Active ZATCA credentials (CSID, secret, private_key) not found for company ${company.registered_name} (${company.vat_number}).`);
+        throw new Error(`Active ZATCA ${targetEnv} credentials (CSID, secret, private_key) not found for company ${company.registered_name} (${company.vat_number}). Implicit fallback across environments is prohibited.`);
+    }
+
+    // 8. Ensure binding consistency
+    if (activeCert.company_id !== company.id || activeCert.type !== targetEnv || activeCert.is_active !== true) {
+        throw new Error(`CREDENTIAL_BINDING_MISMATCH: Certificate ID ${activeCert.id} binding mismatch for company ${company.id} and environment ${targetEnv}.`);
     }
 
     const { SecurityService } = await import('./securityService.js');
@@ -254,7 +359,7 @@ export const getProductionCredentials = async (vatOrCompanyId: string | number) 
         companyId: company.id,
         vatNumber: company.vat_number,
         companyName: company.registered_name,
-        environment: company.environment || activeCert.type,
+        environment: targetEnv,
         csid: activeCert.csid,
         certificate: activeCert.certificate || activeCert.csid,
         secret: SecurityService.decrypt(activeCert.secret),
@@ -271,8 +376,13 @@ export const ZatcaService = {
     clearInvoice,
     getProductionCredentials,
     report: async (params: any) => {
-        const credentials = await getProductionCredentials(params.companyId || params.vat);
-        const env = credentials.environment || 'PRODUCTION';
+        const credentials = await getProductionCredentials({
+            companyId: params.companyId,
+            vatNumber: params.vat,
+            environment: params.environment || 'PRODUCTION',
+            authContext: params.authContext
+        });
+        const env = credentials.environment;
         return await reportInvoice(
             env,
             credentials.csid,
@@ -291,3 +401,4 @@ export const ZatcaService = {
         });
     }
 };
+

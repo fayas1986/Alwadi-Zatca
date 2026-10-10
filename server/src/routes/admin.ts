@@ -8,6 +8,7 @@ const router = Router();
 console.log('[Admin] Admin routes initializing...');
 import prisma from '../lib/prisma.js';
 import { encrypt } from '../utils/crypto.js';
+import { verifyJwt } from '../utils/jwt.js';
 import { FALLBACK_USERS } from './auth.js';
 import fs from 'fs';
 import path from 'path';
@@ -188,7 +189,11 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
                 include: {
                     user: true,
                     certificates: true,
-                    group: true
+                    group: true,
+                    branches: {
+                        where: { is_deleted: false },
+                        orderBy: { id: 'asc' }
+                    }
                 },
                 orderBy: { id: 'asc' }
             });
@@ -201,36 +206,60 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
             throw dbErr;
         }
         
-        const organizations = companies.map(c => ({
-            id: c.id.toString(),
-            name: c.registered_name,
-            vatNumber: c.vat_number,
-            crNumber: c.cr_number,
-            groupName: c.group?.name || 'Unassigned',
-            groupId: c.group_id,
-            branches: [{
-                id: `br-${c.id}`,
-                organizationId: c.id.toString(),
-                name: cleanBranchName(c.branch_name),
-                type: 'HQ',
-                environment: c.environment,
-                settings: c.settings || {},
-                address: {
-                    streetName: c.street_name || c.address || '',
-                    buildingNumber: c.building_number || '',
-                    cityName: c.city || '',
-                    citySubdivisionName: c.city_subdivision || '',
-                    postalZone: c.postal_zone || '',
-                    countryCode: c.country || 'SA'
-                }
-            }]
-        }));
+        const organizations = companies.map(c => {
+            const mappedBranches = c.branches && c.branches.length > 0
+                ? c.branches.map((b: any) => ({
+                    id: b.id.toString(),
+                    code: b.code,
+                    organizationId: c.id.toString(),
+                    name: b.name,
+                    type: b.code === 'BR-001' ? 'HQ' : 'BRANCH',
+                    environment: c.environment,
+                    settings: b.settings || {},
+                    address: {
+                        streetName: b.street_name || b.address || '',
+                        buildingNumber: b.building_number || '',
+                        cityName: b.city || '',
+                        citySubdivisionName: b.city_subdivision || '',
+                        postalZone: b.postal_zone || '',
+                        countryCode: b.country || 'SA'
+                    }
+                }))
+                : [{
+                    id: `br-${c.id}`,
+                    code: 'HQ',
+                    organizationId: c.id.toString(),
+                    name: cleanBranchName(c.branch_name),
+                    type: 'HQ',
+                    environment: c.environment,
+                    settings: c.settings || {},
+                    address: {
+                        streetName: c.street_name || c.address || '',
+                        buildingNumber: c.building_number || '',
+                        cityName: c.city || '',
+                        citySubdivisionName: c.city_subdivision || '',
+                        postalZone: c.postal_zone || '',
+                        countryCode: c.country || 'SA'
+                    }
+                }];
+
+            return {
+                id: c.id.toString(),
+                name: c.registered_name,
+                vatNumber: c.vat_number,
+                crNumber: c.cr_number,
+                groupName: c.group?.name || 'Unassigned',
+                groupId: c.group_id,
+                branches: mappedBranches
+            };
+        });
 
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         res.setHeader('x-isolation-status', 'active-v2');
         res.setHeader('x-debug-role', userRole || 'NONE');
         res.setHeader('x-debug-email', userEmail || 'NONE');
         res.json(organizations);
+
     } catch (error: any) {
         console.error('Error fetching companies:', error);
         res.status(500).json({ error: 'Failed to fetch companies', details: error?.message || String(error) });
@@ -290,7 +319,7 @@ router.post('/companies', requireSuperAdmin, async (req, res) => {
                     update: {},
                     create: {
                         id: defaultUserId,
-                        email: 'admin@system.local',
+                        email: 'admin@alwadipoultry.com',
                         role: 'SUPER_ADMIN',
                         password: encrypt('Zatca#Secure!2026@Connect')
                     }
@@ -660,13 +689,370 @@ router.post('/system/update-env', requireSuperAdmin, async (req, res) => {
             console.log('[Update Env] PM2 restart output:', stdout);
         });
 
-        res.json({ message: 'DATABASE_URL updated successfully and PM2 restart triggered' });
+        res.json({ message: 'Environment database URL updated successfully' });
+    } catch (error: any) {
+        console.error('[Update Env] Error:', error);
+        res.status(500).json({ error: 'Failed to update environment variable', details: error?.message });
+    }
+});
+
+// ─── BRANCH MANAGEMENT APIS & AUTHORIZATION ───────────────────────────────────────
+
+/**
+ * Verified Server-Side Authorization Engine
+ * Resolves principal identity, role, and authorized company IDs strictly from validated JWT tokens and active database state.
+ * Rejects unauthenticated requests (401), missing/invalid JWT tokens (401), tampered algorithms (401), revoked accounts (401), and mismatched claim identities (401).
+ */
+export async function getVerifiedAuthContext(req: any): Promise<{
+    user: any;
+    role: string;
+    isSuperAdmin: boolean;
+    authorizedCompanyIds: number[];
+} | { errorStatus: number; errorMessage: string }> {
+    // 1. Extract Bearer token from Authorization or x-auth-token header ONLY
+    const authHeader = req.headers['authorization'] || req.headers['x-auth-token'];
+    
+    if (!authHeader || typeof authHeader !== 'string') {
+        return { errorStatus: 401, errorMessage: 'AUTHENTICATION_REQUIRED: Valid Bearer JWT token is required' };
+    }
+
+    // 2. Validate JWT signature, HS256 algorithm, claims, issuer, audience, and exp
+    const payload = verifyJwt(authHeader);
+    if (!payload || !payload.sub || !payload.email) {
+        return { errorStatus: 401, errorMessage: 'INVALID_TOKEN: JWT authentication token is invalid, tampered, or expired' };
+    }
+
+    const tokenUserId = payload.sub;
+    const tokenEmail = payload.email.toLowerCase().trim();
+
+    // 3. Query current database state using verified tokenUserId
+    let user: any = null;
+    let isDbError = false;
+    try {
+        if (tokenUserId) {
+            user = await prisma.user.findFirst({
+                where: { id: tokenUserId },
+                include: { companies: true }
+            });
+        }
+        if (!user && tokenEmail) {
+            user = await prisma.user.findFirst({
+                where: { email: { equals: tokenEmail, mode: 'insensitive' } },
+                include: { companies: true }
+            });
+        }
+    } catch (dbErr: any) {
+        console.error(`[AuthContext] Database connection error during user lookup for ${tokenUserId}:`, dbErr?.message || dbErr);
+        isDbError = true;
+    }
+
+    if (isDbError) {
+        return { errorStatus: 500, errorMessage: 'INTERNAL_SERVER_ERROR: Authentication database service unavailable' };
+    }
+
+    // Fallback users allowed ONLY in non-production environments for test suite tokens when user is not in DB
+    if (!user && process.env.NODE_ENV !== 'production' && tokenEmail) {
+        const fallback = FALLBACK_USERS[tokenEmail];
+        if (fallback) {
+            user = {
+                id: fallback.id,
+                email: fallback.email,
+                role: fallback.role,
+                name: fallback.name,
+                company_name: fallback.company_name,
+                companies: fallback.company_id ? [{ id: fallback.company_id }] : []
+            };
+        }
+    }
+
+    if (!user) {
+        return { errorStatus: 401, errorMessage: 'INVALID_PRINCIPAL: Token principal does not exist in system database' };
+    }
+
+    // 4. Enforce Identity Claim Consistency (token email MUST match current DB email)
+    if (user.email.toLowerCase().trim() !== tokenEmail) {
+        console.warn(`[SECURITY AUDIT] Identity mismatch for user ID ${tokenUserId}: token claimed '${tokenEmail}', DB email is '${user.email}'`);
+        return { errorStatus: 401, errorMessage: 'IDENTITY_MISMATCH: JWT claims inconsistent with database user identity' };
+    }
+
+    // 5. Check if user account was soft-deleted or revoked
+    if ((user as any).is_deleted || (user as any).is_active === false) {
+        return { errorStatus: 401, errorMessage: 'ACCOUNT_REVOKED: User account has been deactivated or revoked' };
+    }
+
+    // 6. SERVER-SIDE DERIVED ROLES & MEMBERSHIPS FROM CURRENT DB STATE
+    const currentDbRole = user.role;
+    const isSuperAdmin = currentDbRole === 'SUPER_ADMIN';
+
+    // Retrieve active company memberships directly from database
+    let authorizedCompanyIds: number[] = [];
+    if (user.companies && Array.isArray(user.companies)) {
+        authorizedCompanyIds = user.companies.map((c: any) => c.id);
+    }
+
+    try {
+        const ownedCompanies = await prisma.company.findMany({
+            where: { user_id: user.id, is_deleted: false },
+            select: { id: true }
+        });
+        const ownedIds = ownedCompanies.map(c => c.id);
+        authorizedCompanyIds = Array.from(new Set([...authorizedCompanyIds, ...ownedIds]));
+    } catch (e: any) {
+        console.error(`[AuthContext] Database company query error for user ${user.id}:`, e?.message || e);
+        return { errorStatus: 500, errorMessage: 'INTERNAL_SERVER_ERROR: Authorization database service unavailable' };
+    }
+
+    if (authorizedCompanyIds.length === 0 && (user as any).company_id) {
+        authorizedCompanyIds = [(user as any).company_id];
+    }
+
+    if (!isSuperAdmin && authorizedCompanyIds.length === 0) {
+        return { errorStatus: 403, errorMessage: 'UNAUTHORIZED_BRANCH_ACCESS: User has no authorized company membership' };
+    }
+
+    return {
+        user,
+        role: currentDbRole,
+        isSuperAdmin,
+        authorizedCompanyIds
+    };
+}
+
+/**
+ * @swagger
+ * /api/admin/branches:
+ *   get:
+ *     summary: List branches for an organization
+ *     tags: [Admin - Branches]
+ */
+router.get('/branches', requireAnyAdmin, async (req, res) => {
+    try {
+        const auth = await getVerifiedAuthContext(req);
+        if ('errorStatus' in auth) {
+            return res.status(auth.errorStatus).json({ error: auth.errorMessage });
+        }
+
+        const rawCompanyId = req.query.companyId as string;
+        const companyId = rawCompanyId ? parseInt(rawCompanyId) : undefined;
+        let whereClause: any = { is_deleted: false };
+
+        if (!auth.isSuperAdmin) {
+            if (companyId) {
+                if (!auth.authorizedCompanyIds.includes(companyId)) {
+                    return res.status(403).json({ error: 'UNAUTHORIZED_BRANCH_ACCESS: Cannot view branches outside assigned company' });
+                }
+                whereClause.company_id = companyId;
+            } else {
+                whereClause.company_id = { in: auth.authorizedCompanyIds };
+            }
+        } else if (companyId) {
+            whereClause.company_id = companyId;
+        }
+
+        const branches = await prisma.branch.findMany({
+            where: whereClause,
+            orderBy: { id: 'asc' },
+            include: { company: true }
+        });
+
+        res.json(branches);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to fetch branches', details: err.message });
+    }
+});
+
+/**
+ * @swagger
+ * /api/admin/branches:
+ *   post:
+ *     summary: Create a new branch
+ *     tags: [Admin - Branches]
+ */
+router.post('/branches', requireAnyAdmin, async (req, res) => {
+    try {
+        const auth = await getVerifiedAuthContext(req);
+        if ('errorStatus' in auth) {
+            return res.status(auth.errorStatus).json({ error: auth.errorMessage });
+        }
+
+        const {
+            companyId,
+            code,
+            name,
+            city,
+            address,
+            streetName,
+            buildingNumber,
+            citySubdivision,
+            postalZone,
+            country
+        } = req.body;
+
+        if (!companyId || !code || !name) {
+            return res.status(400).json({ error: 'companyId, code, and name are required' });
+        }
+
+        const cid = parseInt(companyId);
+
+        if (!auth.isSuperAdmin && !auth.authorizedCompanyIds.includes(cid)) {
+            return res.status(403).json({ error: 'UNAUTHORIZED_TENANT_ACCESS: Cannot create branch for another organization' });
+        }
+
+        const existing = await prisma.branch.findFirst({
+            where: { company_id: cid, code: code.toUpperCase().trim(), is_deleted: false }
+        });
+        if (existing) {
+            return res.status(400).json({ error: `Branch code '${code}' already exists for this company` });
+        }
+
+        const branch = await prisma.branch.create({
+            data: {
+                company_id: cid,
+                code: code.toUpperCase().trim(),
+                name: name.trim(),
+                city: city || 'Riyadh',
+                address: address || null,
+                street_name: streetName || null,
+                building_number: buildingNumber || null,
+                city_subdivision: citySubdivision || null,
+                postal_zone: postalZone || null,
+                country: country || 'SA',
+                is_active: true
+            }
+        });
+
+        res.status(201).json(branch);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to create branch', details: err.message });
+    }
+});
+
+/**
+ * @swagger
+ * /api/admin/branches/{id}:
+ *   get:
+ *     summary: Get branch by ID
+ *     tags: [Admin - Branches]
+ */
+router.get('/branches/:id', requireAnyAdmin, async (req, res) => {
+    try {
+        const auth = await getVerifiedAuthContext(req);
+        if ('errorStatus' in auth) {
+            return res.status(auth.errorStatus).json({ error: auth.errorMessage });
+        }
+
+        const id = parseInt(req.params.id);
+        const branch = await prisma.branch.findUnique({
+            where: { id },
+            include: { company: true }
+        });
+
+        if (!branch || branch.is_deleted) {
+            return res.status(404).json({ error: 'Branch not found' });
+        }
+
+        if (!auth.isSuperAdmin && !auth.authorizedCompanyIds.includes(branch.company_id)) {
+            return res.status(403).json({ error: 'UNAUTHORIZED_BRANCH_ACCESS: Cannot view branch belonging to another organization' });
+        }
+
+        res.json(branch);
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }
 });
 
+/**
+ * @swagger
+ * /api/admin/branches/{id}:
+ *   put:
+ *     summary: Update branch by ID
+ *     tags: [Admin - Branches]
+ */
+router.put('/branches/:id', requireAnyAdmin, async (req, res) => {
+    try {
+        const auth = await getVerifiedAuthContext(req);
+        if ('errorStatus' in auth) {
+            return res.status(auth.errorStatus).json({ error: auth.errorMessage });
+        }
+
+        const id = parseInt(req.params.id);
+        const {
+            name,
+            city,
+            address,
+            streetName,
+            buildingNumber,
+            citySubdivision,
+            postalZone,
+            isActive
+        } = req.body;
+
+        const branch = await prisma.branch.findUnique({ where: { id } });
+        if (!branch || branch.is_deleted) {
+            return res.status(404).json({ error: 'Branch not found' });
+        }
+
+        if (!auth.isSuperAdmin && !auth.authorizedCompanyIds.includes(branch.company_id)) {
+            return res.status(403).json({ error: 'UNAUTHORIZED_BRANCH_ACCESS: Cannot update branch belonging to another organization' });
+        }
+
+        const updated = await prisma.branch.update({
+            where: { id },
+            data: {
+                name: name !== undefined ? name : branch.name,
+                city: city !== undefined ? city : branch.city,
+                address: address !== undefined ? address : branch.address,
+                street_name: streetName !== undefined ? streetName : branch.street_name,
+                building_number: buildingNumber !== undefined ? buildingNumber : branch.building_number,
+                city_subdivision: citySubdivision !== undefined ? citySubdivision : branch.city_subdivision,
+                postal_zone: postalZone !== undefined ? postalZone : branch.postal_zone,
+                is_active: isActive !== undefined ? Boolean(isActive) : branch.is_active
+            }
+        });
+
+        res.json(updated);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to update branch', details: err.message });
+    }
+});
+
+/**
+ * @swagger
+ * /api/admin/branches/{id}:
+ *   delete:
+ *     summary: Soft delete / deactivate branch by ID
+ *     tags: [Admin - Branches]
+ */
+router.delete('/branches/:id', requireSuperAdmin, async (req, res) => {
+    try {
+        const auth = await getVerifiedAuthContext(req);
+        if ('errorStatus' in auth) {
+            return res.status(auth.errorStatus).json({ error: auth.errorMessage });
+        }
+
+        if (!auth.isSuperAdmin) {
+            return res.status(403).json({ error: 'Access Denied: Super Admin only' });
+        }
+
+        const id = parseInt(req.params.id);
+        const branch = await prisma.branch.findUnique({ where: { id } });
+        if (!branch || branch.is_deleted) {
+            return res.status(404).json({ error: 'Branch not found' });
+        }
+
+        const deactivated = await prisma.branch.update({
+            where: { id },
+            data: { is_active: false, is_deleted: true, deleted_at: new Date() }
+        });
+
+        res.json({ message: 'Branch deactivated successfully', branch: deactivated });
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to delete branch', details: err.message });
+    }
+});
+
 export default router;
+
 
 
 

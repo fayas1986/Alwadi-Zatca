@@ -185,14 +185,14 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({ userRole, userEmail 
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-end">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Report Center</h1>
           <p className="text-slate-500 mt-2 text-lg">Generate and download audit reports for your organization.</p>
         </div>
         
-        <div className="flex items-end gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 w-full lg:w-auto">
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block ml-1">Quick Period</label>
             <select 

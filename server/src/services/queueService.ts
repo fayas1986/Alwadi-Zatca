@@ -1,6 +1,6 @@
 import prisma from '../lib/prisma.js';
 import { signInvoice } from './sdkService.js';
-import { reportInvoice, clearInvoice } from './zatcaService.js';
+import { reportInvoice, clearInvoice, getProductionCredentials, createVerifiedSystemWorkerContext } from './zatcaService.js';
 import { NotificationService } from './notificationService.js';
 import { AuditService } from './auditService.js';
 import { SecurityService } from './securityService.js';
@@ -111,21 +111,24 @@ export class QueueService {
         }
 
         try {
-            const cert = company.certificates.find((c: any) => c.is_active && c.type === company.environment);
-            if (!cert) throw new Error('No active certificate found');
+            const credentials = await getProductionCredentials({
+                companyId: companyId,
+                environment: company.environment || 'PRODUCTION',
+                authContext: createVerifiedSystemWorkerContext(companyId)
+            });
 
             // Rate Limit Check (Per-EGS: 5 req/sec)
             const now = Date.now();
-            const lastTime = QueueService.lastRequestTime[cert.id] || 0;
+            const lastTime = QueueService.lastRequestTime[credentials.companyId] || 0;
             const diff = now - lastTime;
             if (diff < this.RATE_LIMIT_MS) {
                 await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_MS - diff));
             }
-            QueueService.lastRequestTime[cert.id] = Date.now();
+            QueueService.lastRequestTime[credentials.companyId] = Date.now();
 
-            // ENT 2: Field-Level Decryption
-            const decryptedSecret = SecurityService.decrypt(cert.secret!);
-            const decryptedPrivateKey = SecurityService.decrypt(cert.private_key || cert.secret!);
+            const decryptedSecret = credentials.secret;
+            const decryptedPrivateKey = credentials.privateKey;
+
             
             // PIH: Find the last submitted invoice hash for this company
             // We use a TRANSACTION with a LOCK to prevent multiple workers from reading the same PIH

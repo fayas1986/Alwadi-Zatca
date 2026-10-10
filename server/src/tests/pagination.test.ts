@@ -44,8 +44,20 @@ vi.mock('../services/xmlService.js', () => ({
 // Mock zatcaService
 vi.mock('../services/zatcaService.js', () => ({
     reportInvoice: vi.fn().mockResolvedValue({ reportingStatus: 'REPORTED' }),
-    clearInvoice: vi.fn().mockResolvedValue({ clearanceStatus: 'CLEARED' })
+    clearInvoice: vi.fn().mockResolvedValue({ clearanceStatus: 'CLEARED' }),
+    createVerifiedSystemWorkerContext: vi.fn((companyId: number) => ({ companyId, isSystemWorker: true, verifiedByServer: true })),
+    getProductionCredentials: vi.fn().mockResolvedValue({
+        companyId: 1,
+        vatNumber: '300000000000003',
+        companyName: 'Alwadi Trading L.L.C.',
+        environment: 'SANDBOX',
+        csid: 'mock_csid',
+        certificate: 'mock_cert',
+        secret: 'mock_secret',
+        privateKey: 'mock_key'
+    })
 }));
+
 
 describe('ERP Pagination Verification', () => {
     const vatNumber = '300000000000003';

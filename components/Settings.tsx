@@ -378,7 +378,7 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
                   
                   {/* PROFILE TAB */}
                   {activeTab === 'profile' && (
-                      <div className="p-8 space-y-8 animate-in fade-in duration-300">
+                      <div className="p-4 sm:p-6 lg:p-8 space-y-8 animate-in fade-in duration-300">
                           <div className="flex flex-col md:flex-row gap-8 items-start border-b border-slate-100 pb-8">
                               <div className="w-full md:w-auto flex flex-col items-center">
                                   <div className="w-32 h-32 bg-slate-100 rounded-full flex items-center justify-center border-2 border-dashed border-slate-300 mb-4 text-slate-400 overflow-hidden relative shadow-inner">
@@ -437,7 +437,7 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
 
                   {/* COMPLIANCE TAB */}
                   {activeTab === 'compliance' && (
-                      <div className="p-8 space-y-8 animate-in fade-in duration-300">
+                      <div className="p-4 sm:p-6 lg:p-8 space-y-8 animate-in fade-in duration-300">
                           <div className="bg-indigo-50/50 rounded-2xl p-6 border border-indigo-100">
                               <div className="flex items-center justify-between mb-2">
                                   <h3 className="text-lg font-bold text-slate-900 flex items-center">
@@ -548,7 +548,7 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
 
                   {/* SECURITY TAB */}
                   {activeTab === 'security' && (
-                      <div className="p-8 space-y-6 animate-in fade-in duration-300">
+                      <div className="p-4 sm:p-6 lg:p-8 space-y-6 animate-in fade-in duration-300">
                           <div>
                               <h3 className="text-lg font-bold text-slate-900 mb-6">Access Control</h3>
                               <div className="space-y-4">
@@ -592,7 +592,7 @@ export const Settings: React.FC<SettingsProps> = ({ selectedBranch, organization
 
                   {/* NOTIFICATIONS TAB */}
                   {activeTab === 'notifications' && (
-                      <div className="p-8 space-y-6 animate-in fade-in duration-300">
+                      <div className="p-4 sm:p-6 lg:p-8 space-y-6 animate-in fade-in duration-300">
                           <h3 className="text-lg font-bold text-slate-900 mb-6">Alert Preferences</h3>
                           
                           <div className="space-y-4">

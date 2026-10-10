@@ -586,7 +586,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
       </>
       ) : (
           /* API Simulator Tab */
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col lg:flex-row h-[600px]">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col lg:flex-row min-h-[500px] lg:h-[600px]">
               <div className="flex-1 p-6 border-r border-slate-100 flex flex-col overflow-hidden">
                   <div className="mb-6">
                       <div className="flex items-center justify-between mb-4">
@@ -680,7 +680,7 @@ export const ERPConnectors: React.FC<ERPConnectorsProps> = ({ selectedBranch }) 
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md transition-opacity">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-200 relative">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200 border border-slate-200 relative">
              <div className="h-1.5 w-full bg-slate-900 absolute top-0 left-0"></div>
              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
                 <h3 className="font-bold text-2xl text-slate-900">Onboard New System</h3>

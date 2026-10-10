@@ -227,27 +227,27 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
     <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col h-full overflow-hidden animate-in fade-in duration-300">
       
       {/* Toolbar */}
-      <div className="p-6 border-b border-slate-100 bg-white sticky top-0 z-30">
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+      <div className="p-4 sm:p-6 border-b border-slate-100 bg-white sticky top-0 z-30">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-4">
           
           {/* Search */}
-          <div className="relative flex-1 max-w-md group">
+          <div className="relative flex-1 max-w-full xl:max-w-md group">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
             <input 
               type="text" 
               placeholder="Search invoices..." 
-              className="w-full pl-11 pr-4 py-3 bg-slate-50 hover:bg-slate-50/80 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm"
+              className="w-full pl-11 pr-4 py-2.5 sm:py-3 bg-slate-50 hover:bg-slate-50/80 border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
           {/* Filters & Actions */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             
             {/* Date Range Filter */}
-            <div className="relative flex items-center">
-                <div className="relative min-w-[140px]">
+            <div className="relative flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[130px] flex-1 sm:flex-none">
                     <select 
                         className="w-full appearance-none bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm cursor-pointer hover:border-slate-300"
                         value={dateRange}
@@ -264,19 +264,19 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
                     <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
 
-                {/* Custom Date Inputs (Slide in) */}
+                {/* Custom Date Inputs */}
                 {dateRange === 'Custom' && (
-                    <div className="flex items-center gap-2 ml-2 animate-in fade-in slide-in-from-left-2">
+                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 w-full sm:w-auto mt-2 sm:mt-0">
                         <input 
                             type="date" 
-                            className="bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-lg py-2.5 px-3 focus:outline-none focus:border-indigo-500 shadow-sm"
+                            className="bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-lg py-2.5 px-3 focus:outline-none focus:border-indigo-500 shadow-sm flex-1"
                             value={customStart}
                             onChange={(e) => setCustomStart(e.target.value)}
                         />
                         <span className="text-slate-400">-</span>
                         <input 
                             type="date" 
-                            className="bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-lg py-2.5 px-3 focus:outline-none focus:border-indigo-500 shadow-sm"
+                            className="bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-lg py-2.5 px-3 focus:outline-none focus:border-indigo-500 shadow-sm flex-1"
                             value={customEnd}
                             onChange={(e) => setCustomEnd(e.target.value)}
                         />
@@ -287,7 +287,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
             <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
 
             {/* Type Filter */}
-            <div className="relative min-w-[130px]">
+            <div className="relative min-w-[120px] flex-1 sm:flex-none">
                 <select 
                     className="w-full appearance-none bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm cursor-pointer hover:border-slate-300"
                     value={typeFilter}
@@ -301,7 +301,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
             </div>
 
             {/* Status Filter */}
-            <div className="relative min-w-[130px]">
+            <div className="relative min-w-[120px] flex-1 sm:flex-none">
                 <select 
                     className="w-full appearance-none bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm cursor-pointer hover:border-slate-300"
                     value={statusFilter}
@@ -322,7 +322,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
 
             <button 
                 onClick={handleExportCSV}
-                className="p-2.5 bg-white text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-xl transition-all shadow-sm hover:shadow active:scale-95"
+                className="p-2.5 bg-white text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-xl transition-all shadow-sm hover:shadow active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
                 title="Export CSV"
             >
                 <FileDown size={20} />
@@ -331,7 +331,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
             <button 
                 onClick={handleSync}
                 disabled={isSyncing}
-                className={`p-2.5 bg-white text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-xl transition-all shadow-sm hover:shadow active:scale-95 disabled:opacity-50 ${isSyncing ? 'cursor-wait' : ''}`}
+                className={`p-2.5 bg-white text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 rounded-xl transition-all shadow-sm hover:shadow active:scale-95 disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center ${isSyncing ? 'cursor-wait' : ''}`}
                 title="Refresh Data"
             >
                 <RefreshCw size={20} className={isSyncing ? "animate-spin" : ""} />
@@ -341,8 +341,8 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto bg-slate-50/30">
-        <table className="w-full text-left text-sm border-collapse">
+      <div className="flex-1 overflow-x-auto overflow-y-auto bg-slate-50/30">
+        <table className="w-full min-w-[750px] text-left text-sm border-collapse">
           <thead className="bg-slate-50/90 backdrop-blur text-xs font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-20 border-b border-slate-200">
             <tr>
               <th className="px-6 py-4 font-bold">Document</th>

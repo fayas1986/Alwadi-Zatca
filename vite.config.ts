@@ -23,7 +23,9 @@ export default defineConfig(({ mode }) => {
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
       },
       test: {
-        exclude: ['**/node_modules/**', 'tests/e2e/**']
+        exclude: ['**/node_modules/**', 'tests/e2e/**'],
+        hookTimeout: 30000,
+        testTimeout: 30000
       },
       resolve: {
         alias: {

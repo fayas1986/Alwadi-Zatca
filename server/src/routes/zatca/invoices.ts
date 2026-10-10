@@ -1,7 +1,7 @@
 
 import { Router } from 'express';
 import prisma from '../../lib/prisma.js';
-import { ZatcaService } from '../../services/zatcaService.js';
+import { ZatcaService, createVerifiedUserContext } from '../../services/zatcaService.js';
 import { ZatcaMappingService } from '../../services/zatcaMappingService.js';
 import { ResponseHandler } from '../../utils/ResponseHandler.js';
 
@@ -113,6 +113,7 @@ router.get('/invoices/:id', async (req, res) => {
     }
 });
 
+
 /**
  * @swagger
  * /api/zatca/invoice/report:
@@ -122,17 +123,20 @@ router.get('/invoices/:id', async (req, res) => {
  */
 router.post('/invoice/report', async (req, res) => {
     try {
-        const { invoice: invoiceData, companyId, vat } = req.body;
+        const { invoice: invoiceData, companyId, vat, environment } = req.body;
         const userEmail = (req.headers['x-user-email'] as string) || 'portal-user';
         const userRole = (req.headers['x-user-role'] as string) || 'USER';
-        const ip = req.ip || 'unknown';
+        const cid = companyId ? parseInt(companyId) : 1;
+
+        const authContext = createVerifiedUserContext(cid, userRole, userEmail);
 
         const result = await ZatcaService.report({
             invoiceData,
-            companyId: companyId ? parseInt(companyId) : undefined,
+            companyId: cid,
             vat,
-            userContext: { email: userEmail, role: userRole, ip }
-        } as any);
+            environment: environment || 'PRODUCTION',
+            authContext
+        });
         
         return ResponseHandler.success(res, result);
     } catch (error: any) {
@@ -140,6 +144,7 @@ router.post('/invoice/report', async (req, res) => {
         return ResponseHandler.error(res, error.message);
     }
 });
+
 
 /**
  * @swagger

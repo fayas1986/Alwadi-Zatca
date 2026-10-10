@@ -25,7 +25,7 @@
     },
     "region": {
       "type": "string",
-      "enum": ["me-central-1", "me-south-1", "saudiarabiaeast"]
+      "enum": ["me-south-2", "saudiarabiaeast"]
     },
     "environment": {
       "type": "string",
