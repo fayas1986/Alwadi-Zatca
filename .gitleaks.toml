@@ -1,0 +1,19 @@
+title = "Gitleaks configuration for Alwadi ZATCA"
+
+[allowlist]
+description = "Ignore synthetic ZATCA test fixtures, SDK mock certs, and test files"
+paths = [
+  '''server/zatca-sdk/Data/Certificates/''',
+  '''server/src/tests/''',
+  '''tests/''',
+  '''server/temp/''',
+  '''admin_access.log'''
+]
+regexes = [
+  '''ZATCA_CSID_MOCK''',
+  '''ZATCA_CSID_PROD_STAMP''',
+  '''mock-cert-hash''',
+  '''mock-key-''',
+  '''MIIBtzCCAS2gAwIBAgITAY1x8R4pA1Z7W''',
+  '''MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg'''
+]
