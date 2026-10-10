@@ -34,6 +34,7 @@ export interface Branch {
   type: 'HQ' | 'Branch' | 'Store' | 'Warehouse';
   address: Address;
   environment?: 'PRODUCTION' | 'SIMULATION' | 'SANDBOX';
+  settings?: any;
 }
 
 export interface Party {
@@ -57,6 +58,7 @@ export interface InvoiceItem {
   subtotal: number; // Excluding VAT
   total: number;    // Including VAT
   taxCategory?: 'S' | 'Z' | 'E' | 'O'; // ZATCA Tax Category Code: S=Standard, Z=Zero, E=Exempt, O=Out of Scope
+  taxCategoryCode?: 'S' | 'Z' | 'E' | 'O';
 }
 
 export interface Item {

@@ -17,6 +17,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - run: npx prisma generate
       - run: npx prisma validate
       - run: npx tsc --noEmit
 
@@ -43,7 +44,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npx vitest run
+      - run: npx prisma generate
+      - run: npx vitest run --fileParallelism=false
 
   regional-compliance:
     name: Saudi Arabia Data Residency & Spec Verification

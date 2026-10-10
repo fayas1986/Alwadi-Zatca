@@ -428,14 +428,14 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
                             inv.status === 'Cleared' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                             inv.status === 'Reported' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                             inv.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                            inv.status === 'DLQ' || inv.status === 'dlq' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                            inv.status === 'Failed' || inv.status === 'FAILED' ? 'bg-red-50 text-red-700 border-red-200' :
+                            (inv.status as string).toUpperCase() === 'DLQ' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            (inv.status as string).toUpperCase() === 'FAILED' ? 'bg-red-50 text-red-700 border-red-200' :
                             'bg-amber-50 text-amber-700 border-amber-200'
                         }`}>
                             {inv.status === 'Cleared' && <ShieldCheck size={12} className="mr-1.5" />}
                             {inv.status === 'Reported' && <CheckCircle size={12} className="mr-1.5" />}
                             {inv.status === 'Rejected' && <ShieldAlert size={12} className="mr-1.5" />}
-                            {(inv.status === 'DLQ' || inv.status === 'dlq' || inv.status === 'Failed' || inv.status === 'FAILED') && <ShieldAlert size={12} className="mr-1.5" />}
+                            {((inv.status as string).toUpperCase() === 'DLQ' || (inv.status as string).toUpperCase() === 'FAILED') && <ShieldAlert size={12} className="mr-1.5" />}
                             {inv.status}
                         </span>
                     </td>
