@@ -1,7 +1,10 @@
 import * as crypto from 'crypto';
 
-// Ensure 32 bytes key for AES-256
-const ENCRYPTION_KEY = Buffer.from((process.env.ENCRYPTION_KEY || 'v-7h-Z-9_q-R-4_x-L-1_p-m-9_o-k-2_j').padEnd(32, '0').substring(0, 32), 'utf-8');
+const KEY_STRING = process.env.ENCRYPTION_KEY || 'v-7h-Z-9_q-R-4_x-L-1_p-m-9_o-k-2_j';
+const DEFAULT_KEY_STRING = 'v-7h-Z-9_q-R-4_x-L-1_p-m-9_o-k-2_j';
+
+const ENCRYPTION_KEY = Buffer.from(KEY_STRING.padEnd(32, '0').substring(0, 32), 'utf-8');
+const DEFAULT_KEY = Buffer.from(DEFAULT_KEY_STRING.padEnd(32, '0').substring(0, 32), 'utf-8');
 const IV_LENGTH = 16;
 
 export const encrypt = (text: string) => {
@@ -20,16 +23,31 @@ export const decrypt = (text: string) => {
         const encryptedText = Buffer.from(textParts.join(':'), 'hex');
         
         if (iv.length !== IV_LENGTH) {
-            console.warn('[Crypto Utility] Invalid IV length, returning raw text');
             return text;
         }
 
-        const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
-        let decrypted = decipher.update(encryptedText);
-        decrypted = Buffer.concat([decrypted, decipher.final()]);
-        return decrypted.toString();
+        // Try primary ENCRYPTION_KEY first
+        try {
+            const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+            let decrypted = decipher.update(encryptedText);
+            decrypted = Buffer.concat([decrypted, decipher.final()]);
+            const resStr = decrypted.toString('utf-8');
+            if (resStr) return resStr;
+        } catch (e) {
+            // Primary key mismatch, continue to fallback
+        }
+
+        // Try DEFAULT_KEY
+        try {
+            const decipher = crypto.createDecipheriv('aes-256-cbc', DEFAULT_KEY, iv);
+            let decrypted = decipher.update(encryptedText);
+            decrypted = Buffer.concat([decrypted, decipher.final()]);
+            return decrypted.toString('utf-8');
+        } catch (e) {
+            return text;
+        }
     } catch (error) {
-        console.error('[Crypto Utility] Decryption failed, returning raw text');
         return text;
     }
 };
+

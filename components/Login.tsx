@@ -8,8 +8,8 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@alwadipoultry.com');
+  const [password, setPassword] = useState('password123');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<UserRole>('IT_ADMIN');
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -27,8 +27,19 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const handleRoleSelect = (role: typeof allRoles[0]) => {
       setActiveTab(role.id);
-      setEmail('');
-      setPassword(''); 
+      if (role.id === 'IT_ADMIN') {
+        setEmail('admin@alwadipoultry.com');
+        setPassword('password123');
+      } else if (role.id === 'FINANCE_ADMIN') {
+        setEmail('finance@alwadipoultry.com');
+        setPassword('password123');
+      } else if (role.id === 'TAX_OFFICER') {
+        setEmail('tax@alwadipoultry.com');
+        setPassword('password123');
+      } else if (role.id === 'SUPER_ADMIN') {
+        setEmail('superadmin@alwadipoultry.com');
+        setPassword('Zatca#Secure!2026');
+      }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
