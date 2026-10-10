@@ -17,6 +17,9 @@ describe('Comprehensive Cross-Tenant & RBAC Negative Security Suite', () => {
   let superAdminToken: string;
   let alwadiCompanyId: number;
   let competitorCompanyId: number;
+  let competitorInvoiceId: number;
+  let competitorBranchId: number;
+  let competitorCertId: number;
 
   beforeAll(async () => {
     // 1. Setup Alwadi User & Company
@@ -87,7 +90,45 @@ describe('Comprehensive Cross-Tenant & RBAC Negative Security Suite', () => {
     }
     competitorCompanyId = compCompetitor.id;
 
-    // 3. Setup Unassigned User (No Company Membership)
+    // 3. Create Real Isolated Competitor (Company B) Records
+    const competitorInvoice = await prisma.invoice.create({
+      data: {
+        company_id: competitorCompanyId,
+        invoice_counter: 9001,
+        uuid: 'competitor-real-inv-uuid-9001',
+        invoice_type: 'TAX_INVOICE',
+        issue_date: new Date(),
+        date: new Date(),
+        status: 'CLEARED',
+        total_amount: 8888.00,
+        vat_amount: 1333.20,
+        xml_payload: '<xml>COMPETITOR_SECRET_PAYLOAD</xml>',
+        hash: 'competitorsecretinvoicehash9001'
+      }
+    });
+    competitorInvoiceId = competitorInvoice.id;
+
+    const competitorBranch = await prisma.branch.create({
+      data: {
+        company_id: competitorCompanyId,
+        branch_name: 'Competitor Secret Branch',
+        branch_code: 'COMP-BR-99'
+      }
+    });
+    competitorBranchId = competitorBranch.id;
+
+    const competitorCert = await prisma.certificate.create({
+      data: {
+        company_id: competitorCompanyId,
+        serial_number: 'COMP-CERT-SECRET-999',
+        common_name: 'Competitor Production CSID',
+        certificate_data: 'COMPETITOR_SECRET_CERT_DATA',
+        private_key: 'COMPETITOR_SECRET_PRIV_KEY'
+      }
+    });
+    competitorCertId = competitorCert.id;
+
+    // 4. Setup Unassigned User (No Company Membership)
     const userUnassigned = await prisma.user.upsert({
       where: { email: unassignedEmail },
       update: {},
@@ -99,7 +140,7 @@ describe('Comprehensive Cross-Tenant & RBAC Negative Security Suite', () => {
       }
     });
 
-    // 4. Issue JWT Tokens
+    // 5. Issue JWT Tokens
     alwadiToken = signJwt({
       userId: userAlwadi.id,
       email: alwadiEmail,
@@ -130,6 +171,15 @@ describe('Comprehensive Cross-Tenant & RBAC Negative Security Suite', () => {
   });
 
   afterAll(async () => {
+    if (competitorInvoiceId) {
+      await prisma.invoice.deleteMany({ where: { id: competitorInvoiceId } });
+    }
+    if (competitorBranchId) {
+      await prisma.branch.deleteMany({ where: { id: competitorBranchId } });
+    }
+    if (competitorCertId) {
+      await prisma.certificate.deleteMany({ where: { id: competitorCertId } });
+    }
     await prisma.$disconnect();
   });
 
@@ -192,28 +242,62 @@ describe('Comprehensive Cross-Tenant & RBAC Negative Security Suite', () => {
     expect(res.body.error).toMatch(/Unauthorized/i);
   });
 
-  it('7. CROSS-TENANT XML DOWNLOAD: User attempting to download XML for another tenant invoice is denied/scoped', async () => {
-    const res = await supertest(app)
-      .get('/api/invoices/999999/xml')
+  it('7. REAL COMPANY B INVOICE & XML DENIAL: Company A cannot view or download real Company B invoice or XML', async () => {
+    // Attempt GET real Company B invoice as Company A
+    const detailRes = await supertest(app)
+      .get(`/api/zatca/invoices/${competitorInvoiceId}`)
       .set('Authorization', `Bearer ${alwadiToken}`)
+      .set('x-user-email', alwadiEmail)
+      .set('x-user-role', 'IT_ADMIN')
       .expect(404);
 
-    expect(res.body.error || res.body.message).toBeDefined();
+    expect(detailRes.body.error || detailRes.body.message).toMatch(/not found/i);
+
+    // Attempt GET real Company B invoice XML as Company A
+    const xmlRes = await supertest(app)
+      .get(`/api/invoices/${competitorInvoiceId}/xml`)
+      .set('Authorization', `Bearer ${alwadiToken}`)
+      .set('x-user-email', alwadiEmail)
+      .expect(404);
+
+    expect(xmlRes.body.error || xmlRes.body.message).toBeDefined();
   });
 
-  it('8. CROSS-TENANT EXPORT: User exporting invoice report receives only authorized company data', async () => {
+  it('8. CROSS-TENANT EXPORT & REPORT: User exporting VAT summary report receives only authorized company data', async () => {
     const res = await supertest(app)
       .get('/api/reports/vat-summary?companyId=' + competitorCompanyId)
       .set('Authorization', `Bearer ${alwadiToken}`)
+      .set('x-user-email', alwadiEmail)
       .expect(200);
 
-    // Filtered strictly to authorized company context
     if (res.body.companyId) {
       expect(res.body.companyId.toString()).not.toBe(competitorCompanyId.toString());
     }
   });
 
-  it('9. REVOKED MEMBERSHIP: User whose DB record has no active companies receives 403 Forbidden', async () => {
+  it('9. CROSS-TENANT BRANCH & CERTIFICATE DENIAL: Company A cannot query real Company B branch or certificate records', async () => {
+    // Branch request
+    const branchRes = await supertest(app)
+      .get(`/api/admin/branches?companyId=${competitorCompanyId}`)
+      .set('Authorization', `Bearer ${alwadiToken}`)
+      .set('x-user-email', alwadiEmail)
+      .expect(200);
+
+    const branchNames = (branchRes.body || []).map((b: any) => b.branch_name);
+    expect(branchNames).not.toContain('Competitor Secret Branch');
+
+    // Certificate request
+    const certRes = await supertest(app)
+      .get(`/api/admin/certificates?companyId=${competitorCompanyId}`)
+      .set('Authorization', `Bearer ${alwadiToken}`)
+      .set('x-user-email', alwadiEmail)
+      .expect(200);
+
+    const certSerials = (certRes.body || []).map((c: any) => c.serial_number);
+    expect(certSerials).not.toContain('COMP-CERT-SECRET-999');
+  });
+
+  it('10. REVOKED MEMBERSHIP: User whose DB record has no active companies receives 403 Forbidden', async () => {
     const revokedToken = signJwt({
       userId: 'revoked_user_id',
       email: 'revoked@no-access.sa',
