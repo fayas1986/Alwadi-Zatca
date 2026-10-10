@@ -21,6 +21,8 @@ dist/
 dist-ssr/
 .vite/
 tmp/
+temp/
+server/temp/
 scratch/
 
 # Database Dumps, Exports & Audit Evidence

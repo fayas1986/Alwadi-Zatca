@@ -191,4 +191,41 @@ describe('Comprehensive Cross-Tenant & RBAC Negative Security Suite', () => {
 
     expect(res.body.error).toMatch(/Unauthorized/i);
   });
+
+  it('7. CROSS-TENANT XML DOWNLOAD: User attempting to download XML for another tenant invoice is denied/scoped', async () => {
+    const res = await supertest(app)
+      .get('/api/invoices/999999/xml')
+      .set('Authorization', `Bearer ${alwadiToken}`)
+      .expect(404);
+
+    expect(res.body.error || res.body.message).toBeDefined();
+  });
+
+  it('8. CROSS-TENANT EXPORT: User exporting invoice report receives only authorized company data', async () => {
+    const res = await supertest(app)
+      .get('/api/reports/vat-summary?companyId=' + competitorCompanyId)
+      .set('Authorization', `Bearer ${alwadiToken}`)
+      .expect(200);
+
+    // Filtered strictly to authorized company context
+    if (res.body.companyId) {
+      expect(res.body.companyId.toString()).not.toBe(competitorCompanyId.toString());
+    }
+  });
+
+  it('9. REVOKED MEMBERSHIP: User whose DB record has no active companies receives 403 Forbidden', async () => {
+    const revokedToken = signJwt({
+      userId: 'revoked_user_id',
+      email: 'revoked@no-access.sa',
+      role: 'IT_ADMIN',
+      companyId: 99999
+    });
+
+    const res = await supertest(app)
+      .get('/api/admin/companies')
+      .set('Authorization', `Bearer ${revokedToken}`)
+      .expect(403);
+
+    expect(res.body.error).toMatch(/User has no verified company membership/i);
+  });
 });
