@@ -78,7 +78,7 @@ export interface Translations {
   arabic: string;
 }
 
-export const translations: Record<Language, Translations> = {
+export const rawTranslations: Record<Language, Translations> = {
   en: {
     brandName: 'ZATCAConnect',
     brandTagline: 'Phase 2 E-Invoicing Platform',
@@ -144,7 +144,7 @@ export const translations: Record<Language, Translations> = {
     arabic: 'العربية'
   },
   ar: {
-    brandName: 'ربط الفاتورة الرقمية',
+    brandName: 'منصة ربط زكاة',
     brandTagline: 'منظومة الفوترة الإلكترونية المرحلة الثانية',
     
     menuHeader: 'القائمة الرئيسية',
@@ -158,7 +158,7 @@ export const translations: Record<Language, Translations> = {
     navCsrSettings: 'إعدادات شهادات CSR',
     navErpConnectors: 'ربط أنظمة ERP',
     navReportCenter: 'مركز التقارير',
-    navAuditLog: 'سجل المراجعة',
+    navAuditLog: 'سجل المراجعة والتدقيق',
 
     navUserManagement: 'إدارة المستخدمين',
     navReportDesigner: 'مصمم التقارير',
@@ -170,14 +170,14 @@ export const translations: Record<Language, Translations> = {
     signOut: 'تسجيل الخروج',
     loggedInAs: 'مسجل كـ',
 
-    roleItAdmin: 'مسؤول تكنولوجيا المعلومات',
+    roleItAdmin: 'مسؤول تقنية المعلومات',
     roleFinanceAdmin: 'المدير المالي',
-    roleTaxOfficer: 'مسؤول الضريبة والالتزام',
+    roleTaxOfficer: 'مسؤول الزكاة والضريبة',
     roleSuperAdmin: 'المدير العام',
 
-    selectOrg: 'اختر المؤسسة',
+    selectOrg: 'اختر المنشأة',
     branches: 'الفروع',
-    addOrganization: 'إضافة مؤسسة',
+    addOrganization: 'إضافة منشأة',
     currentBranch: 'الفرع الحالي',
     deleteOrg: 'حذف',
 
@@ -191,17 +191,17 @@ export const translations: Record<Language, Translations> = {
     openMobileMenu: 'فتح القائمة',
     notifications: 'الإشعارات',
 
-    titleDashboard: 'نظرة عامة على الالتزام',
+    titleDashboard: 'نظرة عامة على الالتزام الضريبي',
     titleInvoices: 'إدارة الفواتير',
-    titleCreateInvoice: 'إنشاء فاتورة جديدة',
+    titleCreateInvoice: 'إنشاء فاتورة',
     titleInvoiceDetail: 'تفاصيل الفاتورة',
     titleItems: 'سجل الأصناف',
-    titleCertificates: 'إعدادات شهادات CSR',
+    titleCertificates: 'إعدادات شهادات الفوترة',
     titleErpConnectors: 'مركز ربط أنظمة ERP',
-    titleAudit: 'سجل مراجعة النظام',
+    titleAudit: 'سجل مراجعة وتدقيق النظام',
     titleReports: 'مركز التقارير',
     titleReportDesigner: 'مصمم التقارير',
-    titleSettings: 'تكوين النظام',
+    titleSettings: 'إعدادات النظام',
 
     language: 'اللغة',
     english: 'English',
@@ -209,7 +209,47 @@ export const translations: Record<Language, Translations> = {
   }
 };
 
+/**
+ * Creates a Proxy for translations that safely falls back to English,
+ * and if missing in English, returns the key name rather than undefined.
+ */
+export function getSafeTranslations(lang: Language): Translations {
+  const primary = rawTranslations[lang] || rawTranslations.en;
+  const fallback = rawTranslations.en;
+
+  return new Proxy(primary, {
+    get(target, prop: string) {
+      if (prop in target && (target as any)[prop] !== undefined) {
+        return (target as any)[prop];
+      }
+      if (prop in fallback && (fallback as any)[prop] !== undefined) {
+        return (fallback as any)[prop];
+      }
+      return prop;
+    }
+  });
+}
+
+export const translations: Record<Language, Translations> = {
+  en: getSafeTranslations('en'),
+  ar: getSafeTranslations('ar')
+};
+
 const STORAGE_KEY = 'app_language';
+
+export function getInitialLanguage(): Language {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved === 'ar' || saved === 'en') {
+        return saved;
+      }
+    }
+  } catch (e) {
+    console.warn('Unable to read language preference from localStorage', e);
+  }
+  return 'en';
+}
 
 interface LanguageContextType {
   language: Language;
@@ -221,38 +261,41 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+export function applyLanguageToDocument(lang: Language) {
+  if (typeof document !== 'undefined') {
+    const dir = lang === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.setAttribute('lang', lang);
+    document.documentElement.setAttribute('dir', dir);
+    document.documentElement.lang = lang;
+    document.documentElement.dir = dir;
+  }
+}
+
+// Apply immediately on module load
+applyLanguageToDocument(getInitialLanguage());
+
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === 'ar' || saved === 'en') {
-        return saved;
-      }
-    } catch (e) {
-      console.warn('Unable to read language preference from localStorage', e);
-    }
-    return 'en';
-  });
+  const [language, setLanguageState] = useState<Language>(getInitialLanguage);
 
   const setLanguage = (lang: Language) => {
-    setLanguageState(lang);
+    const validLang: Language = lang === 'ar' ? 'ar' : 'en';
+    setLanguageState(validLang);
+    applyLanguageToDocument(validLang);
     try {
-      localStorage.setItem(STORAGE_KEY, lang);
+      localStorage.setItem(STORAGE_KEY, validLang);
     } catch (e) {
       console.warn('Unable to save language preference to localStorage', e);
     }
   };
 
   useEffect(() => {
-    const dir = language === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = language;
-    document.documentElement.dir = dir;
+    applyLanguageToDocument(language);
   }, [language]);
 
   const value: LanguageContextType = {
     language,
     setLanguage,
-    t: translations[language],
+    t: getSafeTranslations(language),
     dir: language === 'ar' ? 'rtl' : 'ltr',
     isRTL: language === 'ar'
   };
@@ -267,12 +310,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 export const useLanguage = (): LanguageContextType => {
   const context = useContext(LanguageContext);
   if (!context) {
-    // Fallback if rendered outside provider for testing or isolation
-    const lang: Language = typeof document !== 'undefined' && document.documentElement.lang === 'ar' ? 'ar' : 'en';
+    const lang = getInitialLanguage();
     return {
       language: lang,
       setLanguage: () => {},
-      t: translations[lang],
+      t: getSafeTranslations(lang),
       dir: lang === 'ar' ? 'rtl' : 'ltr',
       isRTL: lang === 'ar'
     };
