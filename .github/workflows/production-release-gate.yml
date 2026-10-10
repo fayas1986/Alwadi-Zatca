@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ master, main ]
 
+env:
+  DATABASE_URL: "postgresql://neondb_owner:npg_dummy@localhost:5432/neondb"
+  JWT_SECRET: "ci-testing-jwt-secret-key-32-bytes-long!"
+  NODE_ENV: "test"
+
 jobs:
   quality-gate:
     name: Code Quality & Type Check
