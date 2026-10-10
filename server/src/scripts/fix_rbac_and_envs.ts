@@ -1,93 +1,58 @@
+import prisma from '../lib/prisma.js';
 
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
-
+/**
+ * RBAC AND ENVIRONMENT FIX UTILITY SCRIPT (HARDENED & SANITIZED)
+ * 
+ * Safety Requirements:
+ * 1. Must NOT contain hardcoded customer credentials, emails, passwords, or company IDs.
+ * 2. Must require explicit ALLOW_MUTATIVE_SCRIPT_EXECUTION=true environment variable.
+ * 3. Protected by Prisma Fail-Closed Guard (cannot execute against production DB).
+ */
 async function main() {
-    console.log('[Setup] Starting RBAC and Environment Fix...');
+  if (process.env.ALLOW_MUTATIVE_SCRIPT_EXECUTION !== 'true') {
+    throw new Error(
+      '[FATAL SECURITY GUARD] Operational RBAC fix script execution denied. ' +
+      'Missing required environment variable ALLOW_MUTATIVE_SCRIPT_EXECUTION=true. Aborting.'
+    );
+  }
 
-    const alkaEmail = 'alka.sharma@yiron.in';
-    const companyVat = '334534534532343'; // Company 38
-    const mockUrl = 'http://localhost:3001/api/erp/mock-server';
+  const userEmail = process.env.ADMIN_USER_EMAIL;
+  const companyVat = process.env.TARGET_COMPANY_VAT;
 
-    // 1. Ensure Super Admin exists
-    const superAdminEmail = 'admin@alwadipoultry.com';
-    let superAdmin = await prisma.user.findUnique({ where: { email: superAdminEmail } });
-    if (!superAdmin) {
-        console.log('[Setup] Creating Super Admin...');
-        superAdmin = await prisma.user.create({
-            data: {
-                id: 'system_admin',
-                email: superAdminEmail,
-                name: 'System Administrator',
-                role: 'SUPER_ADMIN',
-                password: 'encrypted_password_here' // In real app, use proper hash
-            }
-        });
+  if (!userEmail || !companyVat) {
+    throw new Error(
+      '[SECURITY ERROR] Script requires ADMIN_USER_EMAIL and TARGET_COMPANY_VAT ' +
+      'environment variables to be explicitly specified.'
+    );
+  }
+
+  console.log(`[RBAC Fix] Processing user ${userEmail} and company VAT ${companyVat}...`);
+
+  const user = await prisma.user.findUnique({ where: { email: userEmail } });
+  const company = await prisma.company.findFirst({ where: { vat_number: companyVat } });
+
+  if (!user || !company) {
+    console.error('[RBAC Fix Error] Specified user or company does not exist in database.');
+    return;
+  }
+
+  // Update Company Ownership
+  await prisma.company.update({
+    where: { id: company.id },
+    data: { user_id: user.id }
+  });
+
+  // Update User Role and Company Name
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { 
+      company_name: company.registered_name
     }
+  });
 
-    // 2. Find Alka and Company 38
-    const alka = await prisma.user.findUnique({ where: { email: alkaEmail } });
-    const company = await prisma.company.findFirst({ where: { vat_number: companyVat } });
-
-    if (!alka || !company) {
-        console.error('[Error] Could not find Alka or Company 38');
-        return;
-    }
-
-    console.log(`[Setup] Linking Alka (${alka.id}) to Company ${company.id} (${company.registered_name})`);
-
-    // 3. Update Company Ownership
-    await prisma.company.update({
-        where: { id: company.id },
-        data: { user_id: alka.id }
-    });
-
-    // 4. Update Alka's Role and Company Name
-    await prisma.user.update({
-        where: { id: alka.id },
-        data: { 
-            role: 'IT_ADMIN', // Keep as IT_ADMIN based on user request
-            company_name: company.registered_name
-        }
-    });
-
-    // 5. Setup ERP Environments for Company 38
-    const environments = ['SANDBOX', 'SIMULATION', 'PRODUCTION'];
-    for (const env of environments) {
-        console.log(`[Setup] Ensuring ERP Config for ${env}...`);
-        // Note: Using findFirst/create pattern as there's no unique constraint on company_id+environment
-        const existing = await prisma.erp_configuration.findFirst({
-            where: {
-                company_id: company.id,
-                environment: env
-            }
-        });
-
-        if (existing) {
-            await prisma.erp_configuration.update({
-                where: { id: existing.id },
-                data: {
-                    base_url: mockUrl,
-                    is_active: true
-                }
-            });
-        } else {
-            await prisma.erp_configuration.create({
-                data: {
-                    company_id: company.id,
-                    base_url: mockUrl,
-                    api_key: `mock-key-${env.toLowerCase()}`,
-                    environment: env,
-                    type: 'Custom',
-                    is_active: true
-                }
-            });
-        }
-    }
-
-    console.log('[Setup] Fix completed successfully.');
+  console.log(`[RBAC Fix Success] User ${user.email} linked to Company ID ${company.id} (${company.registered_name})`);
 }
 
 main()
-    .catch(e => console.error('[Error]', e))
-    .finally(() => prisma.$disconnect());
+  .catch(e => console.error('[RBAC Fix Error]', e.message))
+  .finally(() => prisma.$disconnect());

@@ -1,59 +1,66 @@
 import prisma from '../lib/prisma.js';
-import crypto from 'crypto';
 
-// Re-implementing necessary encryption logic to avoid import issues with ts-node
-const ENCRYPTION_KEY = (process.env.ENCRYPTION_KEY || 'v-7h-Z-9_q-R-4_x-L-1_p-m-9_o-k-2_j').padEnd(32, '0').substring(0, 32); 
-const IV_LENGTH = 16;
-
-const encrypt = (text: string) => {
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
-};
-
+/**
+ * USER & COMPANY INITIALIZATION UTILITY SCRIPT (HARDENED & SANITIZED)
+ * 
+ * Safety Requirements:
+ * 1. Must NOT contain hardcoded customer credentials, emails, passwords, or company IDs.
+ * 2. Must require explicit ALLOW_MUTATIVE_SCRIPT_EXECUTION=true environment variable.
+ * 3. Protected by Prisma Fail-Closed Guard (cannot execute against production DB).
+ */
 async function main() {
-    const email = 'alka.sharma@yiron.in';
-    const password = 'Test@123';
-    const companyVat = '334534534532343';
+  if (process.env.ALLOW_MUTATIVE_SCRIPT_EXECUTION !== 'true') {
+    throw new Error(
+      '[FATAL SECURITY GUARD] Operational user initialization script execution denied. ' +
+      'Missing required environment variable ALLOW_MUTATIVE_SCRIPT_EXECUTION=true. Aborting.'
+    );
+  }
 
-    console.log('[Setup] Initializing user and company (self-contained script)...');
+  const email = process.env.INIT_USER_EMAIL;
+  const companyVat = process.env.INIT_COMPANY_VAT;
+  const companyName = process.env.INIT_COMPANY_NAME;
 
-    // 1. Create/Update User
-    const user = await prisma.user.upsert({
-        where: { email },
-        update: { 
-            password: encrypt(password),
-            role: 'IT_ADMIN'
-        },
-        create: {
-            id: crypto.randomUUID(),
-            email,
-            password: encrypt(password),
-            name: 'Alka Sharma',
-            role: 'IT_ADMIN',
-            company_name: 'Company 38'
-        }
-    });
+  if (!email || !companyVat || !companyName) {
+    throw new Error(
+      '[SECURITY ERROR] Script requires INIT_USER_EMAIL, INIT_COMPANY_VAT, and INIT_COMPANY_NAME ' +
+      'environment variables to be explicitly specified.'
+    );
+  }
 
-    // 2. Create/Update Company
-    const company = await prisma.company.upsert({
-        where: { vat_number: companyVat },
-        update: { user_id: user.id },
-        create: {
-            user_id: user.id,
-            vat_number: companyVat,
-            cr_number: '1010101038',
-            registered_name: 'Company 38',
-            environment: 'SIMULATION',
-            is_active: true
-        }
-    });
+  console.log(`[Init Utility] Initializing user ${email} for company ${companyName}...`);
 
-    console.log(`[Success] User ${user.email} initialized and linked to company ${company.registered_name}`);
+  // 1. Create/Update User
+  const user = await prisma.user.upsert({
+    where: { email },
+    update: { 
+      role: 'IT_ADMIN'
+    },
+    create: {
+      id: crypto.randomUUID(),
+      email,
+      name: companyName,
+      role: 'IT_ADMIN',
+      company_name: companyName
+    }
+  });
+
+  // 2. Create/Update Company
+  const company = await prisma.company.upsert({
+    where: { vat_number: companyVat },
+    update: { user_id: user.id },
+    create: {
+      user_id: user.id,
+      vat_number: companyVat,
+      cr_number: '1010101010',
+      registered_name: companyName,
+      environment: 'SIMULATION',
+      is_active: true
+    }
+  });
+
+  console.log(`[Init Utility Success] User ${user.email} initialized and linked to company ${company.registered_name}`);
 }
 
 main()
-    .catch(console.error)
-    .finally(() => prisma.$disconnect());
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());
