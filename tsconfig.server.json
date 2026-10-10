@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "server/src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "server/src/tests",
+    "server/src/__tests__"
+  ]
+}

@@ -75,4 +75,29 @@ export class MonitoringService {
             metadata: { error }
         });
     }
+
+    /**
+     * Retrieves multi-dimensional compliance health for a company
+     */
+    static async getComplianceHealth(companyId: number) {
+        const total = await prisma.invoice.count({ where: { company_id: companyId } });
+        const failed = await prisma.invoice.count({ where: { company_id: companyId, status: 'FAILED' } });
+        const cleared = await prisma.invoice.count({ where: { company_id: companyId, status: 'CLEARED' } });
+
+        return {
+            status: failed > 5 ? 'DEGRADED' : 'HEALTHY',
+            totalInvoices: total,
+            clearedInvoices: cleared,
+            failedInvoices: failed,
+            timestamp: new Date().toISOString()
+        };
+    }
+
+    /**
+     * Exports Prometheus metrics for a company
+     */
+    static async getPrometheusMetrics(companyId: number) {
+        const health = await this.getComplianceHealth(companyId);
+        return `# HELP zatca_invoices_total Total number of invoices\n# TYPE zatca_invoices_total counter\nzatca_invoices_total{company_id="${companyId}"} ${health.totalInvoices}\nzatca_invoices_cleared{company_id="${companyId}"} ${health.clearedInvoices}\nzatca_invoices_failed{company_id="${companyId}"} ${health.failedInvoices}\n`;
+    }
 }

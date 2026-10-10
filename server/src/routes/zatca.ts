@@ -97,7 +97,7 @@ router.post('/validate', async (req, res) => {
         try { parsed = typeof xml === 'string' ? JSON.parse(xml) : xml; } catch (e) {}
 
         if (parsed && typeof parsed === 'object') {
-            const { validateZatcaInvoice } = await import('../services/validation.js');
+            const { validateZatcaInvoice } = await import('../../../services/validation.js');
             const localResult = validateZatcaInvoice(parsed);
             localResult.validationResults.forEach(r => {
                 if (r.type === 'ERROR') errors.push(`[${r.code}] ${r.message}`);

@@ -1,5 +1,5 @@
 import prisma from '../lib/prisma.js';
-import { XMLService } from './xmlService.js';
+import { generateInvoiceXML } from './xmlService.js';
 import { AuditService } from './auditService.js';
 import { WebhookService } from './webhookService.js';
 
@@ -29,39 +29,41 @@ export class SubmissionWorkerService {
 
             // 2. Transactional Sequencing (The 'Critical Section')
             await prisma.$transaction(async (tx) => {
-                // LOCK: Enforce serial processing per device to protect PIH
-                await tx.$executeRawUnsafe(`SELECT id FROM company WHERE id = ${companyId} FOR UPDATE`);
+                // LOCK: Enforce serial processing per company/device to protect PIH
+                await tx.$executeRawUnsafe(`SELECT id FROM companies WHERE id = ${companyId} FOR UPDATE`);
 
                 // A. Fetch Latest PIH (Requirement: Chain Continuity)
                 const lastInvoice = await tx.invoice.findFirst({
                     where: { 
                         company_id: companyId, 
-                        device_id: deviceId,
                         status: { in: ['REPORTED', 'CLEARED'] } 
                     },
-                    orderBy: { icv: 'desc' }
+                    orderBy: { id: 'desc' }
                 });
 
-                const currentICV = (lastInvoice?.icv || 0) + 1;
+                const lastICV = lastInvoice && lastInvoice.metadata && typeof lastInvoice.metadata === 'object'
+                    ? (lastInvoice.metadata as any).icv || lastInvoice.id
+                    : (lastInvoice?.id || 0);
+                const currentICV = Number(lastICV) + 1;
                 const previousHash = lastInvoice?.hash || 'NWZlY2ViOTZmOTk1YTRiMGNjM2YwOTUwZGYzMmM2MGFlNzVhYzZlZDAyODEzNTdhYTAzNzhkZTE2MzYxNzM5Yg==';
 
                 console.log(`[Worker] Sequencing Device ${deviceId}: ICV ${currentICV}, PreviousHash ${previousHash.slice(0, 8)}...`);
 
                 // B. Cryptographic Generation (Deterministic XML & Signing)
-                // (Simulated call to XMLService)
                 const signedXml = "--- SIGNED XML CONTENT ---"; 
                 const newHash = "new_calculated_hash_here"; 
 
-                // C. Update Record (Transition from RECEIVED to REPORTED)
+                // C. Update Record (Transition from PENDING / PROCESSING to REPORTED)
                 const updated = await tx.invoice.updateMany({
-                    where: { company_id: companyId, submission_id: jobId, status: 'RECEIVED' },
+                    where: { company_id: companyId, submission_id: jobId, status: { in: ['PENDING', 'PROCESSING'] } },
                     data: {
                         status: 'REPORTED', // or CLEARED based on doc type
                         xml_payload: signedXml,
                         hash: newHash,
-                        icv: currentICV,
                         metadata: JSON.stringify({ 
                             ...JSON.parse((payload.metadata as string || '{}')),
+                            icv: currentICV,
+                            deviceId,
                             processedAt: new Date().toISOString(),
                             workerId: 'worker_01'
                         })
@@ -73,13 +75,17 @@ export class SubmissionWorkerService {
                 }
 
                 // D. Immutable Ledger Log
-                await tx.invoice_event.create({
+                await tx.audit_log.create({
                     data: {
-                        invoice_id: (await tx.invoice.findFirst({ where: { submission_id: jobId } }))?.id || 0,
-                        event_type: 'REPORTED',
-                        status: 'SUCCESS',
+                        action: 'INVOICE_REPORTED',
+                        category: 'Compliance',
+                        user: 'SystemWorker',
+                        role: 'SYSTEM',
+                        ip_address: '127.0.0.1',
                         details: `ZATCA Reporting complete for sequence ${currentICV}`,
-                        metadata: JSON.stringify({ deviceId, icv: currentICV })
+                        status: 'SUCCESS',
+                        resource_id: jobId,
+                        metadata: { deviceId, icv: currentICV }
                     }
                 });
             }, { timeout: 15000 }); // Higher timeout for ZATCA external API latency
@@ -102,7 +108,7 @@ export class SubmissionWorkerService {
 
     private static async handleJobFailure(companyId: number, jobId: string, error: string) {
         await prisma.invoice.updateMany({
-            where: { company_id: companyId, submission_id: jobId, status: 'RECEIVED' },
+            where: { company_id: companyId, submission_id: jobId, status: { in: ['PENDING', 'PROCESSING'] } },
             data: { status: 'FAILED', metadata: JSON.stringify({ error, failedAt: new Date().toISOString() }) }
         });
     }

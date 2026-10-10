@@ -20,8 +20,12 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npx prisma generate
-      - run: npx prisma validate
-      - run: npx tsc --noEmit
+      - name: Validate Prisma Schema
+        run: npx prisma validate
+      - name: Frontend Type Check
+        run: npx tsc --noEmit
+      - name: Backend Type Check
+        run: npx tsc --noEmit -p tsconfig.server.json
 
   security-scan:
     name: Secret & Vulnerability Scan

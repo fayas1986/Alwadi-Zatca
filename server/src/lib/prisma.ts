@@ -4,7 +4,11 @@ import { PrismaClient } from '@prisma/client';
 const prismaClientSingleton = () => {
   let url = process.env.DATABASE_URL;
   if (!url) {
-    throw new Error('DATABASE_URL environment variable is missing.');
+    if (process.env.NODE_ENV === 'test') {
+      url = 'postgresql://test_user:test_password@localhost:5432/test_alwadi_zatca?schema=public';
+    } else {
+      throw new Error('DATABASE_URL environment variable is missing.');
+    }
   }
   
   if (url.includes('neon.tech')) {

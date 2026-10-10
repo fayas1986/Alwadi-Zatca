@@ -170,7 +170,7 @@ export class QueueService {
 
             // OPT 3: Step-Level Metrics (Time to Sign)
             const signStart = Date.now();
-            const { signedXml, hash, qr } = await signInvoice(xmlToSign, cert.certificate, decryptedPrivateKey);
+            const { signedXml, hash, qr } = await signInvoice(xmlToSign, credentials.certificate, decryptedPrivateKey);
             const signDuration = Date.now() - signStart;
             
             const localHash = hash || invoice.hash;
@@ -207,7 +207,7 @@ export class QueueService {
             const useClearance = isStandardInvoice;
             const result = await (useClearance ? clearInvoice : reportInvoice)(
                 company.environment,
-                cert.csid!,
+                credentials.csid!,
                 decryptedSecret,
                 localHash,
                 Buffer.from(signedXml.replace(/\r\n/g, '\n')).toString('base64'),
