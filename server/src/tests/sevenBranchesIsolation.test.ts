@@ -6,6 +6,8 @@ import { createVerifiedUserContext } from '../services/zatcaService.js';
 describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
   let companyAId: number;
   let companyBId: number;
+  let originalUserAId: string;
+  let originalUserBId: string;
   let branchAIds: number[] = [];
   let branchBId: number;
 
@@ -41,6 +43,7 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
       });
     }
     companyAId = companyA.id;
+    originalUserAId = companyA.user_id;
 
     // Seed 7 branches for Alwadi
     const seeded = await seedAlwadiBranches();
@@ -70,6 +73,7 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
       }
     });
     companyBId = companyB.id;
+    originalUserBId = companyB.user_id;
 
     const branchB = await prisma.branch.create({
       data: {
@@ -366,7 +370,7 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
     // Cleanup user_id link on companyA
     await prisma.company.update({
       where: { id: companyAId },
-      data: { user_id: 'system_admin' }
+      data: { user_id: originalUserAId }
     });
     await prisma.user.delete({ where: { id: forgedUser.id } });
   });
@@ -441,7 +445,7 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
     // Cleanup user_id link on companyB
     await prisma.company.update({
       where: { id: companyBId },
-      data: { user_id: 'system_admin' }
+      data: { user_id: originalUserBId }
     });
     await prisma.user.delete({ where: { id: userCompanyB.id } });
   });
@@ -532,7 +536,7 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
     // Cleanup
     await prisma.company.update({
       where: { id: companyAId },
-      data: { user_id: 'system_admin' }
+      data: { user_id: originalUserAId }
     });
     await prisma.user.delete({ where: { id: regularUser.id } });
   });
