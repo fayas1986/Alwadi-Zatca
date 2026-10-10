@@ -1,4 +1,5 @@
-const API_BASE_URL = '/api/zatca';
+const API_PREFIX = typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_BASE_URL ? (import.meta as any).env.VITE_API_BASE_URL.replace(/\/$/, '') : '';
+const API_BASE_URL = `${API_PREFIX}/api/zatca`;
 
 export const onboardSolution = async (data: any) => {
     const response = await fetch(`${API_BASE_URL}/onboard`, {
@@ -69,7 +70,7 @@ export const getInvoiceById = async (id: string) => {
 
 export const getAuditLogs = async (params: any = {}, headers: any = {}) => {
     const query = new URLSearchParams(params).toString();
-    const response = await fetch(`/api/audit-logs?${query}`, {
+    const response = await fetch(`${API_PREFIX}/api/audit-logs?${query}`, {
         headers: {
             'x-user-role': headers.role || '',
             'x-user-email': headers.email || '',

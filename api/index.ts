@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const HOSTINGER_VPS_URL = process.env.HOSTINGER_VPS_URL || 'http://200.97.172.222:3001';
+const BACKEND_API_URL = process.env.KSA_API_BASE_URL || process.env.BACKEND_API_BASE_URL || process.env.HOSTINGER_VPS_URL || 'http://200.97.172.222:3001';
 
 export default async (req: any, res: any) => {
   try {
@@ -10,7 +10,7 @@ export default async (req: any, res: any) => {
       url = '/api' + (url.startsWith('/') ? url : '/' + url);
     }
 
-    const targetUrl = `${HOSTINGER_VPS_URL}${url}`;
+    const targetUrl = `${BACKEND_API_URL}${url}`;
     
     // Copy incoming headers, filtering out hop-by-hop & Vercel internal headers
     const headers: Record<string, string> = {};
