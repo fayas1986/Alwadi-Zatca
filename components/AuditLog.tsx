@@ -264,8 +264,8 @@ export const AuditLog: React.FC<AuditLogProps> = ({ userRole, userEmail }) => {
             </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-0 bg-slate-50/30">
-            <table className="w-full text-left text-sm text-slate-600">
+        <div className="flex-1 overflow-x-auto overflow-y-auto p-0 bg-slate-50/30">
+            <table className="w-full min-w-[700px] text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider sticky top-0 border-b border-slate-200">
                 <tr>
                 <th className="px-6 py-3">Timestamp</th>

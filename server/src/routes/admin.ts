@@ -319,7 +319,7 @@ router.post('/companies', requireSuperAdmin, async (req, res) => {
                     update: {},
                     create: {
                         id: defaultUserId,
-                        email: 'admin@system.local',
+                        email: 'admin@alwadipoultry.com',
                         role: 'SUPER_ADMIN',
                         password: encrypt('Zatca#Secure!2026@Connect')
                     }

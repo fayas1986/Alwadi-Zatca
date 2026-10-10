@@ -92,9 +92,12 @@ describe('Company Credential & Identity Scoping Regression Suite', () => {
   });
 
   afterAll(async () => {
-    await prisma.certificate.deleteMany({ where: { company_id: { in: [companyAId, companyBId] } } });
-    await prisma.company.deleteMany({ where: { id: { in: [companyAId, companyBId] } } });
-    await prisma.user.deleteMany({ where: { email: { in: ['scoping_owner_a@alwadi.local', 'scoping_owner_b@alwadi.local'] } } });
+    const ids = [companyAId, companyBId].filter((id): id is number => typeof id === 'number');
+    if (ids.length > 0) {
+      await prisma.certificate.deleteMany({ where: { company_id: { in: ids } } });
+      await prisma.company.deleteMany({ where: { id: { in: ids } } });
+    }
+    await prisma.user.deleteMany({ where: { email: { in: ['scoping_owner_a@alwadi.local', 'scoping_owner_b@alwadi.local', 'scoping_owner_a@alwadipoultry.com', 'scoping_owner_b@alwadipoultry.com'] } } });
   });
 
   it('1. getProductionCredentials returns credentials strictly matching requested VAT', async () => {

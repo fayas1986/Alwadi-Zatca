@@ -110,9 +110,12 @@ describe('Credential Security & Isolation Hardening Suite', () => {
   });
 
   afterAll(async () => {
-    await prisma.certificate.deleteMany({ where: { company_id: { in: [companyAId, companyBId] } } });
-    await prisma.company.deleteMany({ where: { id: { in: [companyAId, companyBId] } } });
-    await prisma.user.deleteMany({ where: { email: { in: ['sec_hardened_a@alwadi.local', 'sec_hardened_b@alwadi.local'] } } });
+    const ids = [companyAId, companyBId].filter((id): id is number => typeof id === 'number');
+    if (ids.length > 0) {
+      await prisma.certificate.deleteMany({ where: { company_id: { in: ids } } });
+      await prisma.company.deleteMany({ where: { id: { in: ids } } });
+    }
+    await prisma.user.deleteMany({ where: { email: { in: ['sec_hardened_a@alwadi.local', 'sec_hardened_b@alwadi.local', 'sec_hardened_a@alwadipoultry.com', 'sec_hardened_b@alwadipoultry.com'] } } });
   });
 
   it('1. Missing Auth Context: Fails closed when authContext is omitted', async () => {

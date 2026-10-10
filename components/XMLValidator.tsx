@@ -107,7 +107,7 @@ export const XMLValidator: React.FC = () => {
             </div>
 
             <div 
-                className={`border-3 border-dashed rounded-2xl p-12 text-center transition-all ${
+                className={`border-3 border-dashed rounded-2xl p-6 sm:p-12 text-center transition-all ${
                     isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300 bg-white'
                 }`}
                 onDragOver={handleDragOver}

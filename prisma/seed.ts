@@ -14,7 +14,7 @@ async function main() {
   const users = [
     {
       id: crypto.randomUUID(),
-      email: 'admin@alwadi.local',
+      email: 'admin@alwadipoultry.com',
       name: 'IT Administrator',
       role: UserRole.IT_ADMIN,
       company_name: defaultCompanyName,
@@ -22,7 +22,7 @@ async function main() {
     },
     {
       id: crypto.randomUUID(),
-      email: 'finance@alwadi.local',
+      email: 'finance@alwadipoultry.com',
       name: 'Finance Manager',
       role: UserRole.FINANCE_ADMIN,
       company_name: defaultCompanyName,
@@ -30,7 +30,7 @@ async function main() {
     },
     {
       id: crypto.randomUUID(),
-      email: 'tax@alwadi.local',
+      email: 'tax@alwadipoultry.com',
       name: 'Tax Officer',
       role: UserRole.TAX_OFFICER,
       company_name: defaultCompanyName,
@@ -38,7 +38,7 @@ async function main() {
     },
     {
       id: crypto.randomUUID(),
-      email: 'superadmin@alwadi.local',
+      email: 'superadmin@alwadipoultry.com',
       name: 'Super Admin',
       role: UserRole.SUPER_ADMIN,
       company_name: 'System',
@@ -46,7 +46,7 @@ async function main() {
     },
     {
       id: 'system_admin',
-      email: 'admin@system.local',
+      email: 'system.admin@alwadipoultry.com',
       name: 'System Administrator',
       role: UserRole.SUPER_ADMIN,
       company_name: 'System',
@@ -55,9 +55,9 @@ async function main() {
   ];
 
   for (const user of users) {
-    const existing = await prisma.user.findUnique({
-      where: { email: user.email }
-    });
+    const existingById = user.id ? await prisma.user.findUnique({ where: { id: user.id } }) : null;
+    const existingByEmail = await prisma.user.findUnique({ where: { email: user.email } });
+    const existing = existingById || existingByEmail;
 
     if (!existing) {
       await prisma.user.create({
@@ -73,12 +73,15 @@ async function main() {
       console.log(`Created user: ${user.email}`);
     } else {
       await prisma.user.update({
-        where: { email: user.email },
+        where: { id: existing.id },
         data: {
+          email: user.email,
+          name: user.name,
+          role: user.role,
           password: user.password
         }
       });
-      console.log(`Updated user password: ${user.email}`);
+      console.log(`Updated user: ${user.email}`);
     }
   }
 

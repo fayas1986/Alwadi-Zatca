@@ -243,7 +243,7 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ selectedBranch, userRole
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full min-w-[700px] text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider">
                                 <th className="px-8 py-4">SKU</th>

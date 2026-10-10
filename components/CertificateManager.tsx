@@ -538,8 +538,8 @@ Environment: ${cert.type}
                 </div>
 
                 {/* Table */}
-                <div className="flex-1 overflow-auto">
-                    <table className="w-full text-left text-sm">
+                <div className="flex-1 overflow-x-auto overflow-y-auto">
+                    <table className="w-full min-w-[700px] text-left text-sm">
                         <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                             <tr>
                                 <th className="w-10 px-4 py-3">

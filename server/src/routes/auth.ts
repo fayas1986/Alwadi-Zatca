@@ -11,20 +11,20 @@ const defaultAdminPassword = process.env.INITIAL_ADMIN_PASSWORD || 'Zatca#Secure
 
 // ─── Fallback users for local development / initial setup when DB is unreachable ──
 export const FALLBACK_USERS: Record<string, { id: string; email: string; password: string; name: string; role: string; company_name: string; company_id?: number }> = {
-    'superadmin@alwadi.local': {
-        id: 'u-001', email: 'superadmin@alwadi.local', password: defaultAdminPassword,
+    'superadmin@alwadipoultry.com': {
+        id: 'u-001', email: 'superadmin@alwadipoultry.com', password: defaultAdminPassword,
         name: 'Super Admin', role: 'SUPER_ADMIN', company_name: defaultCompanyName, company_id: 1
     },
-    'admin@alwadi.local': {
-        id: 'u-002', email: 'admin@alwadi.local', password: 'password123',
+    'admin@alwadipoultry.com': {
+        id: 'u-002', email: 'admin@alwadipoultry.com', password: 'password123',
         name: 'IT Administrator', role: 'IT_ADMIN', company_name: defaultCompanyName, company_id: 1
     },
-    'finance@alwadi.local': {
-        id: 'u-003', email: 'finance@alwadi.local', password: 'password123',
+    'finance@alwadipoultry.com': {
+        id: 'u-003', email: 'finance@alwadipoultry.com', password: 'password123',
         name: 'Finance Manager', role: 'FINANCE_ADMIN', company_name: defaultCompanyName, company_id: 1
     },
-    'tax@alwadi.local': {
-        id: 'u-004', email: 'tax@alwadi.local', password: 'password123',
+    'tax@alwadipoultry.com': {
+        id: 'u-004', email: 'tax@alwadipoultry.com', password: 'password123',
         name: 'Tax Officer', role: 'TAX_OFFICER', company_name: defaultCompanyName, company_id: 1
     }
 };

@@ -776,12 +776,12 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                     </div>
 
                     <div className="text-right">
-                        <div className="flex items-center justify-end ml-auto h-16">
-                            <span className="font-black tracking-tighter" style={{ fontSize: '2.5rem', color: '#FDD54F', letterSpacing: '-0.05em' }}>easy</span>
-                            <span className="font-black tracking-tighter" style={{ fontSize: '2.5rem', color: '#005CA9', letterSpacing: '-0.05em' }}>lease</span>
-                            <svg className="ml-1" style={{ height: '2.5rem', width: '2.5rem', fill: '#FDD54F' }} viewBox="0 0 24 24">
-                                <path d="M7 3l13 9-13 9V3z" />
-                            </svg>
+                        <div className="flex items-center justify-end ml-auto">
+                            <img 
+                                src="/alwadi-logo.png" 
+                                alt="Alwadi Poultry" 
+                                className="h-16 w-auto object-contain max-w-[220px]"
+                            />
                         </div>
                     </div>
 
@@ -855,8 +855,8 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({ invoiceId, onBack,
                 </div>
 
                 {/* Line Items */}
-                <div className="mb-8 overflow-hidden rounded-lg border border-slate-200">
-                    <table className="w-full text-left text-sm">
+                <div className="mb-8 overflow-x-auto rounded-lg border border-slate-200">
+                    <table className="w-full min-w-[650px] text-left text-sm">
                         <thead className="bg-slate-100 text-slate-700 font-bold">
                             <tr>
                                 <th className="p-3 border-b border-slate-200">

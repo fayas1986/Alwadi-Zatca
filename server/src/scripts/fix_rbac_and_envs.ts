@@ -10,7 +10,7 @@ async function main() {
     const mockUrl = 'http://localhost:3001/api/erp/mock-server';
 
     // 1. Ensure Super Admin exists
-    const superAdminEmail = 'admin@system.local';
+    const superAdminEmail = 'admin@alwadipoultry.com';
     let superAdmin = await prisma.user.findUnique({ where: { email: superAdminEmail } });
     if (!superAdmin) {
         console.log('[Setup] Creating Super Admin...');

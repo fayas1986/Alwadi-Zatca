@@ -188,13 +188,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({ userRole, userNa
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         {isLoading ? (
           <div className="p-8 flex justify-center">
             <Loader2 className="animate-spin text-slate-400" size={32} />
           </div>
         ) : (
-          <table className="w-full text-left">
+          <table className="w-full min-w-[650px] text-left">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">User</th>

@@ -61,81 +61,78 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-5xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px] border border-slate-200">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-3 sm:p-6">
+      <div className="max-w-5xl w-full bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-0 md:min-h-[600px] border border-slate-200">
         
         {/* Left Side: Brand */}
-        <div className="md:w-1/2 bg-slate-900 text-white p-12 flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-green-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 -mr-16 -mt-16 animate-pulse"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 -ml-16 -mb-16 animate-pulse"></div>
+        <div className="md:w-1/2 bg-slate-900 text-white p-6 sm:p-8 md:p-12 flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-green-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 -mr-16 -mt-16 animate-pulse hidden sm:block"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 -ml-16 -mb-16 animate-pulse hidden sm:block"></div>
 
             <div className="relative z-10">
                 <div 
-                    className="flex items-center space-x-3 mb-8 cursor-pointer select-none active:opacity-80 transition-opacity"
+                    className="flex items-center space-x-3 mb-4 md:mb-8 cursor-pointer select-none active:opacity-80 transition-opacity"
                     onClick={() => setShowAdvancedRoles(!showAdvancedRoles)}
                     title="Toggle Advanced Roles"
                 >
-                    <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-900/20">
-                        <span className="font-bold text-white text-xl">Z</span>
-                    </div>
-                    <span className="text-2xl font-bold tracking-tight">ZATCA<span className="text-green-400">Connect</span></span>
+                    <img src="/alwadi-logo.png" alt="Alwadi Poultry Logo" className="h-10 sm:h-12 w-auto object-contain rounded-lg shadow-md" />
+                    <span className="text-xl sm:text-2xl font-bold tracking-tight">ZATCA<span className="text-emerald-400">Connect</span></span>
                 </div>
                 
-                <h2 className="text-4xl font-bold leading-tight mb-6">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight mb-3 md:mb-6">
                     Phase 2 E-Invoicing Compliance Platform
                 </h2>
-                <p className="text-slate-400 text-lg leading-relaxed">
+                <p className="text-slate-400 text-sm sm:text-base md:text-lg leading-relaxed">
                     Securely manage invoices, cryptographic stamps, and ZATCA integration with our comprehensive dashboard.
                 </p>
             </div>
 
-            <div className="relative z-10 mt-auto">
-                <div className="flex items-center gap-4 text-sm font-medium text-slate-300 mb-8">
-                    <div className="flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-green-500" />
+            <div className="relative z-10 mt-6 md:mt-auto">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm font-medium text-slate-300 mb-4 md:mb-8">
+                    <div className="flex items-center gap-1.5">
+                        <CheckCircle2 size={16} className="text-green-500 shrink-0" />
                         <span>Fatoora Compliant</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-green-500" />
+                    <div className="flex items-center gap-1.5">
+                        <CheckCircle2 size={16} className="text-green-500 shrink-0" />
                         <span>UBL 2.1 Standard</span>
                     </div>
                 </div>
                 
-                <div className="pt-6 border-t border-slate-800 space-y-3">
+                <div className="pt-4 md:pt-6 border-t border-slate-800 space-y-3 hidden sm:block">
                     <div className="flex items-center gap-2 text-xs font-mono text-slate-400 bg-slate-800/50 p-2 rounded-lg w-fit border border-slate-800">
                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                         ZATCA Phase 2 Simulation Environment • v2.4.0
                     </div>
-
                 </div>
             </div>
         </div>
 
         {/* Right Side: Login Form */}
-        <div className="md:w-1/2 p-12 bg-white flex flex-col justify-center">
-            <div className="mb-8">
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">Welcome Back</h3>
-                <p className="text-slate-500">Please select your role to sign in.</p>
+        <div className="md:w-1/2 p-6 sm:p-8 md:p-12 bg-white flex flex-col justify-center">
+            <div className="mb-6">
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-1 sm:mb-2">Welcome Back</h3>
+                <p className="text-xs sm:text-sm text-slate-500">Please select your role to sign in.</p>
             </div>
 
             {/* Role Switcher Pills */}
-            <div className="grid grid-cols-1 gap-3 mb-8 max-h-[220px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 gap-2.5 mb-6 max-h-[200px] overflow-y-auto pr-1">
                 {visibleRoles.map(role => (
                     <button
                         key={role.id}
                         type="button"
                         onClick={() => handleRoleSelect(role)}
-                        className={`text-left p-4 rounded-xl border transition-all flex items-center justify-between group ${
+                        className={`text-left p-3.5 rounded-xl border transition-all flex items-center justify-between group min-h-[44px] ${
                             activeTab === role.id 
                             ? 'border-green-500 bg-green-50 ring-1 ring-green-500/20' 
                             : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                         }`}
                     >
                         <div>
-                            <span className={`block font-bold text-sm ${activeTab === role.id ? 'text-green-800' : 'text-slate-700'}`}>{role.label}</span>
-                            <span className={`text-xs ${activeTab === role.id ? 'text-green-600' : 'text-slate-400'}`}>{role.desc}</span>
+                            <span className={`block font-bold text-xs sm:text-sm ${activeTab === role.id ? 'text-green-800' : 'text-slate-700'}`}>{role.label}</span>
+                            <span className={`text-[10px] sm:text-xs ${activeTab === role.id ? 'text-green-600' : 'text-slate-400'}`}>{role.desc}</span>
                         </div>
-                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${activeTab === role.id ? 'border-green-500 bg-green-500' : 'border-slate-300'}`}>
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${activeTab === role.id ? 'border-green-500 bg-green-500' : 'border-slate-300'}`}>
                             {activeTab === role.id && <div className="w-2 h-2 bg-white rounded-full"></div>}
                         </div>
                     </button>
@@ -221,7 +218,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </p>
                 <div className="flex flex-col gap-2 items-center">
                   <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">Contact Support</span>
-                  <span className="text-lg font-bold text-slate-900">support@alwadi.sa</span>
+                  <span className="text-lg font-bold text-slate-900">support@alwadipoultry.com</span>
                 </div>
               </div>
 

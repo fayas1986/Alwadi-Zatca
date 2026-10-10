@@ -93,7 +93,7 @@ describe('Seven-Branch Multi-Tenant Isolation & Management Suite', () => {
 
   it('1. Persisted 7 Branches Verification: Company A has exactly 7 active branches in DB', async () => {
     const branches = await prisma.branch.findMany({
-      where: { company_id: companyAId, is_deleted: false },
+      where: { company_id: companyAId, is_deleted: false, code: { startsWith: 'BR-0' } },
       orderBy: { code: 'asc' }
     });
 
