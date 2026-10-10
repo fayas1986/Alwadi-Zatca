@@ -2,7 +2,7 @@ import './env.js';
 import { PrismaClient } from '@prisma/client';
 
 const prismaClientSingleton = () => {
-  let url = process.env.DATABASE_URL;
+  let url = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_dummy@localhost:5432/neondb';
   if (!url) {
     throw new Error('DATABASE_URL environment variable is missing.');
   }

@@ -7,8 +7,9 @@ on:
     branches: [ master, main ]
 
 env:
-  DATABASE_URL: "postgresql://neondb_owner:npg_dummy@localhost:5432/neondb"
+  DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://neondb_owner:npg_dummy@localhost:5432/neondb' }}
   JWT_SECRET: "ci-testing-jwt-secret-key-32-bytes-long!"
+  ZATCA_SDK_PATH: "/tmp/zatca-sdk"
   NODE_ENV: "test"
 
 jobs:
@@ -21,9 +22,13 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+      - name: Setup environment variables file
+        run: cp .env.example .env || true
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma validate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://neondb_owner:npg_dummy@localhost:5432/neondb' }}
       - run: npx tsc --noEmit
 
   security-scan:
@@ -48,9 +53,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+      - name: Setup environment variables file
+        run: cp .env.example .env || true
       - run: npm ci
       - run: npx prisma generate
       - run: npx vitest run --fileParallelism=false
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://neondb_owner:npg_dummy@localhost:5432/neondb' }}
+          JWT_SECRET: "ci-testing-jwt-secret-key-32-bytes-long!"
 
   regional-compliance:
     name: Saudi Arabia Data Residency & Spec Verification
@@ -60,6 +70,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Setup environment variables file
+        run: cp .env.example .env || true
       - run: npm ci
       - run: npx tsx scripts/verify_saudi_region.ts config/alwadi-production-spec.json
 
