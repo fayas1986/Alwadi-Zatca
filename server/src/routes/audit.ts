@@ -1,20 +1,9 @@
 
 import { Router } from 'express';
 import { AuditService } from '../services/auditService.js';
+import { authenticateJWT, requireVerifiedAdmin, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
 const router = Router();
-
-// Middleware to check for administrative access
-const requireAnyAdmin = (req: any, res: any, next: any) => {
-    const userRole = req.headers['x-user-role'];
-    if (!userRole || (userRole !== 'SUPER_ADMIN' && userRole !== 'IT_ADMIN' && userRole !== 'ADMIN')) {
-        return res.status(403).json({
-            success: false,
-            message: 'Forbidden: Administrative access required'
-        });
-    }
-    next();
-};
 
 /**
  * @swagger
@@ -22,47 +11,23 @@ const requireAnyAdmin = (req: any, res: any, next: any) => {
  *   get:
  *     summary: Retrieve system audit logs
  *     tags: [Admin]
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *       - in: query
- *         name: category
- *         schema:
- *           type: string
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *       - in: query
- *         name: user
- *         schema:
- *           type: string
- *       - in: query
- *         name: action
- *         schema:
- *           type: string
  */
-router.get('/', requireAnyAdmin, async (req, res) => {
+router.get('/', authenticateJWT, requireVerifiedAdmin, async (req: AuthenticatedRequest, res) => {
     try {
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 10;
         const { category, status, user, action } = req.query;
 
+        // Non-SUPER_ADMIN users are scoped to their own logs or authorized company context
+        const filterUser = req.user?.role === 'SUPER_ADMIN' ? (user as string) : req.user?.email;
+
         const result = await AuditService.getLogs(
-            { category, status, user, action },
+            { category, status, user: filterUser, action },
             page,
             limit
         );
 
-        console.log(`[Audit Route] Returning ${result.logs.length} logs. Total: ${result.total}`);
+        console.log(`[Audit Route] Returning ${result.logs.length} logs for user ${req.user?.email}. Total: ${result.total}`);
 
         res.json({
             success: true,

@@ -1,16 +1,96 @@
 import './env.js';
 import { PrismaClient } from '@prisma/client';
 
+export class FatalDatabaseSecurityError extends Error {
+  constructor(message: string) {
+    super(`[FATAL DATABASE SECURITY GUARD] ${message}`);
+    this.name = 'FatalDatabaseSecurityError';
+  }
+}
+
+/**
+ * Approved Test Database Host & Identity Allowlist.
+ * In a test environment (NODE_ENV=test or VITEST=true), the database target
+ * MUST satisfy positive allowlist rules AND must not match production identifiers.
+ */
+export const APPROVED_TEST_HOSTS = ['localhost', '127.0.0.1', '::1', 'postgres', 'test-db'];
+export const APPROVED_TEST_DB_NAMES = ['test_alwadi_zatca', 'alwadi_zatca_local', 'test_db'];
+export const PROD_DISALLOWED_PATTERNS = [
+  'neon.tech',
+  'neondb',
+  'production',
+  'prod-db',
+  'alwadi_zatca_prod',
+  'ep-still-firefly'
+];
+
+export function validateDatabaseUrlForEnvironment(rawUrl: string | undefined, isTestEnv: boolean): string {
+  if (!rawUrl || rawUrl.trim() === '') {
+    throw new FatalDatabaseSecurityError('Database connection URL is missing or empty.');
+  }
+
+  const urlString = rawUrl.trim();
+
+  if (isTestEnv) {
+    const lowerUrl = urlString.toLowerCase();
+
+    // 1. Blacklist Check: Instant rejection of production patterns regardless of any flags
+    for (const pattern of PROD_DISALLOWED_PATTERNS) {
+      if (lowerUrl.includes(pattern)) {
+        throw new FatalDatabaseSecurityError(
+          `Test environment cannot connect to production host or database identifier matching '${pattern}'. Target URL rejected.`
+        );
+      }
+    }
+
+    // 2. Positive Allowlist Check
+    let parsedHost = '';
+    let parsedDbName = '';
+
+    try {
+      const normalized = lowerUrl.startsWith('postgresql://') || lowerUrl.startsWith('postgres://')
+        ? lowerUrl
+        : `postgresql://${lowerUrl}`;
+      const parsed = new URL(normalized);
+      parsedHost = parsed.hostname;
+      parsedDbName = parsed.pathname.replace(/^\//, '').split('?')[0];
+    } catch {
+      parsedHost = lowerUrl;
+    }
+
+    const isApprovedHost = APPROVED_TEST_HOSTS.some(h => parsedHost.includes(h));
+    const isApprovedDb = APPROVED_TEST_DB_NAMES.some(db => parsedDbName === db);
+
+    if (!isApprovedHost && !isApprovedDb) {
+      throw new FatalDatabaseSecurityError(
+        `Target database URL '${urlString.substring(0, 45)}...' does not match approved test host allowlist [${APPROVED_TEST_HOSTS.join(', ')}] or test DB allowlist [${APPROVED_TEST_DB_NAMES.join(', ')}].`
+      );
+    }
+
+    return urlString;
+  }
+
+  return urlString;
+}
+
 const prismaClientSingleton = () => {
   let url = process.env.DATABASE_URL;
-  if (!url) {
-    if (process.env.NODE_ENV === 'test') {
-      url = 'postgresql://test_user:test_password@localhost:5432/test_alwadi_zatca?schema=public';
-    } else {
-      throw new Error('DATABASE_URL environment variable is missing.');
+  const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+
+  if (isTest) {
+    const testUrl = process.env.TEST_DATABASE_URL;
+    let targetUrlToValidate = testUrl;
+
+    if (!testUrl) {
+      console.log('[Prisma Guard] Test environment detected without TEST_DATABASE_URL. Defaulting to local test database...');
+      targetUrlToValidate = 'postgresql://postgres:postgrespassword@localhost:5432/alwadi_zatca_local?sslmode=disable';
     }
+
+    url = validateDatabaseUrlForEnvironment(targetUrlToValidate, true);
+  } else if (!url) {
+    throw new FatalDatabaseSecurityError('DATABASE_URL environment variable is missing.');
   }
-  
+
   if (url.includes('neon.tech')) {
     if (!url.includes('-pooler.')) {
       url = url.replace('ep-spring-hat-a18pmkyp.', 'ep-spring-hat-a18pmkyp-pooler.');
@@ -23,14 +103,13 @@ const prismaClientSingleton = () => {
   }
 
   console.log('[Prisma] Initializing with DB URL:', url ? (url.substring(0, 30) + '...') : 'MISSING');
-  
+
   const basePrisma = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     errorFormat: 'pretty',
     datasourceUrl: url,
   });
 
-  // Automatically catch transient connection drops or Neon sleep errors and retry once
   return basePrisma.$extends({
     query: {
       $allModels: {
@@ -68,7 +147,6 @@ const prismaClientSingleton = () => {
     }
   }) as unknown as PrismaClient;
 };
-
 
 declare global {
   var prisma: undefined | ReturnType<typeof prismaClientSingleton>;

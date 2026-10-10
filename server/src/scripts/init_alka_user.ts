@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
 
 // Re-implementing necessary encryption logic to avoid import issues with ts-node
@@ -12,8 +12,6 @@ const encrypt = (text: string) => {
     encrypted = Buffer.concat([encrypted, cipher.final()]);
     return iv.toString('hex') + ':' + encrypted.toString('hex');
 };
-
-const prisma = new PrismaClient();
 
 async function main() {
     const email = 'alka.sharma@yiron.in';

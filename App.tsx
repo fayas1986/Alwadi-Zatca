@@ -95,23 +95,38 @@ const App: React.FC = () => {
   const fetchOrganizations = async () => {
     setIsOrganizationsLoading(true);
     try {
-      console.log(`[DEBUG] fetchOrganizations - Email: ${userEmail}, Role: ${userRole}`);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const headers: Record<string, string> = { 
+        'x-user-email': userEmail || '',
+        'x-user-role': userRole || ''
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const res = await fetch('/api/admin/companies', {
         cache: 'no-store',
-        headers: { 
-          'x-user-email': userEmail || '',
-          'x-user-role': userRole || ''
-        }
+        headers
       });
         if (res.ok) {
             const data = await res.json();
-            const sortedData = data.sort((a: any, b: any) => b.id - a.id);
+            const loggedInCompanyId = localStorage.getItem('companyId') || sessionStorage.getItem('companyId');
+            
+            // Prioritize the user's logged-in company first, then sort by company ID ascending
+            const sortedData = [...data].sort((a: any, b: any) => {
+                if (loggedInCompanyId && a.id.toString() === loggedInCompanyId.toString()) return -1;
+                if (loggedInCompanyId && b.id.toString() === loggedInCompanyId.toString()) return 1;
+                return parseInt(a.id, 10) - parseInt(b.id, 10);
+            });
+            
             setOrganizations(sortedData);
             
             if (sortedData.length > 0) {
-                if (!currentBranch && sortedData[0].branches.length > 0) {
-                    // Auto switch to the first branch if none selected
-                    setCurrentBranch(sortedData[0].branches[0]);
+                if (!currentBranch) {
+                    // Auto switch to the logged-in user's company branch
+                    const targetOrg = (loggedInCompanyId ? sortedData.find((o: any) => o.id.toString() === loggedInCompanyId.toString()) : null) || sortedData[0];
+                    if (targetOrg && targetOrg.branches && targetOrg.branches.length > 0) {
+                        setCurrentBranch(targetOrg.branches[0]);
+                    }
                 } else if (currentBranch) {
                     // Update current branch with fresh data
                     for (const org of sortedData) {

@@ -27,22 +27,10 @@ const cleanBranchName = (name: string | null | undefined): string => {
     return cleaned || 'HQ';
 };
 
-const requireSuperAdmin = (req: any, res: any, next: any) => {
-    const userRole = req.headers['x-user-role'];
-    if (userRole !== 'SUPER_ADMIN') {
-        return res.status(403).json({ error: 'Access Denied: Super Admin only' });
-    }
-    next();
-};
+import { authenticateJWT, requireVerifiedAdmin, requireVerifiedSuperAdmin, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
-const requireAnyAdmin = (req: any, res: any, next: any) => {
-    const userRole = req.headers['x-user-role'];
-    const allowedRoles = ['SUPER_ADMIN', 'IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER'];
-    if (!allowedRoles.includes(userRole)) {
-        return res.status(403).json({ error: 'Access Denied: Unauthorized role' });
-    }
-    next();
-};
+const requireSuperAdmin = [authenticateJWT, requireVerifiedSuperAdmin];
+const requireAnyAdmin = [authenticateJWT, requireVerifiedAdmin];
 
 /**
  * @swagger
@@ -174,18 +162,23 @@ router.delete('/groups/:id', requireSuperAdmin, async (req, res) => {
  *       403:
  *         description: Access Denied
  */
-router.get('/companies', requireAnyAdmin, async (req, res) => {
+router.get('/companies', requireAnyAdmin, async (req: AuthenticatedRequest, res) => {
     try {
-        const rawRole = req.headers['x-user-role'] as string;
-        const userRole = rawRole?.toUpperCase();
-        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
+        const user = req.user!;
+        logAdmin(`>> [ISOLATION] Fetch Request - User: ${user.userId}, Role: ${user.role}, Email: ${user.email}`);
 
-        logAdmin(`>> [ISOLATION] Fetch Request - Role: ${userRole}, Email: ${userEmail}`);
+        const whereClause: any = { is_deleted: false };
+        if (user.role !== 'SUPER_ADMIN') {
+            const allowedIds = user.authorizedCompanyIds && user.authorizedCompanyIds.length > 0
+                ? user.authorizedCompanyIds
+                : [user.companyId || 1];
+            whereClause.id = { in: allowedIds };
+        }
 
         let companies: any[] = [];
         try {
             companies = await prisma.company.findMany({
-                where: { is_deleted: false },
+                where: whereClause,
                 include: {
                     user: true,
                     certificates: true,
@@ -197,7 +190,7 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
                 },
                 orderBy: { id: 'asc' }
             });
-            logAdmin(`[COMPANIES] DB query returned ${companies.length} companies`);
+            logAdmin(`[COMPANIES] DB query returned ${companies.length} companies for role ${user.role}`);
         } catch (dbErr: any) {
             logAdmin(`[COMPANIES] DB Error: ${dbErr.message?.slice(0, 100)}`);
             if (dbErr.code === 'P2021') {
@@ -259,8 +252,8 @@ router.get('/companies', requireAnyAdmin, async (req, res) => {
 
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         res.setHeader('x-isolation-status', 'active-v2');
-        res.setHeader('x-debug-role', userRole || 'NONE');
-        res.setHeader('x-debug-email', userEmail || 'NONE');
+        res.setHeader('x-debug-role', user.role || 'NONE');
+        res.setHeader('x-debug-email', user.email || 'NONE');
         res.json(organizations);
 
     } catch (error: any) {
